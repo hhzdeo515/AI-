@@ -1,0 +1,28 @@
+# ---- 运行时数据与密钥（绝不入库） ----
+assistant-lite/data/
+.env
+**/.env
+!**/.env.example
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.log
+.venv/
+venv/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+# ---- 旧项目（dify-assistant）私有资产 ----
+dify-assistant/.private/
+dify-assistant/.deps/
+dify-assistant/data/
+dify-assistant/*.private.yaml
+dify-assistant/reference-*.yaml
+
+# ---- 编辑器 / 系统 ----
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

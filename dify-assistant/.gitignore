@@ -1,0 +1,6 @@
+.private/
+.deps/
+data/
+__pycache__/
+reference-*.yaml
+*.private.yaml

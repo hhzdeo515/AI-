@@ -1,0 +1,87 @@
+{
+  "checks": [
+    {
+      "expression": "120/(1+0.2)",
+      "label": "base",
+      "result": 100.0,
+      "status": "ok"
+    },
+    {
+      "expression": "1/(1/12+1/18)",
+      "label": "cooperation",
+      "result": 7.199999999999999,
+      "status": "ok"
+    },
+    {
+      "error": "算式不可计算，请核对表达式、分母和数值范围",
+      "expression": "__import__(\"os\")",
+      "label": "invalid",
+      "status": "error"
+    },
+    {
+      "error": "算式不可计算，请核对表达式、分母和数值范围",
+      "expression": "(-1)**0.5",
+      "label": "complex",
+      "status": "error"
+    },
+    {
+      "error": "算式不可计算，请核对表达式、分母和数值范围",
+      "expression": "1/0",
+      "label": "zero",
+      "status": "error"
+    }
+  ],
+  "grid_checks": {
+    "candidates": [
+      {
+        "direction": "row",
+        "known_checks": [
+          {
+            "a": "1100",
+            "actual": "1010",
+            "b": "0110",
+            "computed": "1010"
+          },
+          {
+            "a": "1011",
+            "actual": "0110",
+            "b": "1101",
+            "computed": "0110"
+          }
+        ],
+        "matching_options": [
+          "B"
+        ],
+        "prediction": "1001",
+        "rule": "xor_去同存异"
+      }
+    ],
+    "observed_options": {
+      "A": "1101",
+      "B": "1001",
+      "C": "0100",
+      "D": "0011"
+    },
+    "observed_rows": [
+      [
+        "1100",
+        "0110",
+        "1010"
+      ],
+      [
+        "1011",
+        "1101",
+        "0110"
+      ],
+      [
+        "0101",
+        "1100",
+        "?"
+      ]
+    ],
+    "scope": "只验证所提交01串的逐格运算；不证明图片识别正确，也不排除其他类型规律，终审须回看原图。",
+    "status": "checked"
+  },
+  "reference_lookup": false,
+  "scope": "只核验算术和指定黑白格运算，不证明取数、题意或视觉识别正确。"
+}

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C 盘清理总方案</title>
+<style>
+  :root{
+    --bg:#141414; --card:#1d1d1c; --card2:#232322; --line:rgba(255,255,255,.10);
+    --tx:#e8e8e6; --tx2:#a8a8a4; --tx3:#7d7d79;
+    --blue:#85B7EB; --gray:#9a9a96; --green:#97C459; --amber:#EF9F27; --red:#E24B4A; --purple:#AFA9EC;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+    font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:40px 24px 150px}
+  h1{font-size:25px;font-weight:500;margin:0 0 6px;letter-spacing:-.02em}
+  .sub{color:var(--tx2);font-size:13px;margin:0 0 26px}
+  h2{font-size:16px;font-weight:500;margin:38px 0 14px;display:flex;align-items:center;gap:9px}
+  h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--blue);flex:none}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;margin-bottom:8px}
+  .m{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .m .k{font-size:12px;color:var(--tx3);margin-bottom:3px}
+  .m .v{font-size:22px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .m .v small{font-size:12px;color:var(--tx3);font-weight:400;margin-left:2px}
+  .bar{display:grid;grid-template-columns:196px 1fr 70px;gap:12px;align-items:center;padding:6px 0;font-size:13px}
+  .bar .nm{color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar .track{height:15px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:4px}
+  .bar .sz{text-align:right;font-variant-numeric:tabular-nums}
+  .tier{margin-bottom:16px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card)}
+  .tier > header{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:13px 18px;background:var(--card2);border-bottom:1px solid var(--line)}
+  .tier > header .t{font-weight:500;font-size:14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .tier > header .sum{font-size:13px;color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .tag{font-size:11px;padding:2px 8px;border-radius:99px;white-space:nowrap}
+  .t-safe{background:rgba(151,196,89,.16);color:var(--green)}
+  .t-admin{background:rgba(239,159,39,.16);color:var(--amber)}
+  .t-move{background:rgba(133,183,235,.16);color:var(--blue)}
+  .t-opt{background:rgba(175,169,236,.16);color:var(--purple)}
+  .row{display:grid;grid-template-columns:26px 1fr 86px;gap:12px;align-items:start;
+    padding:11px 18px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer}
+  .row:last-child{border-bottom:0}
+  .row:hover{background:rgba(255,255,255,.025)}
+  .row input{margin:3px 0 0;accent-color:#85B7EB;width:15px;height:15px;cursor:pointer}
+  .row .nm{font-size:13.5px}
+  .row .pth{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--tx3);
+    word-break:break-all;margin-top:2px;line-height:1.5}
+  .row .note{font-size:12px;color:var(--tx2);margin-top:4px}
+  .row .sz{text-align:right;font-variant-numeric:tabular-nums;font-size:13px;color:var(--tx2)}
+  .row.on .sz{color:var(--tx)}
+  .new{display:inline-block;font-size:10.5px;padding:1px 6px;border-radius:99px;
+    background:rgba(239,159,39,.18);color:var(--amber);margin-left:7px;vertical-align:1px}
+  .hi{background:rgba(239,159,39,.09);border:1px solid rgba(239,159,39,.32);border-radius:12px;
+    padding:18px 22px;margin:26px 0 8px}
+  .hi h3{margin:0 0 10px;font-size:15px;font-weight:500;color:var(--amber)}
+  .hi p{margin:0 0 8px;font-size:13px;color:var(--tx2)}
+  .hi b{color:var(--tx);font-weight:500}
+  .warn{background:rgba(226,75,74,.08);border:1px solid rgba(226,75,74,.3);border-radius:10px;
+    padding:14px 18px;font-size:13px;color:#f0c0c0;margin-top:14px}
+  .warn b{color:var(--red);font-weight:500}
+  .foot{position:fixed;left:0;right:0;bottom:0;background:rgba(20,20,20,.96);
+    border-top:1px solid var(--line);backdrop-filter:blur(8px)}
+  .foot .in{max-width:980px;margin:0 auto;padding:13px 24px;display:flex;align-items:center;
+    justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .foot .tot{font-size:14px;color:var(--tx2)}
+  .foot .tot b{font-size:22px;font-weight:500;color:var(--green);font-variant-numeric:tabular-nums}
+  button{background:transparent;color:var(--tx);border:1px solid rgba(255,255,255,.22);
+    border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:inherit}
+  button:hover{border-color:rgba(255,255,255,.45)}
+  ul{padding-left:20px;margin:8px 0;color:var(--tx2);font-size:13px}
+  li{margin:5px 0}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:rgba(255,255,255,.06);
+    padding:1px 6px;border-radius:4px;color:#d8d8d5}
+  .lbl{font-size:12px;color:var(--tx3);margin:2px 0 6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>C 盘清理总方案</h1>
+  <p class="sub">扫描 2026-09-19 · 全程只读，未删除或移动任何文件 · 所有数字均为实测值</p>
+
+  <div class="metrics">
+    <div class="m"><div class="k">总容量</div><div class="v">254.7<small>GB</small></div></div>
+    <div class="m"><div class="k">已使用</div><div class="v" style="color:var(--red)">235.3<small>GB</small></div></div>
+    <div class="m"><div class="k">剩余可用</div><div class="v" style="color:var(--amber)">19.4<small>GB</small></div></div>
+    <div class="m"><div class="k">物理内存</div><div class="v">31.7<small>GB</small></div></div>
+    <div class="m"><div class="k">全部可释放</div><div class="v" style="color:var(--green)">103<small>GB</small></div></div>
+  </div>
+
+  <div class="hi">
+    <h3>本轮新发现：藏在应用目录里的 22 GB 垃圾</h3>
+    <p>第一轮只扫到了目录层级，这轮钻进去看，发现几个之前完全没暴露的大块——<b>它们都不是你的数据，而是缓存、日志和旧版本残留</b>。</p>
+    <p>· <b>Edge 的 Service Worker 缓存独占 5.61 GB</b>，加上 IndexedDB 1.30 GB，一个浏览器就吃掉 7 GB</p>
+    <p>· <b>企业微信留着一份 1.67 GB 的升级安装包</b>（版本 5.0.9.6060，7 月 28 日的），装完就没用了</p>
+    <p>· <b>WPS 完整保留了新旧两个版本</b>，各 1.4 GB，旧版本 9 月 3 日之后就没动过</p>
+    <p>· <b>QQ 的临时目录里躺着 2011 年的文件</b>，1191 个垃圾文件共 0.66 GB</p>
+    <p>· <b>WeGame 的旧内核 qbcore91 停留在 2025 年 3 月</b>，占 0.91 GB</p>
+  </div>
+
+  <h2><span class="dot"></span>空间去向</h2>
+  <div class="card">
+    <div class="bar"><div class="nm">pagefile.sys 虚拟内存</div><div class="track"><div class="fill" style="width:100%;background:#9a9a96"></div></div><div class="sz">26.2</div></div>
+    <div class="bar"><div class="nm">飞书 LarkShell</div><div class="track"><div class="fill" style="width:43.8%;background:#85B7EB"></div></div><div class="sz">11.5</div></div>
+    <div class="bar"><div class="nm">Windows\System32</div><div class="track"><div class="fill" style="width:43.5%;background:#9a9a96"></div></div><div class="sz">11.4</div></div>
+    <div class="bar"><div class="nm">Windows\WinSxS 组件库</div><div class="track"><div class="fill" style="width:38.5%;background:#9a9a96"></div></div><div class="sz">10.1</div></div>
+    <div class="bar"><div class="nm">腾讯系 微信/企业微信/QQ</div><div class="track"><div class="fill" style="width:35.8%;background:#85B7EB"></div></div><div class="sz">9.4</div></div>
+    <div class="bar"><div class="nm">Edge 浏览器</div><div class="track"><div class="fill" style="width:29.7%;background:#85B7EB"></div></div><div class="sz">7.8</div></div>
+    <div class="bar"><div class="nm">WPS 金山系</div><div class="track"><div class="fill" style="width:26.9%;background:#85B7EB"></div></div><div class="sz">7.0</div></div>
+    <div class="bar"><div class="nm">豆包 Doubao</div><div class="track"><div class="fill" style="width:15.2%;background:#85B7EB"></div></div><div class="sz">4.0</div></div>
+    <div class="bar"><div class="nm">Docker Desktop</div><div class="track"><div class="fill" style="width:15.2%;background:#85B7EB"></div></div><div class="sz">4.0</div></div>
+    <div class="bar"><div class="nm">TRAE SOLO</div><div class="track"><div class="fill" style="width:14.0%;background:#85B7EB"></div></div><div class="sz">3.7</div></div>
+    <div class="bar"><div class="nm">Windows\Installer</div><div class="track"><div class="fill" style="width:10.6%;background:#9a9a96"></div></div><div class="sz">2.8</div></div>
+    <div class="bar"><div class="nm">npm 缓存</div><div class="track"><div class="fill" style="width:8.4%;background:#85B7EB"></div></div><div class="sz">2.2</div></div>
+  </div>
+  <p class="sub" style="margin:12px 0 0">灰色为系统固定占用，蓝色为应用数据。另有约 38 GB 位于 <code>C:\Program Files\WindowsApps</code> 等无权限目录，需管理员身份清点。</p>
+
+  <h2><span class="dot" style="background:var(--green)"></span>A 档 · 系统与应用缓存</h2>
+  <p class="lbl">全部可再生成，不需要管理员权限，不触碰任何用户数据 · 合计 18.3 GB</p>
+  <div class="tier">
+    <header><div class="t"><span class="tag t-safe">零风险</span>缓存、日志与临时文件</div><div class="sum">18.3 GB</div></header>
+
+    <label class="row"><input type="checkbox" data-gb="5.72"><div><div class="nm">Edge 站点缓存<span class="new">新发现</span></div><div class="pth">...\Microsoft\Edge\User Data\Default\Service Worker + Cache + GPUCache</div><div class="note">Service Worker 缓存 5.61 GB 是最大单项。浏览器内「清除缓存的图像和文件」即可，网页会自动重建。不涉及登录状态。</div></div><div class="sz">5.72 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="2.20"><div><div class="nm">npm 包缓存</div><div class="pth">C:\Users\admin\AppData\Local\npm-cache　（45,465 个文件）</div><div class="note">用 <code>npm cache clean --force</code>，不要手工删（最长路径 223 字符会失败）</div></div><div class="sz">2.20 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="1.86"><div><div class="nm">codex 运行时压缩包缓存</div><div class="pth">C:\Users\admin\.cache\codex-runtimes</div><div class="note">清前先退出 codex，下次运行自动重新下载</div></div><div class="sz">1.86 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="1.30"><div><div class="nm">Edge IndexedDB 网站本地数据<span class="new">需权衡</span></div><div class="pth">...\Edge\User Data\Default\IndexedDB</div><div class="note">清了会让部分网站需要重新登录或重新加载本地数据，因此单独列出，由你决定</div></div><div class="sz">1.30 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="1.15"><div><div class="nm">QQ 临时文件<span class="new">新发现</span></div><div class="pth">...\Tencent\QQ\AuTemp + Temp + STemp</div><div class="note">1191 个文件，最老的日期是 2011 年 6 月，15 年没人动过</div></div><div class="sz">1.15 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.61"><div><div class="nm">pip 包缓存</div><div class="pth">...\AppData\Local\pip\Cache　→ <code>pip cache purge</code></div></div><div class="sz">0.61 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.56"><div><div class="nm">Windows 安装日志</div><div class="pth">C:\Windows\Panther <span style="color:var(--amber)">（需管理员）</span></div></div><div class="sz">0.56 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.52"><div><div class="nm">完美世界更新器残留</div><div class="pth">...\Local\perfectworldarena-updater</div></div><div class="sz">0.52 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.51"><div><div class="nm">飞书运行日志<span class="new">新发现</span></div><div class="pth">...\LarkShell\sdk_storage\log　（346 个文件）</div><div class="note">纯运行日志，删除不影响聊天记录</div></div><div class="sz">0.51 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.49"><div><div class="nm">Chrome 旧版本目录</div><div class="pth">C:\Program Files\Google\Chrome.old <span style="color:var(--amber)">（需管理员，先关 Chrome）</span></div></div><div class="sz">0.49 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.49"><div><div class="nm">Chrome 更新缓存</div><div class="pth">...\GoogleUpdater\crx_cache <span style="color:var(--amber)">（需管理员，先关 Chrome）</span></div></div><div class="sz">0.49 GB</div></div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.45"><div><div class="nm">WorkBuddy 更新器安装包</div><div class="pth">...\Local\@genieworkbuddy-desktop-updater</div></div><div class="sz">0.45 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.39"><div><div class="nm">pnpm 包缓存</div><div class="pth">...\Local\pnpm-cache　→ <code>pnpm store prune</code></div></div><div class="sz">0.39 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.35"><div><div class="nm">用户临时文件</div><div class="pth">...\AppData\Local\Temp</div></div><div class="sz">0.35 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.32"><div><div class="nm">百度网盘浏览器缓存<span class="new">新发现</span></div><div class="pth">...\Roaming\baidunetdisk\Cache + Code Cache</div></div><div class="sz">0.32 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.31"><div><div class="nm">Obsidian 更新器安装包</div><div class="pth">...\Local\obsidian-updater</div></div><div class="sz">0.31 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.30"><div><div class="nm">ZCode 更新器安装包</div><div class="pth">...\Local\@zcodedesktop-updater</div></div><div class="sz">0.30 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.25"><div><div class="nm">electron 下载缓存</div><div class="pth">...\AppData\Local\electron</div></div><div class="sz">0.25 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.25"><div><div class="nm">系统升级残留</div><div class="pth">C:\$WINDOWS.~BT <span style="color:var(--amber)">（需管理员）</span></div></div><div class="sz">0.25 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.25"><div><div class="nm">QQ 视频缓存<span class="new">新发现</span></div><div class="pth">...\Tencent\QQLive\CacheFile</div></div><div class="sz">0.25 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.23"><div><div class="nm">TRAE SOLO 缓存<span class="new">新发现</span></div><div class="pth">...\Roaming\TRAE SOLO CN\CachedData + Cache + logs</div></div><div class="sz">0.23 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.22"><div><div class="nm">Chrome 扩展缓存<span class="new">新发现</span></div><div class="pth">...\Edge\User Data\component_crx_cache + extensions_crx_cache</div></div><div class="sz">0.22 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.22"><div><div class="nm">腾讯系日志<span class="new">新发现</span></div><div class="pth">...\Roaming\Tencent\Logs</div></div><div class="sz">0.22 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.19"><div><div class="nm">豆包网页缓存<span class="new">新发现</span></div><div class="pth">...\Local\Doubao\User Data\gecko_cache</div></div><div class="sz">0.19 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.18"><div><div class="nm">Coze 更新器安装包</div><div class="pth">...\Local\coze-updater</div></div><div class="sz">0.18 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.13"><div><div class="nm">崩溃转储文件</div><div class="pth">...\AppData\Local\CrashDumps</div></div><div class="sz">0.13 GB</div></label>
+  </div>
+
+  <h2><span class="dot" style="background:var(--amber)"></span>B 档 · 旧版本与升级包残留</h2>
+  <p class="lbl">软件升级后留下的旧版本，全部已确认被新版取代 · 合计 4.05 GB</p>
+  <div class="tier">
+    <header><div class="t"><span class="tag t-safe">零风险</span>升级残留</div><div class="sum">4.05 GB</div></header>
+
+    <label class="row"><input type="checkbox" data-gb="1.67"><div><div class="nm">企业微信升级安装包<span class="new">新发现</span></div><div class="pth">...\Roaming\Tencent\WXWork\upgrade\5.0.9.6060</div><div class="note">含 WXWork.exe 0.25 GB、libcef.dll 两份共 0.40 GB 等，全部为 7 月 25–28 日的文件。当前版本已安装完成，这份是升级时的临时副本。</div></div><div class="sz">1.67 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="1.47"><div><div class="nm">WPS 旧版本 12.1.0.28043<span class="new">新发现</span></div><div class="pth">...\Local\Kingsoft\WPS Office\12.1.0.28043</div><div class="note">当前在用的是 12.1.0.28505（9 月 17 日更新）。旧版最后修改 9 月 3 日，6825 个文件已全部被取代。</div></div><div class="sz">1.47 GB</div></label>
+
+    <label class="row"><input type="checkbox" data-gb="0.91"><div><div class="nm">WeGame 旧内核 qbcore91<span class="new">新发现</span></div><div class="pth">...\Roaming\Tencent\WeGame\qbcore91</div><div class="note">当前版本为 qbcore109（9 月 17 日）。旧内核停留在 2025 年 3 月，一年多未使用。</div></div><div class="sz">0.91 GB</div></label>
+  </div>
+
+  <h2><span class="dot" style="background:var(--purple)"></span>C 档 · 系统级调整</h2>
+  <p class="lbl">收益最大，需要管理员权限 · 合计约 20.2 GB</p>
+  <div class="tier">
+    <header><div class="t"><span class="tag t-admin">需管理员</span>需要重启或系统操作</div><div class="sum">约 20.2 GB</div></header>
+    <label class="row"><input type="checkbox" data-gb="11.50"><div><div class="nm">虚拟内存 pagefile.sys —— 需先降低提交内存才能改</div><div class="pth">系统属性 → 高级 → 性能设置 → 高级 → 虚拟内存</div><div class="note" style="color:var(--red)">⚠️ 结论已修正：当前提交内存 54.33 GB、提交上限 59.23 GB（已用 91.7%），页面文件 27.5 GB 是真实需要的。直接砍到 8 GB 会让上限降到 39.7 GB，程序将崩溃。正确顺序：先关掉 Docker/WSL（vmmem 占 15.9 GB 提交内存）把提交降到 35 GB 以下，再设为固定 16 GB。</div></div><div class="sz">约 11.5 GB</div></label>
+    <label class="row"><input type="checkbox" data-gb="2.00"><div><div class="nm">WinSxS 组件库清理（DISM 官方方式）</div><div class="pth">DISM /Online /Cleanup-Image /StartComponentCleanup /ResetBase</div><div class="note">清理已被取代的旧版系统组件，微软官方支持，安全。执行后无法卸载已安装的系统更新。</div></div><div class="sz">2–4 GB</div></label>
+  </div>
+
+  <h2><span class="dot" style="background:var(--blue)"></span>D 档 · 数据迁移到 D 盘</h2>
+  <p class="lbl">经核实，这些几乎全是真实用户数据，清缓存没用，只能整体搬迁 · 合计 45.9 GB</p>
+  <div class="tier">
+    <header><div class="t"><span class="tag t-move">在软件设置里改</span>最治本</div><div class="sum">45.9 GB</div></header>
+    <label class="row"><input type="checkbox" data-gb="11.48"><div><div class="nm">飞书</div><div class="pth">...\Roaming\LarkShell</div><div class="note">其中 profile_explorer\Service Worker 独占 6.3 GB，是内嵌浏览器缓存，清掉即可；剩余约 4.8 GB 才需要迁移。飞书不支持在设置里改数据目录，需用目录联接方式搬到 F 盘。</div></div><div class="sz">11.48 GB</div></label>
+    <label class="row"><input type="checkbox" data-gb="9.38"><div><div class="nm">腾讯系（企业微信 / 微信 / QQ / WeGame）</div><div class="pth">...\Roaming\Tencent</div><div class="note">扣除 A 档和 B 档可清掉的部分后，剩余为各客户端的程序组件与数据</div></div><div class="sz">9.38 GB</div></label>
+    <label class="row"><input type="checkbox" data-gb="7.78"><div><div class="nm">Edge 浏览器数据</div><div class="pth">...\Local\Microsoft\Edge</div><div class="note">扣除 A 档缓存后可迁移部分主要是 IndexedDB 与配置</div></div><div class="sz">7.78 GB</div></label>
+    <label class="row"><input type="checkbox" data-gb="7.04"><div><div class="nm">WPS 缓存与备份</div><div class="pth">...\Roaming\kingsoft + ...\Local\Kingsoft</div><div class="note">其中 wps\addons 3.32 GB 为组件；office6\backup 0.25 GB 是文档备份，务必保留</div></div><div class="sz">7.04 GB</div></label>
+    <label class="row"><input type="checkbox" data-gb="3.98"><div><div class="nm">豆包</div><div class="pth">...\Local\Doubao</div><div class="note">User Data 2.33 GB + Application 程序本体 1.65 GB</div></div><div class="sz">3.98 GB</div></label>
+    <label class="row"><input type="checkbox" data-gb="3.67"><div><div class="nm">TRAE SOLO</div><div class="pth">...\Roaming\TRAE SOLO CN</div><div class="note">其中 ModularData\ai-agent 3.41 GB 为主体数据</div></div><div class="sz">3.67 GB</div></label>
+    <label class="row"><input type="checkbox" data-gb="2.56"><div><div class="nm">百度网盘 / 百度系</div><div class="pth">...\Roaming\baidu + ...\baidunetdisk</div></div><div class="sz">2.56 GB</div></label>
+  </div>
+
+  <h2><span class="dot" style="background:var(--tx3)"></span>E 档 · 不用了才卸载</h2>
+  <p class="lbl">需要你确认是否还在使用 · 合计 14.9 GB</p>
+  <div class="tier">
+    <header><div class="t"><span class="tag t-opt">需要你判断</span>卸载类，不可逆</div><div class="sum">14.9 GB</div></header>
+    <label class="row"><input type="checkbox" data-gb="5.20"><div><div class="nm">Docker Desktop + WSL 组件</div><div class="pth">C:\Program Files\Docker + \WSL + ~\.docker</div><div class="note">检测到 Docker 正在运行（5 个进程）。不用容器开发的话卸载收益很大。</div></div><div class="sz">5.20 GB</div></label>
+    <label class="row"><input type="checkbox" data-gb="5.04"><div><div class="nm">游戏数据（PUBG / 战网 / Steam / 暴雪 / Riot / MC）</div><div class="pth">AppData\Local\TslGame 等 7 处 + ProgramData\Blizzard</div></div><div class="sz">5.04 GB</div></label>
+    <label class="row"><input type="checkbox" data-gb="1.69"><div><div class="nm">Alienware 安装包 ×2（已安装完成）</div><div class="pth">C:\Users\Public\Documents\Downloaded Installations</div></div><div class="sz">1.69 GB</div></label>
+    <label class="row"><input type="checkbox" data-gb="1.38"><div><div class="nm">罗技 G HUB 缓存</div><div class="pth">C:\ProgramData\LGHUB</div><div class="note">若还在使用罗技外设则保留</div></div><div class="sz">1.38 GB</div></label>
+    <label class="row"><input type="checkbox" data-gb="1.01"><div><div class="nm">重复的 codex / claude 运行时（仅缓存目录内副本）</div><div class="pth">npm-cache\_npx 与 .coze\npm-cache 内的副本</div><div class="note">全盘共发现 14 份重复运行时（3.50 GB）。这里只勾选纯缓存目录中的副本，不动正在使用的运行时。</div></div><div class="sz">1.01 GB</div></label>
+    <label class="row"><input type="checkbox" data-gb="0.58"><div><div class="nm">沪江 Hujiang 客户端数据</div><div class="pth">...\Roaming\Hujiang</div></div><div class="sz">0.58 GB</div></label>
+  </div>
+
+  <div class="warn">
+    <b>两处不要碰：</b><br>
+    · <code>C:\Windows\Installer</code>（2.78 GB）保存着所有软件的卸载与修复信息，手工删除会导致程序无法卸载或更新。<br>
+    · <code>...\kingsoft\office6\backup</code>（0.25 GB）是 WPS 的文档自动备份，属于你的数据，不是缓存。
+  </div>
+
+  <h2><span class="dot"></span>执行说明</h2>
+  <div class="card">
+    <ul>
+      <li>所有操作按批次进行，每批最多 10 项，做完一批核对一次再继续。</li>
+      <li>纯缓存用官方命令永久删除（这样才真正释放空间）；安装包与旧版本走回收站，观察几天再清空。</li>
+      <li><b>回收站不会释放空间</b>——把文件移进去磁盘占用不变，必须再清空一次才算数。</li>
+      <li>A、B 两档不涉及任何用户数据，也不需要管理员权限。C 档需要管理员且 pagefile 调整后要重启。</li>
+      <li>动手前会生成文件清单快照存到工作区，方便事后核对。</li>
+      <li>任何一项失败立即停止，不继续下一项。</li>
+    </ul>
+  </div>
+
+  <h2><span class="dot" style="background:var(--green)"></span>预期效果</h2>
+  <div class="card">
+    <div class="bar"><div class="nm">现状</div><div class="track"><div class="fill" style="width:7.6%;background:var(--red)"></div></div><div class="sz">19.4 GB</div></div>
+    <div class="bar"><div class="nm">+ A + B 档（22.4 GB）</div><div class="track"><div class="fill" style="width:16.4%;background:var(--amber)"></div></div><div class="sz">41.8 GB</div></div>
+    <div class="bar"><div class="nm">+ C 档（20.2 GB）</div><div class="track"><div class="fill" style="width:24.4%;background:var(--blue)"></div></div><div class="sz">62.0 GB</div></div>
+    <div class="bar"><div class="nm">+ D 档（45.9 GB）</div><div class="track"><div class="fill" style="width:42.4%;background:var(--green)"></div></div><div class="sz">107.9 GB</div></div>
+    <div class="bar"><div class="nm">+ E 档（14.9 GB）</div><div class="track"><div class="fill" style="width:48.3%;background:var(--green)"></div></div><div class="sz">122.8 GB</div></div>
+  </div>
+  <p class="sub" style="margin:12px 0 0">横轴按 C 盘总容量 254.7 GB 等比换算。仅做完 A + B 档，剩余空间就能翻一倍以上，而且不损失任何数据。</p>
+
+</div>
+
+<div class="foot">
+  <div class="in">
+    <div class="tot">已选 <span id="cnt">0</span> 项 · 预计释放 <b id="total">0.0</b> GB</div>
+    <button id="copy">复制所选清单</button>
+  </div>
+</div>
+
+<script>
+  var rows = Array.prototype.slice.call(document.querySelectorAll('.row'));
+  var totalEl = document.getElementById('total');
+  var cntEl = document.getElementById('cnt');
+  function refresh(){
+    var sum = 0, n = 0, names = [];
+    rows.forEach(function(r){
+      var cb = r.querySelector('input');
+      if (cb.checked){
+        sum += parseFloat(cb.getAttribute('data-gb')) || 0;
+        n++;
+        names.push('· ' + r.querySelector('.nm').textContent + ' — ' + r.querySelector('.sz').textContent);
+        r.classList.add('on');
+      } else {
+        r.classList.remove('on');
+      }
+    });
+    totalEl.textContent = sum.toFixed(1);
+    cntEl.textContent = n;
+    return names;
+  }
+  rows.forEach(function(r){ r.querySelector('input').addEventListener('change', refresh); });
+  document.getElementById('copy').addEventListener('click', function(){
+    var names = refresh();
+    var txt = names.length
+      ? '我选择清理以下项目：\n' + names.join('\n') + '\n\n预计可释放约 ' + totalEl.textContent + ' GB'
+      : '（尚未勾选任何项目）';
+    navigator.clipboard.writeText(txt).then(function(){
+      var b = document.getElementById('copy');
+      b.textContent = '已复制';
+      setTimeout(function(){ b.textContent = '复制所选清单'; }, 1500);
+    });
+  });
+  refresh();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "passed": 9,
+  "tests": [
+    "calculation",
+    "context",
+    "meeting",
+    "export_docx",
+    "export_pdf",
+    "button",
+    "navigation",
+    "navigation_context",
+    "vision"
+  ]
+}

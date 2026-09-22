@@ -1,0 +1,77 @@
+{
+  "kind": "synthetic_smoke_test_not_accuracy_benchmark",
+  "passed": 10,
+  "total": 10,
+  "results": [
+    {
+      "error": null,
+      "test": "rotation",
+      "expected": "C",
+      "passed": true,
+      "elapsed_seconds": 49.2
+    },
+    {
+      "error": null,
+      "test": "missing",
+      "expected": null,
+      "passed": true,
+      "elapsed_seconds": 5.5
+    },
+    {
+      "error": null,
+      "test": "xor",
+      "expected": "B",
+      "passed": true,
+      "elapsed_seconds": 77.8
+    },
+    {
+      "error": null,
+      "test": "verbal",
+      "expected": "C",
+      "passed": true,
+      "elapsed_seconds": 34.8
+    },
+    {
+      "error": null,
+      "test": "quantity",
+      "expected": "B",
+      "passed": true,
+      "elapsed_seconds": 32.1
+    },
+    {
+      "error": null,
+      "test": "data",
+      "expected": "B",
+      "passed": true,
+      "elapsed_seconds": 32.5
+    },
+    {
+      "error": null,
+      "test": "logic",
+      "expected": "A",
+      "passed": true,
+      "elapsed_seconds": 35.2
+    },
+    {
+      "error": null,
+      "test": "politics",
+      "expected": "A",
+      "passed": true,
+      "elapsed_seconds": 26.6
+    },
+    {
+      "error": null,
+      "test": "general",
+      "expected": "C",
+      "passed": true,
+      "elapsed_seconds": 27.2
+    },
+    {
+      "error": null,
+      "test": "unverified",
+      "expected": null,
+      "passed": true,
+      "elapsed_seconds": 31.1
+    }
+  ]
+}
