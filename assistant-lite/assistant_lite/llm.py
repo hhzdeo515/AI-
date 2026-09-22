@@ -168,6 +168,37 @@ def json_chat(
     raise LLMError(f"模型未返回合法 JSON：{last_err}")
 
 
+def vision_json(
+    prompt: str,
+    images: list[str | Path],
+    user_text: str = "",
+    retries: int = 1,
+    temperature: float = 0.1,
+) -> dict[str, Any]:
+    """视觉 + JSON 输出：prompt 作为 system，图片连同 user_text 一起给模型。
+
+    解析失败时追加一条纠正消息重试。
+    """
+    text = user_text
+    last: Exception | None = None
+    for attempt in range(retries + 1):
+        raw = vision(text or "请分析这张图片。", images, system=prompt, temperature=temperature)
+        try:
+            data = json.loads(strip_fences(raw))
+            if isinstance(data, dict):
+                return data
+            last = LLMError("期望 JSON 对象")
+        except json.JSONDecodeError as e:
+            last = e
+        if attempt < retries:
+            text = (
+                (user_text or "请分析这张图片。")
+                + "\n\n【上次输出不是合法 JSON】请只输出一个 JSON 对象，"
+                "不要任何解释文字、不要 Markdown 围栏。"
+            )
+    raise LLMError(f"模型未返回合法 JSON：{last}")
+
+
 # --------------------------------------------------------------------------- #
 # 语音识别
 # --------------------------------------------------------------------------- #

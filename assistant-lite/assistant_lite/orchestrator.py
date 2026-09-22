@@ -15,6 +15,7 @@ from typing import Any
 from . import config, llm, session
 from .agents.base import BaseAgent
 from .schemas import (
+    SCENE_FITNESS,
     SCENE_GENERAL,
     SCENE_MEETING,
     STATUS_DUPLICATE,
@@ -118,13 +119,16 @@ class Orchestrator:
         if best is not None and best_score >= 0.8:
             return best.scene, "", "keyword"
 
-        # 4) 粘性场景：会议记录进行中，后续输入默认仍是会议内容。
-        #    具体动作交给 MeetingAgent 从文本推断（结束/纪要/追加）。
-        #    说"结束会议"即可退出这个粘性状态。
+        # 4) 粘性场景：进行中的多轮流程，后续输入默认仍归该场景。
+        #    会议记录：全部输入当会议内容；说"结束会议"退出。
+        #    锻炼建档：全部输入当问卷答案；说"取消建档"退出。
         if state:
             m = state.get("meeting")
             if isinstance(m, dict) and m.get("status") == "collecting":
                 return SCENE_MEETING, "", "sticky"
+            f = state.get("fitness")
+            if isinstance(f, dict) and f.get("awaiting"):
+                return SCENE_FITNESS, "", "sticky"
 
         # 5) LLM 兜底
         return self._llm_route(task)

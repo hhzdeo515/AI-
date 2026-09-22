@@ -78,6 +78,7 @@ def default_state() -> dict[str, Any]:
     return {
         "active_scene": "general",
         "meeting": {"id": "", "status": "idle", "transcript": ""},
+        "fitness": {"awaiting": "", "draft": {}},
         "last_question": "",
         "last_answer": "",
     }
