@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from ... import llm
+from ... import llm, progress
 from ...schemas import (
     SCENE_EXAM,
     STATUS_ERROR,
@@ -72,9 +72,12 @@ class ExamAgent(BaseAgent):
         if not images and not text:
             return self._fail("请提供题目文字，或上传题目图片。", STATUS_NEED_INPUT)
 
+        progress.report(task.request_id, "capture")
+
         # 1) 视觉精读（有图才做）
         observation = ""
         if images:
+            progress.report(task.request_id, "recognize")
             try:
                 observation = llm.vision(
                     text or "请识别这道题的全部题干与选项。",
@@ -86,6 +89,7 @@ class ExamAgent(BaseAgent):
                 return self._fail(f"图片识别失败：{e}")
 
         # 2) 初解
+        progress.report(task.request_id, "solve")
         try:
             draft = self._solve(text, observation, images)
         except llm.LLMError as e:
@@ -95,6 +99,7 @@ class ExamAgent(BaseAgent):
         tool_result = self._run_tools(draft)
 
         # 4) 终审：重新查看原图
+        progress.report(task.request_id, "verify")
         try:
             final = self._review(text, draft, tool_result, images)
         except llm.LLMError as e:

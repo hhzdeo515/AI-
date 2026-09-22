@@ -10,7 +10,7 @@ from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, send_file
 
-from .. import config, session
+from .. import config, progress, session
 from ..orchestrator import Orchestrator
 from ..schemas import Task
 from ..tools import export
@@ -141,6 +141,54 @@ def create_app() -> Flask:
         owner = (request.args.get("owner") or "local").strip() or "local"
         sid = (request.args.get("session_id") or "web").strip() or "web"
         return jsonify(session.load_state(owner, sid))
+
+    @app.get("/api/progress")
+    def api_progress():
+        """请求级进度快照，供前端的 pipeline 显示真实执行阶段。
+
+        没有记录时返回空 steps —— 前端应回退到"整体处理中"，不要编造阶段。
+        """
+        rid = (request.args.get("request_id") or "").strip()
+        snap = progress.snapshot(rid)
+        return jsonify(snap or {"scene": "", "steps": [], "finished": True})
+
+    @app.post("/api/reset")
+    def api_reset():
+        """清空某个会话的上下文（会议记录、训练状态、建档草稿）。"""
+        owner = (request.form.get("owner") or "local").strip() or "local"
+        sid = (request.form.get("session_id") or "web").strip() or "web"
+        session.save_state(owner, sid, session.default_state())
+        return jsonify({"ok": True})
+
+    @app.get("/api/resource")
+    def api_resource():
+        """取单条资料的完整内容，用于 Memory 详情。"""
+        owner = (request.args.get("owner") or "local").strip() or "local"
+        rid = (request.args.get("id") or "").strip()
+        row = session.get_resource(owner, rid) if rid else None
+        if not row:
+            return jsonify({"error": "找不到该资料"}), 404
+        return jsonify(row)
+
+    @app.get("/api/profile")
+    def api_profile():
+        """读取健康档案（存在 data/profiles/<owner>.json）。"""
+        from ..agents.fitness import profile as prof
+
+        owner = (request.args.get("owner") or "local").strip() or "local"
+        data = prof.load(owner)
+        return jsonify(
+            {
+                "profile": data,
+                "summary": prof.summarize(data),
+                "bmi": prof.bmi(data),
+                "risk": prof.risk_notes(data),
+                "fields": [
+                    {"key": k, "label": label, "kind": kind, "options": list(opts)}
+                    for k, label, kind, opts in prof.FIELDS
+                ],
+            }
+        )
 
     return app
 

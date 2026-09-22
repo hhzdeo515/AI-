@@ -179,6 +179,107 @@ def test_session_isolation_across_sessions() -> None:
     assert a["meeting"]["id"] != b["meeting"]["id"]
 
 
+def test_progress_endpoint_without_record() -> None:
+    """没有进度记录时返回空 steps —— 前端据此回退，而不是编造阶段。"""
+    _fresh()
+    c = _client()
+    r = c.get("/api/progress?request_id=nope")
+    assert r.status_code == 200
+    j = r.get_json()
+    assert j["steps"] == []
+    assert j["finished"] is True
+
+
+def test_progress_registry_marks_real_states() -> None:
+    from assistant_lite import progress
+
+    progress.clear()
+    progress.begin("r1", "exam")
+    progress.report("r1", "recognize")
+    snap = progress.snapshot("r1")
+    states = {s["id"]: s["state"] for s in snap["steps"]}
+    assert states["capture"] == "done", states
+    assert states["recognize"] == "active", states
+    assert states["solve"] == "pending", states
+    assert states["verify"] == "pending", states
+
+    progress.report("r1", "verify")
+    progress.finish("r1")
+    snap = progress.snapshot("r1")
+    states = {s["id"]: s["state"] for s in snap["steps"]}
+    assert states["verify"] == "done", states
+    assert snap["finished"] is True
+
+    # 未知 request_id 返回 None，而不是伪造进度
+    assert progress.snapshot("unknown") is None
+    progress.clear()
+
+
+def test_profile_endpoint() -> None:
+    _fresh()
+    c = _client()
+    j = c.get("/api/profile?owner=u").get_json()
+    assert j["profile"] == {}
+
+    from assistant_lite.agents.fitness import profile as P
+
+    P.save("u", {"age": 30, "goal": "增肌", "injuries": ["膝盖"]})
+    j = c.get("/api/profile?owner=u").get_json()
+    assert j["profile"]["age"] == 30
+    assert "年龄" in j["summary"]
+    assert "膝盖" in j["risk"]
+    # 字段定义也要返回，前端据此渲染
+    assert any(f["key"] == "goal" for f in j["fields"])
+
+
+def test_resource_endpoint_and_isolation() -> None:
+    _fresh()
+    c = _client()
+    rid = session.archive("u", "meeting", "会议纪要", "# 标题\n\n正文内容")
+    r = c.get("/api/resource?owner=u&id=" + rid)
+    assert r.status_code == 200
+    assert "正文内容" in r.get_json()["content"]
+
+    assert c.get("/api/resource?owner=u&id=nope").status_code == 404
+    # 跨 owner 取不到
+    assert c.get("/api/resource?owner=other&id=" + rid).status_code == 404
+    # 不带 id
+    assert c.get("/api/resource?owner=u").status_code == 404
+
+
+def test_reset_endpoint_clears_session() -> None:
+    _fresh()
+    c = _client()
+    c.post("/api/chat", data={"text": "开始会议记录", "session_id": "s1", "owner": "u"})
+    assert c.get("/api/state?owner=u&session_id=s1").get_json()["meeting"]["status"] == "collecting"
+
+    r = c.post("/api/reset", data={"owner": "u", "session_id": "s1"})
+    assert r.status_code == 200
+    st = c.get("/api/state?owner=u&session_id=s1").get_json()
+    assert st["meeting"]["status"] == "idle"
+    assert st["meeting"]["transcript"] == ""
+
+
+def test_static_assets_served() -> None:
+    _fresh()
+    c = _client()
+    css = c.get("/static/app.css")
+    js = c.get("/static/app.js")
+    assert css.status_code == 200, "app.css 应可访问"
+    assert b"--accent" in css.data
+    assert js.status_code == 200, "app.js 应可访问"
+    assert b"Glasses Companion" in js.data
+
+
+def test_page_has_no_leftover_placeholders() -> None:
+    """页面不应残留未替换的模板占位符或 TODO。"""
+    _fresh()
+    c = _client()
+    body = c.get("/").get_data(as_text=True)
+    for bad in ("{{", "}}", "TODO", "FIXME", "undefined"):
+        assert bad not in body, f"页面残留 {bad!r}"
+
+
 # --------------------------------------------------------------------------- #
 def _run_all() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]

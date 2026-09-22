@@ -2,241 +2,363 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>assistant-lite</title>
-<style>
-  :root{
-    --bg:#0f1115; --panel:#171a21; --panel-2:#1e222b; --line:#2a2f3a;
-    --fg:#e6e8eb; --fg-dim:#98a1b0; --accent:#4c9aff; --accent-2:#2fd6a8;
-    --warn:#ffb454; --err:#ff6b6b;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
-  body{
-    background:var(--bg); color:var(--fg);
-    font:15px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
-    display:flex; flex-direction:column;
-  }
-  header{
-    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-    padding:12px 18px; background:var(--panel); border-bottom:1px solid var(--line);
-  }
-  header h1{font-size:15px; margin:0; font-weight:600; letter-spacing:.3px}
-  header .dot{width:8px;height:8px;border-radius:50%;background:var(--accent-2);display:inline-block;margin-right:7px;vertical-align:middle}
-  header label{color:var(--fg-dim); font-size:13px}
-  select,input[type=text]{
-    background:var(--panel-2); color:var(--fg); border:1px solid var(--line);
-    border-radius:7px; padding:6px 9px; font-size:13px; outline:none;
-  }
-  select:focus,input[type=text]:focus{border-color:var(--accent)}
-  #spacer{flex:1}
-  #status{font-size:12px;color:var(--fg-dim)}
-  main{flex:1; overflow-y:auto; padding:20px 18px 8px; display:flex; flex-direction:column; gap:14px}
-  .row{display:flex; gap:10px; max-width:900px; width:100%; margin:0 auto}
-  .row.user{justify-content:flex-end}
-  .bubble{
-    padding:11px 14px; border-radius:12px; white-space:pre-wrap; word-break:break-word;
-    max-width:min(760px,86%);
-  }
-  .user .bubble{background:#22354a; border:1px solid #2f4a68}
-  .bot .bubble{background:var(--panel); border:1px solid var(--line)}
-  .meta{display:flex; gap:7px; align-items:center; margin-bottom:6px; flex-wrap:wrap}
-  .tag{
-    font-size:11px; padding:1px 7px; border-radius:20px;
-    background:var(--panel-2); border:1px solid var(--line); color:var(--fg-dim);
-  }
-  .tag.scene{color:var(--accent); border-color:#2c4a70}
-  .tag.ok{color:var(--accent-2); border-color:#1f5a48}
-  .tag.warn{color:var(--warn); border-color:#6a4a1c}
-  .tag.err{color:var(--err); border-color:#6a2a2a}
-  .files{font-size:12px; color:var(--fg-dim); margin-top:7px}
-  .artifacts{margin-top:8px; font-size:12px; color:var(--accent-2)}
-  footer{border-top:1px solid var(--line); background:var(--panel); padding:12px 18px}
-  .composer{display:flex; gap:9px; max-width:900px; margin:0 auto; align-items:flex-end}
-  #text{
-    flex:1; resize:none; min-height:44px; max-height:160px; padding:11px 12px;
-    background:var(--panel-2); color:var(--fg); border:1px solid var(--line);
-    border-radius:9px; font:inherit; outline:none;
-  }
-  #text:focus{border-color:var(--accent)}
-  button{
-    background:var(--accent); color:#06121f; border:0; border-radius:9px;
-    padding:11px 18px; font-size:14px; font-weight:600; cursor:pointer;
-  }
-  button:disabled{opacity:.45; cursor:not-allowed}
-  .attach{
-    background:var(--panel-2); color:var(--fg); border:1px solid var(--line);
-    border-radius:9px; padding:10px 12px; cursor:pointer; font-size:13px;
-  }
-  .hint{max-width:900px; margin:8px auto 0; font-size:12px; color:var(--fg-dim); display:flex; gap:12px; flex-wrap:wrap}
-  .hint b{color:var(--fg); font-weight:600}
-  .empty{color:var(--fg-dim); text-align:center; margin:auto; font-size:14px; line-height:2}
-  .empty code{background:var(--panel-2); padding:2px 6px; border-radius:5px; color:var(--accent)}
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>assistant-lite · Glasses Companion</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
 <body>
-<header>
-  <h1><span class="dot"></span>assistant-lite</h1>
-  <label>场景
-    <select id="scene">
-      <option value="">自动判断</option>
-      <option value="meeting">会议纪要</option>
-      <option value="exam">拍照解题</option>
-      <option value="fitness">锻炼指导</option>
-      <option value="resource">资料导出</option>
-      <option value="general">通用问答</option>
-    </select>
-  </label>
-  <label>会话 <input type="text" id="session" value="web" size="10"></label>
-  <div id="spacer"></div>
-  <div id="status">就绪</div>
-</header>
 
-<main id="log">
-  <div class="empty" id="empty">
-    三个场景，一句话或一张图开始：<br>
-    <code>开始会议记录</code> 然后粘贴转写 &nbsp;·&nbsp;
-    <code>上传题目图片</code> &nbsp;·&nbsp;
-    <code>建立健康档案</code> / <code>开始卧推 3组10次 60公斤</code>
-  </div>
-</main>
+<!-- Ambient background：极低透明度光斑 + 网格，只做氛围，不参与信息表达 -->
+<div class="ambient" aria-hidden="true">
+  <span class="blob blob-a"></span>
+  <span class="blob blob-b"></span>
+  <span class="blob blob-c"></span>
+  <span class="grid"></span>
+</div>
 
-<footer>
-  <div class="composer">
-    <label class="attach" title="支持图片与音频">＋ 附件
-      <input type="file" id="file" multiple accept="image/*,audio/*" hidden>
-    </label>
-    <textarea id="text" placeholder="输入内容，Enter 发送，Shift+Enter 换行"></textarea>
-    <button id="send">发送</button>
-  </div>
-  <div class="hint">
-    <span>已选附件：<b id="filelist">无</b></span>
-    <span>附件上限 32MB</span>
-  </div>
-</footer>
+<div class="app">
 
-<script>
-(function () {
-  "use strict";
-  const log = document.getElementById("log");
-  const empty = document.getElementById("empty");
-  const textEl = document.getElementById("text");
-  const sendBtn = document.getElementById("send");
-  const fileEl = document.getElementById("file");
-  const fileList = document.getElementById("filelist");
-  const sceneEl = document.getElementById("scene");
-  const sessionEl = document.getElementById("session");
-  const statusEl = document.getElementById("status");
+  <!-- ── 左侧导航 ───────────────────────────────────────────────── -->
+  <aside class="nav" id="nav">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="12" cy="12" r="7.5"/>
+          <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/>
+        </svg>
+      </span>
+      <span class="brand-text">
+        <strong>assistant-lite</strong>
+        <em>Glasses Companion</em>
+      </span>
+    </div>
 
-  let pending = [];
+    <nav class="nav-group">
+      <button class="nav-item" data-go="home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/>
+        </svg>
+        <span class="nav-txt"><b>Home</b></span>
+      </button>
+    </nav>
 
-  function esc(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  }
+    <p class="nav-label">Assistant</p>
+    <nav class="nav-group">
+      <button class="nav-item" data-go="meeting">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>
+        </svg>
+        <span class="nav-txt"><b>Meeting</b><i>会议纪要</i></span>
+      </button>
+      <button class="nav-item" data-go="vision">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 8V5.6A1.6 1.6 0 0 1 5.6 4H8"/><path d="M16 4h2.4A1.6 1.6 0 0 1 20 5.6V8"/>
+          <path d="M20 16v2.4a1.6 1.6 0 0 1-1.6 1.6H16"/><path d="M8 20H5.6A1.6 1.6 0 0 1 4 18.4V16"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <span class="nav-txt"><b>Vision</b><i>拍照解题</i></span>
+      </button>
+      <button class="nav-item" data-go="fitness">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12.5h3.4l2-5.2 3 10.4 2.4-7.2 1.8 4h4.9"/>
+        </svg>
+        <span class="nav-txt"><b>Fitness</b><i>锻炼指导</i></span>
+      </button>
+    </nav>
 
-  function tagClass(status) {
-    if (status === "ok") return "tag ok";
-    if (status === "error") return "tag err";
-    if (status === "need_input" || status === "duplicate") return "tag warn";
-    return "tag";
-  }
+    <p class="nav-label">Library</p>
+    <nav class="nav-group">
+      <button class="nav-item" data-go="memory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.2 3.2 7.6 12 12l8.8-4.4L12 3.2Z"/>
+          <path d="m3.2 12.4 8.8 4.4 8.8-4.4"/><path d="m3.2 16.8 8.8 4.4 8.8-4.4"/>
+        </svg>
+        <span class="nav-txt"><b>Memory</b><i>资料库</i></span>
+      </button>
+    </nav>
 
-  function addUser(text, files) {
-    const row = document.createElement("div");
-    row.className = "row user";
-    let html = '<div class="bubble">' + esc(text || "(仅附件)");
-    if (files && files.length) {
-      html += '<div class="files">附件：' + esc(files.join("、")) + "</div>";
-    }
-    html += "</div>";
-    row.innerHTML = html;
-    log.appendChild(row);
-  }
+    <div class="nav-foot">
+      <span class="mode-badge" id="mode-badge">Demo Mode</span>
+      <span class="mode-note" id="mode-note">未连接眼镜硬件</span>
+    </div>
+  </aside>
 
-  function addBot(d) {
-    const row = document.createElement("div");
-    row.className = "row bot";
-    let html = '<div class="bubble">';
-    html += '<div class="meta">'
-      + '<span class="tag scene">' + esc(d.scene) + "</span>"
-      + '<span class="tag">' + esc(d.action || "-") + "</span>"
-      + '<span class="' + tagClass(d.status) + '">' + esc(d.status) + "</span>"
-      + "</div>";
-    html += esc(d.text || d.error || "(空)");
-    if (d.rejected_files && d.rejected_files.length) {
-      html += '<div class="files">已跳过：' + esc(d.rejected_files.join("、")) + "</div>";
-    }
-    if (d.artifacts && d.artifacts.length) {
-      html += '<div class="artifacts">'
-        + d.artifacts.map(function (a) {
-            return "已归档：" + esc(a.label || "产出") + (a.id ? "（" + esc(a.id.slice(0, 8)) + "）" : "");
-          }).join("<br>")
-        + "</div>";
-    }
-    html += "</div>";
-    row.innerHTML = html;
-    log.appendChild(row);
-  }
+  <!-- ── 工作区 ─────────────────────────────────────────────────── -->
+  <main class="workspace">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" id="nav-toggle" aria-label="菜单">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div class="crumb" id="crumb">Home</div>
+      <div class="spacer"></div>
+      <div class="chips" id="chips">
+        <span class="chip" data-chip="vision"><i class="dot"></i>Vision</span>
+        <span class="chip" data-chip="audio"><i class="dot"></i>Audio</span>
+        <span class="chip" data-chip="assistant"><i class="dot"></i>Assistant</span>
+      </div>
+      <button class="icon-btn" id="ctx-toggle" aria-label="上下文面板" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <path d="M9 5h10M9 12h10M9 19h10"/>
+          <circle cx="4.6" cy="5" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="4.6" cy="12" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="4.6" cy="19" r="1.1" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+    </header>
 
-  function scrollDown() { log.scrollTop = log.scrollHeight; }
+    <div class="stage" id="stage">
 
-  function refreshFiles() {
-    pending = Array.from(fileEl.files || []);
-    fileList.textContent = pending.length
-      ? pending.map(function (f) { return f.name; }).join("、")
-      : "无";
-  }
-  fileEl.addEventListener("change", refreshFiles);
+      <!-- ── HOME ───────────────────────────────────────────────── -->
+      <section class="view" data-view="home">
+        <header class="hero">
+          <p class="hero-greet" id="greeting">Good afternoon</p>
+          <h1 class="hero-line">你的智能助手已就绪</h1>
+          <p class="hero-sub">3 个场景可用 · 数据留在本机</p>
+        </header>
 
-  async function send() {
-    const text = textEl.value.trim();
-    if (!text && !pending.length) return;
-    if (empty) empty.style.display = "none";
+        <div class="cards">
+          <button class="card card-meeting" data-go="meeting">
+            <span class="card-kicker">MEETING</span>
+            <span class="card-motif" aria-hidden="true">
+              <svg class="wave" viewBox="0 0 120 28" preserveAspectRatio="none">
+                <path class="wave-path" d="M0 14h9l3-7 4 14 4-11 3 8 3-4h11l3-6 4 12 4-9 3 6 3-3h11l3-5 4 10 4-8 3 5 3-2h11l3-4 4 8 4-6 3 4 3-2h9"/>
+              </svg>
+            </span>
+            <span class="card-title">Capture the conversation</span>
+            <span class="card-desc">提交会议转写或录音，整理要点、决策与行动项。</span>
+            <span class="card-cta">Start Meeting <em>→</em></span>
+          </button>
 
-    addUser(text, pending.map(function (f) { return f.name; }));
-    scrollDown();
+          <button class="card card-vision" data-go="vision">
+            <span class="card-kicker">VISION</span>
+            <span class="card-motif viewfinder" aria-hidden="true">
+              <i class="vf tl"></i><i class="vf tr"></i><i class="vf bl"></i><i class="vf br"></i>
+              <span class="vf-core"></span>
+            </span>
+            <span class="card-title">Capture a question</span>
+            <span class="card-desc">上传题目图片，识别、求解并回看原图做程序校验。</span>
+            <span class="card-cta">Open Vision <em>→</em></span>
+          </button>
 
-    const fd = new FormData();
-    fd.append("text", text);
-    fd.append("scene", sceneEl.value);
-    fd.append("session_id", sessionEl.value.trim() || "web");
-    pending.forEach(function (f) { fd.append("files", f, f.name); });
+          <button class="card card-fitness" data-go="fitness">
+            <span class="card-kicker">FITNESS</span>
+            <span class="card-motif" aria-hidden="true">
+              <svg class="imu" viewBox="0 0 120 28" preserveAspectRatio="none">
+                <path class="imu-path" d="M0 18h14l4-9 6 15 6-12 5 7 5-3h14l4-8 6 14 6-11 5 6 5-2h14l4-7 6 12 6-9 5 5 4-2h11"/>
+              </svg>
+            </span>
+            <span class="card-title">Train smarter</span>
+            <span class="card-desc">建立健康档案，逐组记录训练并实时调整。</span>
+            <span class="card-cta">Start Workout <em>→</em></span>
+          </button>
+        </div>
+      </section>
 
-    textEl.value = "";
-    fileEl.value = "";
-    pending = [];
-    refreshFiles();
-    sendBtn.disabled = true;
-    statusEl.textContent = "处理中…";
+      <!-- ── MEETING ────────────────────────────────────────────── -->
+      <section class="view" data-view="meeting">
+        <header class="scene-head">
+          <span class="card-kicker">MEETING</span>
+          <h2>Listen. Understand. Remember.</h2>
+          <p>转写与纪要留在本机；生成后可导出 Word / PDF / Markdown。</p>
+        </header>
 
-    try {
-      const res = await fetch("/api/chat", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) {
-        addBot({ scene: "-", action: "-", status: "error", error: data.error || ("HTTP " + res.status) });
-      } else {
-        addBot(data);
-      }
-      statusEl.textContent = "就绪";
-    } catch (e) {
-      addBot({ scene: "-", action: "-", status: "error", error: "请求失败：" + e.message });
-      statusEl.textContent = "出错";
-    } finally {
-      sendBtn.disabled = false;
-      scrollDown();
-    }
-  }
+        <div class="actions">
+          <button class="btn btn-primary" id="meeting-start">Start from Text</button>
+          <button class="btn" id="meeting-audio">Upload Audio</button>
+          <button class="btn btn-ghost" id="meeting-stop" hidden>End Session</button>
+        </div>
 
-  sendBtn.addEventListener("click", send);
-  textEl.addEventListener("keydown", function (e) {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
-  });
+        <div class="panel" id="meeting-session" hidden>
+          <div class="panel-head">
+            <span class="panel-title">Session</span>
+            <span class="badge" id="meeting-badge">READY</span>
+          </div>
 
-  fetch("/health").then(function (r) { return r.json(); }).then(function (h) {
-    statusEl.textContent = h.api_key_configured ? "就绪" : "未配置 API Key";
-  }).catch(function () {});
-})();
-</script>
+          <div class="audio-monitor" id="meeting-monitor" hidden>
+            <span class="mono-time" id="mono-time">00:00</span>
+            <svg class="wave wave-live" viewBox="0 0 240 34" preserveAspectRatio="none">
+              <path class="wave-path" d="M0 17h10l4-9 5 18 5-14 4 10 4-6h12l4-8 5 16 5-12 4 8 4-4h12l4-7 5 14 5-10 4 7 4-3h12l4-6 5 12 5-9 4 6 4-3h12l4-5 5 10 5-8 4 5 4-2h14l4-6 5 11 5-8 4 6 4-3h13"/>
+            </svg>
+            <span class="mono-state" id="mono-state">Listening</span>
+          </div>
+
+          <textarea id="meeting-transcript" rows="5" placeholder="粘贴会议转写内容，例如：&#10;张三：我负责接口文档，周五前提交。"></textarea>
+          <div class="panel-foot">
+            <span class="count" id="meeting-count">0 字</span>
+            <div class="spacer"></div>
+            <button class="btn btn-ghost" id="meeting-append">Append</button>
+            <button class="btn btn-primary" id="meeting-summarize">Generate Summary</button>
+          </div>
+        </div>
+
+        <div class="pipeline" id="meeting-pipeline" hidden></div>
+        <div class="result" id="meeting-result" hidden></div>
+      </section>
+
+      <!-- ── VISION ─────────────────────────────────────────────── -->
+      <section class="view" data-view="vision">
+        <header class="scene-head">
+          <span class="card-kicker">VISION</span>
+          <h2>Capture. Recognise. Verify.</h2>
+          <p>一次一题，保留完整题干与全部选项；结果会回看原图复核。</p>
+        </header>
+
+        <div class="vision-grid">
+          <div class="frame" id="vision-frame">
+            <i class="vf tl"></i><i class="vf tr"></i><i class="vf bl"></i><i class="vf br"></i>
+            <div class="frame-body" id="vision-body">
+              <svg class="frame-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 8V5.6A1.6 1.6 0 0 1 5.6 4H8"/><path d="M16 4h2.4A1.6 1.6 0 0 1 20 5.6V8"/>
+                <path d="M20 16v2.4a1.6 1.6 0 0 1-1.6 1.6H16"/><path d="M8 20H5.6A1.6 1.6 0 0 1 4 18.4V16"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <p class="frame-hint">选择或拖入一张题目图片</p>
+              <button class="btn btn-primary" id="vision-pick">Choose Image</button>
+            </div>
+          </div>
+
+          <div class="vision-side">
+            <div class="pipeline" id="vision-pipeline" hidden></div>
+            <div class="actions actions-stack">
+              <button class="btn btn-primary" id="vision-solve" disabled>Solve</button>
+              <button class="btn btn-ghost" id="vision-clear" hidden>Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="result" id="vision-result" hidden></div>
+      </section>
+
+      <!-- ── FITNESS ────────────────────────────────────────────── -->
+      <section class="view" data-view="fitness">
+        <header class="scene-head">
+          <span class="card-kicker">FITNESS</span>
+          <h2>Motion-aware training</h2>
+          <p>依据健康档案调整动作与负荷；报告不适时立即暂停。</p>
+        </header>
+
+        <div class="fit-profile" id="fit-profile"></div>
+
+        <div class="fit-session" id="fit-session" hidden>
+          <div class="panel-head">
+            <span class="panel-title">Workout</span>
+            <span class="badge" id="fit-badge">READY</span>
+          </div>
+          <div class="fit-stats">
+            <div class="stat">
+              <span class="stat-label">Sets logged</span>
+              <span class="stat-value" id="fit-sets">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Current</span>
+              <span class="stat-value" id="fit-current">—</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Workout State</span>
+              <span class="stat-value state" id="fit-state">IDLE</span>
+            </div>
+          </div>
+          <div class="fit-actions">
+            <button class="btn" id="fit-setdone">Log a Set</button>
+            <button class="btn btn-ghost" id="fit-pain">Report Discomfort</button>
+            <button class="btn btn-primary" id="fit-end">End Workout</button>
+          </div>
+          <div class="rest" id="fit-rest" hidden>
+            <svg class="ring" viewBox="0 0 44 44" aria-hidden="true">
+              <circle class="ring-bg" cx="22" cy="22" r="18"/>
+              <circle class="ring-fg" cx="22" cy="22" r="18" id="rest-ring"/>
+            </svg>
+            <span class="rest-label">REST</span>
+            <span class="mono-time" id="rest-time">--:--</span>
+          </div>
+        </div>
+
+        <div class="result" id="fitness-result" hidden></div>
+      </section>
+
+      <!-- ── MEMORY ─────────────────────────────────────────────── -->
+      <section class="view" data-view="memory">
+        <header class="scene-head">
+          <span class="card-kicker">MEMORY</span>
+          <h2>Everything your glasses kept</h2>
+          <p>会议纪要、题解与训练总结都归档在本机，可导出。</p>
+        </header>
+
+        <div class="filters" id="memory-filters">
+          <button class="filter is-on" data-filter="">All</button>
+          <button class="filter" data-filter="meeting">Meetings</button>
+          <button class="filter" data-filter="exam">Vision</button>
+          <button class="filter" data-filter="fitness">Fitness</button>
+        </div>
+
+        <div class="memory" id="memory-list"></div>
+        <div class="result" id="memory-detail" hidden></div>
+      </section>
+
+    </div>
+
+    <!-- ── Composer：Command Layer，只占底部一条 ─────────────────── -->
+    <footer class="composer">
+      <div class="composer-inner">
+        <div class="attach-wrap">
+          <button class="plus" id="plus" aria-label="添加附件" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <div class="attach-menu" id="attach-menu" hidden>
+            <button data-attach="image">Photo</button>
+            <button data-attach="audio">Audio</button>
+          </div>
+        </div>
+        <textarea id="input" rows="1" placeholder="Ask assistant..."></textarea>
+        <button class="send" id="send" aria-label="发送">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+      <div class="composer-foot">
+        <span class="attached" id="attached"></span>
+      </div>
+    </footer>
+  </main>
+
+  <!-- ── Context Panel：需要时从右侧滑出 ────────────────────────── -->
+  <aside class="ctx" id="ctx" aria-hidden="true">
+    <div class="ctx-head">
+      <span class="panel-title">Context</span>
+      <button class="icon-btn" id="ctx-close" aria-label="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="ctx-body" id="ctx-body"></div>
+  </aside>
+</div>
+
+<!-- ── Mobile 底部 Tab ──────────────────────────────────────────── -->
+<nav class="tabbar" id="tabbar">
+  <button data-go="home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/></svg>
+    <span>Home</span>
+  </button>
+  <button data-go="meeting">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+    <span>Meeting</span>
+  </button>
+  <button data-go="vision">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5.6A1.6 1.6 0 0 1 5.6 4H8"/><path d="M16 4h2.4A1.6 1.6 0 0 1 20 5.6V8"/><path d="M20 16v2.4a1.6 1.6 0 0 1-1.6 1.6H16"/><path d="M8 20H5.6A1.6 1.6 0 0 1 4 18.4V16"/><circle cx="12" cy="12" r="3"/></svg>
+    <span>Vision</span>
+  </button>
+  <button data-go="fitness">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12.5h3.4l2-5.2 3 10.4 2.4-7.2 1.8 4h4.9"/></svg>
+    <span>Fitness</span>
+  </button>
+  <button data-go="memory">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 3.2 7.6 12 12l8.8-4.4L12 3.2Z"/><path d="m3.2 12.4 8.8 4.4 8.8-4.4"/><path d="m3.2 16.8 8.8 4.4 8.8-4.4"/></svg>
+    <span>Memory</span>
+  </button>
+</nav>
+
+<div class="toast" id="toast" hidden></div>
+<input type="file" id="file-input" hidden multiple>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

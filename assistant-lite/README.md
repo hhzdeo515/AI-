@@ -10,8 +10,9 @@
 
 > **这一节是跨上下文的接续锚点。每次中断（上下文将满、会话结束）前必须更新。**
 
-- **当前阶段**：`P0–P7 全部完成，真实模型已跑通`
-- **状态**：三场景 + CLI + Web + 导出 + 资料查询 全部就绪并已用真实模型验证
+- **当前阶段**：`P0–P9 全部完成`
+- **状态**：三场景 + CLI + Web + 导出 + 资料查询 全部就绪，真实模型已验证；
+  Web UI 已按「AI 智能眼镜 Companion」方向重做
 - **各阶段**：
   - **P0**：`config.py` / `schemas.py` / `llm.py` / `agents/base.py` / `run.py` CLI / 根 `.gitignore`
   - **P1**：`session.py`、`orchestrator.py`（五级路由）、`agents/meeting/`、`agents/general.py`
@@ -47,6 +48,8 @@
 | 训练总结 + 下一步计划 | ✅ 用臀桥替代深蹲，给血压自测与就医提醒 | ~13s |
 | 自然语言导出 | ✅ 「导出最新一份成 Word」生成合法 docx | <1s |
 | ASR 通路 | ✅ 鉴权/模型名/请求格式均正常（用正弦音测试，无语音故返回空） | ~2s |
+| Vision pipeline 真实进度 | ✅ 轮询捕获到 `recognize → solve → verify` 三步真实推进 | — |
+| 浏览器端全流程 | ✅ CDP 驱动：注入图片 → 点 Solve → ANSWER 块渲染出 `B) 9` | ~40s |
 
 **发现并修掉的两个真实问题**：
 1. **题解从未落库**：`exam` agent 只塞了个假的 artifact、没写 `_archive`，导致拍照解题的结果
@@ -123,22 +126,52 @@ assistant-lite/
       exam/              拍照解题（P2）
       fitness/           锻炼指导（P3/P4）
     tools/               纯函数工具：grids / calc / export
-    web/                 本地 Web 页（P5）
+    web/                 本地 Web 页
+      app.py             Flask：/api/chat /progress /profile /resource /reset /export …
+      templates/         index.html
+      static/            app.css / app.js
   data/                  运行时数据（不入库）
   tests/
 ```
 
-## 分阶段计划
+## Web UI（Glasses Companion）
 
-| 阶段 | 内容 | 状态 |
-| --- | --- | --- |
-| P0 | 骨架、config、llm、schemas、CLI、git init | 进行中 |
-| P1 | session + 会议纪要场景 | 待做 |
-| P2 | 拍照解题场景 + grids/calc 工具 | 待做 |
-| P3 | 锻炼-健康档案与器械识别 | 待做 |
-| P4 | 锻炼-训练状态机与事件提醒 | 待做 |
-| P5 | Web 页与 ASR | 待做 |
-| P6 | 导出（docx/pdf）与收尾 | 待做 |
+设计方向：**面向 AI 智能眼镜的个人智能助手 Companion**——左侧导航 + 工作区 + 可滑出的 Context Panel，
+浅色底（`#F5F7F8`）+ 冷青强调色（`#3FA7A3`），细线线性 SVG 图标，克制动效。
+Chat 只作为底部的 Command Layer，主区域优先展示当前任务与结果。
+
+- **三个场景各有独立视觉语言**：Meeting = 音频波形，Vision = 取景框四角，Fitness = IMU 活动轨迹。
+  不看文字也能区分。
+- **状态语言统一**：`READY / LISTENING / ACTIVE / PAUSED / ENDED`，用 badge 表达。
+- **没有硬件连接就写 `Demo Mode`**，不伪装成「Glasses Connected」。
+- **Pipeline 显示真实阶段，不是假动画**：
+  - Vision 四步（Capture → Recognize → Solve → Verify）由 `progress.report()` 在 Agent 内逐步上报，
+    前端轮询 `/api/progress` 渲染。实测捕获到的真实序列：
+    `recognize(done:capture) → solve(done:capture,recognize) → verify(done:capture,recognize,solve)`
+  - Meeting 四步（Content captured → Transcript ready → Structuring → Summary ready）
+    由真实会话状态推导；未上传录音时标签自动变为 `Content captured`。
+  - 没有进度记录时接口返回空 `steps`，前端回退到「整体处理中」，**不编造阶段**。
+- **动画都有目的**：反馈状态（状态点 pulse）、表达进度（scanline / pipeline）、
+  提示可交互（hover 抬升、取景框收拢 2–3px、波形流动）、区分场景（三种 motif）。
+  统一 `prefers-reduced-motion` 降级。
+- **响应式**：Desktop = 导航 + 工作区 + Context Panel；Tablet(≤1080) = 导航 + 工作区，Panel 浮层；
+  Mobile(≤820) = 抽屉导航 + 底部 Tab。
+- **深链**：视图写入 `location.hash`，支持刷新保持与浏览器前进/后退。
+
+## 分阶段实现（全部完成）
+
+| 阶段 | 内容 |
+| --- | --- |
+| P0 | 骨架、config、llm、schemas、CLI、git init |
+| P1 | session + 会议纪要场景 |
+| P2 | 拍照解题场景 + grids/calc 工具 |
+| P3 | 锻炼-健康档案与器械识别 |
+| P4 | 锻炼-训练状态机与事件提醒 |
+| P5 | Web 页与 ASR |
+| P6 | 导出（docx/pdf）与收尾 |
+| P7 | 资料查询与自然语言导出 |
+| P8 | 接真实模型验证：修「题解未落库」与「纪要编造约束」 |
+| P9 | Web UI 重做为 Glasses Companion + 真实进度上报 |
 
 ## 环境
 

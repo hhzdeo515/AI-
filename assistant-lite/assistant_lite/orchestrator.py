@@ -12,7 +12,7 @@ import json
 from dataclasses import asdict
 from typing import Any
 
-from . import config, llm, session
+from . import config, llm, progress, session
 from .agents.base import BaseAgent
 from .schemas import (
     SCENE_FITNESS,
@@ -191,6 +191,7 @@ class Orchestrator:
         task.action = action
 
         agent = self._agent_for(scene)
+        progress.begin(task.request_id, scene)
         try:
             reply = agent.handle(task, state)
         except Exception as e:  # Agent 内部异常不应炸掉整个服务
@@ -200,6 +201,7 @@ class Orchestrator:
                 action=action,
                 status=STATUS_ERROR,
             )
+        progress.finish(task.request_id, error=(reply.status == STATUS_ERROR))
 
         self._apply(task, state, reply)
 
