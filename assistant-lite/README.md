@@ -10,26 +10,34 @@
 
 > **这一节是跨上下文的接续锚点。每次中断（上下文将满、会话结束）前必须更新。**
 
-- **当前阶段**：`P1 会议纪要场景` — 已完成
-- **状态**：P0、P1 完成；下一步 P2
+- **当前阶段**：`P2 拍照解题场景` — 已完成
+- **状态**：P0 / P1 / P2 完成；下一步 P3
 - **已完成**：
   - **P0**：`config.py` / `schemas.py` / `llm.py` / `agents/base.py` / `run.py` CLI / 根 `.gitignore`
   - **P1**：`session.py`（SQLite + WAL + owner 隔离 + request_id 去重 + 资料归档）、
-    `orchestrator.py`（事件映射 → 显式场景 → 粘性场景 → 关键词 → LLM 兜底 五级路由）、
-    `agents/meeting/`（状态机 + 提示词 + Agent）、`agents/general.py`、
-    `tests/test_meeting.py`（12 项，全通过，不需要 API Key）
-- **已实测**（无需 Key）：
+    `orchestrator.py`（五级路由）、`agents/meeting/`、`agents/general.py`、`tests/test_meeting.py`（13 项）
+  - **P2**：`agents/exam/`（VISION → SOLVER → 工具 → REVIEWER → 渲染 五步链）、
+    `tools/grids.py`（复制旧 `check_grids`）、`tools/calc.py`（移植旧 `calculate`）、
+    `tests/test_exam_tools.py`（11 项）
+- **已实测**（均不需要 API Key）：
   ```
-  python run.py ask "开始会议记录"        -> meeting/start  ok
-  python run.py ask "张三：我负责接口文档" -> meeting/append ok   （粘性路由）
-  python run.py ask "生成会议纪要"         -> meeting/summarize need_input（空会议被拦）
-  python tests/test_meeting.py            -> 12/12 通过
+  python tests/test_meeting.py     -> 13/13 通过
+  python tests/test_exam_tools.py  -> 11/11 通过
+  python run.py ask "计算 (18+24)*3" --session f1   -> exam/calculate  (18+24)*3 = 126
+  python run.py ask "计算 120/(1+0.2)" --session f1 -> exam/calculate  120/(1+0.2) = 100.0
+  python run.py ask "开始会议记录" --session f2      -> meeting/start
+  python run.py ask "张三：周五前交接口文档。" --session f2 -> meeting/append（粘性路由）
   ```
+  > 路由顺序：事件映射 → 显式场景 → **关键词** → **粘性场景** → LLM 兜底。
+  > 关键词必须排在粘性之前，否则会议进行中一句"计算 (18+24)*3"会被当成会议内容
+  > （已修复并有回归测试 `test_sticky_does_not_swallow_other_scenes`）。
 - **下一步**：
-  1. **填入 `DASHSCOPE_API_KEY`**（复制 `.env.example` 为 `.env`），跑 `python run.py check`
-     验证模型连通 —— 这是 P0/P1 唯一未验证项
-  2. 进入 **P2 拍照解题场景**：复制 `dify-assistant/exam_prompts.py` 的四个提示词常量、
-     `exam_tools.py` 的 `check_grids()`、`service.py` 的 `calculate()`
+  1. **填入 `DASHSCOPE_API_KEY`**（复制 `.env.example` 为 `.env`），跑 `python run.py check`。
+     这是目前唯一未验证项——所有需要真实模型的路径（会议纪要生成、拍题五步链）都还没跑过。
+  2. 进入 **P3 锻炼-健康档案与器械识别**：
+     新建 `agents/fitness/{__init__,profile,prompts,agent}.py`，
+     问卷建档写 `data/profiles/<owner>.json`，器械识别走 `llm.vision` + 档案注入。
+     注意：`orchestrator._AGENT_SPECS` 已预留 `fitness`，模块建好即自动注册。
 
 ---
 

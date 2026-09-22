@@ -215,6 +215,29 @@ def test_sticky_meeting_route_and_persist() -> None:
     assert session.load_state("u", "s")["meeting"]["status"] == "ended"
 
 
+def test_sticky_does_not_swallow_other_scenes() -> None:
+    """回归：会议进行中，明确属于其它场景的输入不能被粘性规则吞掉。"""
+    _fresh_db()
+    o = Orchestrator()
+    o.handle(Task(text="开始会议记录", owner="u", session_id="s", request_id="k1"))
+
+    # 此时 meeting 处于 collecting，但这句话明显是解题
+    scene, _, source = o.route(
+        Task(text="计算 (18+24)*3"), session.load_state("u", "s")
+    )
+    assert scene == "exam", f"应路由到 exam，实际 {scene}（source={source}）"
+
+    # 会议指令本身仍应归会议
+    scene, _, _ = o.route(Task(text="生成会议纪要"), session.load_state("u", "s"))
+    assert scene == "meeting"
+
+    # 真正的转写内容（无任何关键词）才走粘性
+    scene, _, source = o.route(
+        Task(text="李四：我负责前端，下周三给联调版本。"), session.load_state("u", "s")
+    )
+    assert (scene, source) == ("meeting", "sticky")
+
+
 def test_transcript_from_event() -> None:
     _fresh_db()
     o = Orchestrator()

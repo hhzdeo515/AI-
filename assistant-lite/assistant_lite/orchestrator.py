@@ -107,15 +107,8 @@ class Orchestrator:
         if task.scene_hint and task.scene_hint in config.SCENES:
             return task.scene_hint, "", "hint"
 
-        # 3) 粘性场景：会议记录进行中，后续输入默认仍是会议内容。
-        #    具体动作交给 MeetingAgent 从文本推断（结束/纪要/追加）。
-        #    说"结束会议"即可退出这个粘性状态。
-        if state:
-            m = state.get("meeting")
-            if isinstance(m, dict) and m.get("status") == "collecting":
-                return SCENE_MEETING, "", "sticky"
-
-        # 4) 关键词命中
+        # 3) 关键词命中。必须排在粘性场景之前：
+        #    否则会议进行中一句"计算 (18+24)*3"会被当成会议内容吞掉。
         best: BaseAgent | None = None
         best_score = 0.0
         for a in self.agents:
@@ -124,6 +117,14 @@ class Orchestrator:
                 best, best_score = a, score
         if best is not None and best_score >= 0.8:
             return best.scene, "", "keyword"
+
+        # 4) 粘性场景：会议记录进行中，后续输入默认仍是会议内容。
+        #    具体动作交给 MeetingAgent 从文本推断（结束/纪要/追加）。
+        #    说"结束会议"即可退出这个粘性状态。
+        if state:
+            m = state.get("meeting")
+            if isinstance(m, dict) and m.get("status") == "collecting":
+                return SCENE_MEETING, "", "sticky"
 
         # 5) LLM 兜底
         return self._llm_route(task)
