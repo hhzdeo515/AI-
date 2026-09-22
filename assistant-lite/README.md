@@ -21,7 +21,9 @@
   - **P5**：`web/app.py` + `web/templates/index.html`；`llm.asr()` 走 `qwen3-asr-flash`
   - **P6**：`tools/export.py`（md/txt/json/csv/docx/pdf）、`run.py export|resources`、
     `web` 的 `/api/export`；PDF 用 reportlab 内置 STSong-Light 中文字体（不依赖外部字体文件）
-- **测试**（共 88 项，全部不需要 API Key）：
+  - **P7**：`agents/resource/`（资料查询与自然语言导出）——「我有哪些资料」「导出刚才的纪要成 Word」
+    「导出 6e13c22b 成 PDF」全部零 token 解析；导出意图给 0.95 置信度以压过其它场景关键词
+- **测试**（共 106 项，全部不需要 API Key）：
   ```
   python tests/test_meeting.py     -> 13/13   会议状态机、去重、owner 隔离
   python tests/test_exam_tools.py  -> 11/11   算术工具、黑白格、路由
@@ -29,6 +31,7 @@
   python tests/test_workout.py     -> 20/20   训练状态机、事件提醒、粘性路由
   python tests/test_web.py         -> 10/10   Flask 接口、附件上传与拦截
   python tests/test_export.py      -> 16/16   六种格式导出与边界
+  python tests/test_resource.py    -> 18/18   资料查询、自然语言导出、跨 owner 拒绝
   ```
 
 ## 用法速查
@@ -38,16 +41,18 @@ python run.py check                    # 配置自检 + 模型连通
 python run.py chat                     # 交互对话（/scene 切场景）
 python run.py ask "开始卧推 3组10次 60公斤" --session s1
 python run.py ask "膝盖有点疼" -e '{"semantic_action":"pain_report"}' --session s1
-python run.py resources --owner u      # 列出已归档资料
-python run.py export --owner u -f docx # 导出最新一份资料（md/txt/json/csv/docx/pdf）
-python run.py web --port 8801          # 起本地 Web 页
+python run.py ask "我有哪些资料" --owner u            # 列出已归档资料
+python run.py ask "导出最新一份成 Word" --owner u      # 自然语言导出
+python run.py resources --owner u                      # 同上（命令行形式）
+python run.py export --owner u -f docx                 # 直接导出最新一份
+python run.py web --port 8801                          # 起本地 Web 页
 ```
 
 - **下一步（唯一待办）**：**填入 `DASHSCOPE_API_KEY`**（复制 `.env.example` 为 `.env`），
   跑 `python run.py check`。目前所有需要真实模型的路径——会议纪要生成、拍题五步链、
   器械个性化润色、训练总结、ASR 转写——都只跑过降级路径（降级逻辑本身已验证正确）。
-- **已知边界（首版有意不做）**：自然语言「导出刚才的纪要」的意图路由（现用 CLI/Web 接口导出）；
-  摄像头抽帧实时分析、运动后视频离线分析；TTS；多租户与鉴权；知识库语义检索。
+- **已知边界（首版有意不做）**：摄像头抽帧实时分析、运动后视频离线分析；TTS；
+  多租户与鉴权；知识库语义检索；导出未做 SRT/ZIP 打包。
 
 ---
 

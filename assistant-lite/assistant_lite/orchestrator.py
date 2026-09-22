@@ -35,17 +35,21 @@ ACTION_MAP: dict[str, tuple[str | None, str]] = {
     "set_done": ("fitness", "set_done"),
     "pain_report": ("fitness", "pain_report"),
     "end_workout": ("fitness", "end_workout"),
+    "export_resource": ("resource", "export"),
+    "list_resources": ("resource", "list"),
     "switch_scene": (None, "switch_scene"),
 }
 
 ROUTER_PROMPT = """你是智能助手总控，只输出一个 JSON 对象，不要代码围栏。
 字段：scene, action, reason。
-scene 只能取 meeting / exam / fitness / general：
+scene 只能取 meeting / exam / fitness / resource / general：
 - 会议记录、会议纪要、会议转写、录音整理 -> meeting
 - 题目、解题、答案、讲解、计算、上传的题目图片 -> exam
 - 健身、锻炼、运动、器械、动作、几组、深蹲、卧推、跑步、身体不适 -> fitness
+- 导出、下载、查找历史资料、我有哪些记录、把刚才的结果转成文件 -> resource
 - 其他日常问答 -> general
-action 只能取 start / append / summarize / stop / solve / start_exercise / set_done / pain_report / end_workout / answer。
+action 只能取 start / append / summarize / stop / solve / start_exercise / set_done /
+pain_report / end_workout / export / list / answer。
 拿不准时 scene 填 general、action 填 answer。
 只输出 JSON，例如 {"scene":"meeting","action":"append","reason":"用户在提交会议转写"}"""
 
@@ -54,6 +58,7 @@ _AGENT_SPECS = (
     ("meeting", "MeetingAgent"),
     ("exam", "ExamAgent"),
     ("fitness", "FitnessAgent"),
+    ("resource", "ResourceAgent"),
 )
 
 

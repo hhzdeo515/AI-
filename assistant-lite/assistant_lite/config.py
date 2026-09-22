@@ -32,7 +32,7 @@ MEETING_CHAR_LIMIT = 48000  # 单场会议转写字符上限
 VISION_MAX_EDGE = 2048  # 送模型前图片长边上限
 ASR_CHUNK_SECONDS = 240  # 长音频分片长度（秒）
 
-SCENES = ("meeting", "exam", "fitness", "general")
+SCENES = ("meeting", "exam", "fitness", "resource", "general")
 
 
 def ensure_dirs() -> None:

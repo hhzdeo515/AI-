@@ -14,6 +14,7 @@ SCENE_GENERAL = "general"
 SCENE_MEETING = "meeting"
 SCENE_EXAM = "exam"
 SCENE_FITNESS = "fitness"
+SCENE_RESOURCE = "resource"
 
 # Reply.status 取值
 STATUS_OK = "ok"  # 正常完成

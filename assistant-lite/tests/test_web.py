@@ -63,7 +63,7 @@ def test_health() -> None:
     assert r.status_code == 200
     j = r.get_json()
     assert j["ok"] is True
-    assert set(j["scenes"]) == {"meeting", "exam", "fitness", "general"}
+    assert set(j["scenes"]) == {"meeting", "exam", "fitness", "resource", "general"}
     assert j["model_text"] and j["model_vision"] and j["model_asr"]
 
 
