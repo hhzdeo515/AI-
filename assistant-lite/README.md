@@ -10,20 +10,26 @@
 
 > **这一节是跨上下文的接续锚点。每次中断（上下文将满、会话结束）前必须更新。**
 
-- **当前阶段**：`P0 骨架与基础设施`
-- **状态**：进行中
+- **当前阶段**：`P1 会议纪要场景` — 已完成
+- **状态**：P0、P1 完成；下一步 P2
 - **已完成**：
-  - `assistant_lite/config.py` — 配置入口（.env）
-  - `assistant_lite/schemas.py` — Task / Reply 契约
-  - `assistant_lite/llm.py` — chat / vision / json_chat / asr
-  - `assistant_lite/agents/base.py` — Agent 基类
-  - `run.py` — CLI（check / ask / chat / web）
-  - 根目录 `.gitignore`
+  - **P0**：`config.py` / `schemas.py` / `llm.py` / `agents/base.py` / `run.py` CLI / 根 `.gitignore`
+  - **P1**：`session.py`（SQLite + WAL + owner 隔离 + request_id 去重 + 资料归档）、
+    `orchestrator.py`（事件映射 → 显式场景 → 粘性场景 → 关键词 → LLM 兜底 五级路由）、
+    `agents/meeting/`（状态机 + 提示词 + Agent）、`agents/general.py`、
+    `tests/test_meeting.py`（12 项，全通过，不需要 API Key）
+- **已实测**（无需 Key）：
+  ```
+  python run.py ask "开始会议记录"        -> meeting/start  ok
+  python run.py ask "张三：我负责接口文档" -> meeting/append ok   （粘性路由）
+  python run.py ask "生成会议纪要"         -> meeting/summarize need_input（空会议被拦）
+  python tests/test_meeting.py            -> 12/12 通过
+  ```
 - **下一步**：
-  1. 装依赖：`pip install -r requirements.txt`
-  2. 复制 `.env.example` 为 `.env` 并填 `DASHSCOPE_API_KEY`
-  3. `python run.py check` 验证模型连通
-  4. 首次 git commit，然后进入 **P1 会议纪要场景**
+  1. **填入 `DASHSCOPE_API_KEY`**（复制 `.env.example` 为 `.env`），跑 `python run.py check`
+     验证模型连通 —— 这是 P0/P1 唯一未验证项
+  2. 进入 **P2 拍照解题场景**：复制 `dify-assistant/exam_prompts.py` 的四个提示词常量、
+     `exam_tools.py` 的 `check_grids()`、`service.py` 的 `calculate()`
 
 ---
 

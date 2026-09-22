@@ -33,6 +33,8 @@ class Task:
     files: list[str] = field(default_factory=list)  # 本地文件绝对路径（图片/音频）
     event: dict[str, Any] = field(default_factory=dict)  # 结构化事件，如 {"semantic_action": "set_done"}
     scene_hint: str | None = None  # 用户显式指定的场景，路由时最高优先
+    #: 由编排层路由后填入的动作名（如 start / append / summarize / solve）
+    action: str = ""
 
 
 @dataclass
