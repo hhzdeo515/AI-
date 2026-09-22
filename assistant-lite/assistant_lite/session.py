@@ -205,6 +205,21 @@ def list_resources(owner: str, scene: str | None = None, limit: int = 20) -> lis
     return [dict(r) for r in rows]
 
 
+def list_full(owner: str, scene: str | None = None, limit: int = 20) -> list[dict]:
+    """取完整资料（含 content），用于导出。"""
+    init()
+    sql = "SELECT * FROM resources WHERE owner=?"
+    args: list[Any] = [owner]
+    if scene:
+        sql += " AND scene=?"
+        args.append(scene)
+    sql += " ORDER BY created DESC LIMIT ?"
+    args.append(limit)
+    with _LOCK:
+        rows = _connect().execute(sql, args).fetchall()
+    return [dict(r) for r in rows]
+
+
 def get_resource(owner: str, rid: str) -> dict | None:
     init()
     with _LOCK:

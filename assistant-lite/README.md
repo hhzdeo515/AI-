@@ -10,48 +10,44 @@
 
 > **这一节是跨上下文的接续锚点。每次中断（上下文将满、会话结束）前必须更新。**
 
-- **当前阶段**：`P5 Web 页与 ASR` — 已完成
-- **状态**：P0–P5 完成；下一步 P6
-- **已完成**：
+- **当前阶段**：`P0–P6 全部完成`
+- **状态**：三场景 + CLI + Web + 导出 全部就绪；**唯一未验证项是真实模型调用**
+- **各阶段**：
   - **P0**：`config.py` / `schemas.py` / `llm.py` / `agents/base.py` / `run.py` CLI / 根 `.gitignore`
   - **P1**：`session.py`、`orchestrator.py`（五级路由）、`agents/meeting/`、`agents/general.py`
   - **P2**：`agents/exam/`（五步链）、`tools/grids.py`、`tools/calc.py`
   - **P3**：`agents/fitness/profile.py`（建档问卷）、`equipment.py`（15 项器械知识库）
   - **P4**：`agents/fitness/state.py`（训练状态机）、`agent.py` 接入四个训练事件
-  - **P5**：`web/app.py`（Flask：`/`、`/health`、`/api/chat`、`/api/resources`、`/api/state`）、
-    `web/templates/index.html`（深色单页：场景切换 / 附件上传 / 对话历史 / 状态徽标）；
-    `llm.asr()` 走 dashscope 的 `qwen3-asr-flash`，供会议录音转写
-- **测试**（共 72 项，全部不需要 API Key）：
+  - **P5**：`web/app.py` + `web/templates/index.html`；`llm.asr()` 走 `qwen3-asr-flash`
+  - **P6**：`tools/export.py`（md/txt/json/csv/docx/pdf）、`run.py export|resources`、
+    `web` 的 `/api/export`；PDF 用 reportlab 内置 STSong-Light 中文字体（不依赖外部字体文件）
+- **测试**（共 88 项，全部不需要 API Key）：
   ```
-  python tests/test_meeting.py     -> 13/13
-  python tests/test_exam_tools.py  -> 11/11
-  python tests/test_fitness.py     -> 18/18
-  python tests/test_workout.py     -> 20/20
-  python tests/test_web.py         -> 10/10
+  python tests/test_meeting.py     -> 13/13   会议状态机、去重、owner 隔离
+  python tests/test_exam_tools.py  -> 11/11   算术工具、黑白格、路由
+  python tests/test_fitness.py     -> 18/18   建档问卷、器械知识库
+  python tests/test_workout.py     -> 20/20   训练状态机、事件提醒、粘性路由
+  python tests/test_web.py         -> 10/10   Flask 接口、附件上传与拦截
+  python tests/test_export.py      -> 16/16   六种格式导出与边界
   ```
-- **实测 CLI / Web**：
-  ```
-  # CLI
-  run.py ask "开始卧推 3组10次 60公斤"                      -> start_exercise
-  run.py ask "做完一组"                                     -> set_done  「卧推」第 1 组已记录（10 次）
-  run.py ask "膝盖有点疼" -e '{"semantic_action":"pain_report"}' -> 已暂停 + 停练/就医建议
-  run.py ask "结束训练" -e '{"semantic_action":"end_workout"}'   -> 事实清单 + 归档「训练总结」
 
-  # Web（真实起服务 + curl 验收）
-  python run.py web --port 8801
-  curl http://127.0.0.1:8801/health
-  curl -X POST http://127.0.0.1:8801/api/chat -F "text=开始会议记录" -F "session_id=c1"
-  curl -X POST ... -F "files=@t.png"    -> 落盘为 uuid 名；bad.sh 被拦且不落盘
-  ```
-  > 路由顺序：事件映射 → 显式场景 → **关键词** → **粘性场景**（会议 collecting / 建档 awaiting / 训练 active）→ LLM 兜底。
-  > 附件只允许图片与音频扩展名，一律重命名为 uuid 存 `data/uploads/`，非法格式跳过而不整单失败。
-- **下一步**：
-  1. **填入 `DASHSCOPE_API_KEY`**，跑 `python run.py check`。
-     **仍是唯一未验证项**——所有需要真实模型的路径（会议纪要生成、拍题五步链、器械个性化润色、
-     训练总结、ASR 转写）目前都只跑过降级路径。
-  2. **P6 导出与收尾**：`tools/export.py` 参考旧 `service.py` 的 `export_resources`
-     实现 docx/pdf 导出（旧项目用 `python-docx` / `reportlab` + 中文字体）；
-     补 `requirements.txt` 里的导出依赖；整体回归与 README 收尾。
+## 用法速查
+
+```bash
+python run.py check                    # 配置自检 + 模型连通
+python run.py chat                     # 交互对话（/scene 切场景）
+python run.py ask "开始卧推 3组10次 60公斤" --session s1
+python run.py ask "膝盖有点疼" -e '{"semantic_action":"pain_report"}' --session s1
+python run.py resources --owner u      # 列出已归档资料
+python run.py export --owner u -f docx # 导出最新一份资料（md/txt/json/csv/docx/pdf）
+python run.py web --port 8801          # 起本地 Web 页
+```
+
+- **下一步（唯一待办）**：**填入 `DASHSCOPE_API_KEY`**（复制 `.env.example` 为 `.env`），
+  跑 `python run.py check`。目前所有需要真实模型的路径——会议纪要生成、拍题五步链、
+  器械个性化润色、训练总结、ASR 转写——都只跑过降级路径（降级逻辑本身已验证正确）。
+- **已知边界（首版有意不做）**：自然语言「导出刚才的纪要」的意图路由（现用 CLI/Web 接口导出）；
+  摄像头抽帧实时分析、运动后视频离线分析；TTS；多租户与鉴权；知识库语义检索。
 
 ---
 

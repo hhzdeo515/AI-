@@ -8,11 +8,12 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_file
 
 from .. import config, session
 from ..orchestrator import Orchestrator
 from ..schemas import Task
+from ..tools import export
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
 AUDIO_EXT = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".amr", ".wma"}
@@ -113,6 +114,27 @@ def create_app() -> Flask:
         if scene not in config.SCENES:
             scene = None
         return jsonify({"resources": session.list_resources(owner, scene, limit=50)})
+
+    @app.get("/api/export")
+    def api_export():
+        """导出已归档资料。不给 id 则导出最新一份。"""
+        owner = (request.args.get("owner") or "local").strip() or "local"
+        rid = (request.args.get("id") or "").strip()
+        fmt = (request.args.get("format") or "md").strip().lower()
+        scene = (request.args.get("scene") or "").strip() or None
+        if scene not in config.SCENES:
+            scene = None
+        try:
+            if rid:
+                path = export.export_resource(owner, rid, fmt)
+            else:
+                rows = session.list_full(owner, scene, limit=1)
+                path = export.export_rows(rows, fmt)
+        except export.ExportError as e:
+            return jsonify({"error": str(e)}), 400
+        return send_file(
+            str(path), as_attachment=True, download_name=f"{path.stem[:8]}.{path.suffix.lstrip('.')}"
+        )
 
     @app.get("/api/state")
     def api_state():

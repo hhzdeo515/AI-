@@ -178,6 +178,44 @@ def cmd_chat(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export(args: argparse.Namespace) -> int:
+    config.ensure_dirs()
+    from assistant_lite import session
+    from assistant_lite.tools import export as ex
+
+    session.init()
+    try:
+        if args.id:
+            path = ex.export_resource(args.owner, args.id, args.format)
+        else:
+            rows = session.list_full(args.owner, args.scene, limit=args.limit)
+            if not rows:
+                print("没有找到可导出的资料。", file=sys.stderr)
+                return 1
+            if not args.all and len(rows) > 1:
+                rows = rows[:1]
+            path = ex.export_rows(rows, args.format)
+    except ex.ExportError as e:
+        print(f"[导出失败] {e}", file=sys.stderr)
+        return 1
+    print(f"已导出：{path}")
+    return 0
+
+
+def cmd_resources(args: argparse.Namespace) -> int:
+    config.ensure_dirs()
+    from assistant_lite import session
+
+    session.init()
+    rows = session.list_resources(args.owner, args.scene, limit=args.limit)
+    if not rows:
+        print("（暂无资料）")
+        return 0
+    for r in rows:
+        print(f"{r['id'][:8]}  {r['scene']:<8} {r['title']}  ({r['size']} 字, {r['created'][:19]})")
+    return 0
+
+
 def cmd_web(args: argparse.Namespace) -> int:
     try:
         from assistant_lite.web.app import run as run_web
@@ -213,6 +251,23 @@ def main(argv: list[str] | None = None) -> int:
     pch.add_argument("--owner", default="local")
     pch.add_argument("--session", default="default")
     pch.set_defaults(func=cmd_chat)
+
+    pe = sub.add_parser("export", help="导出已归档资料为 md/txt/json/csv/docx/pdf")
+    pe.add_argument("--owner", default="local")
+    pe.add_argument("--id", default=None, help="资料 ID；不给则取最新一份")
+    pe.add_argument("-s", "--scene", default=None, choices=list(config.SCENES))
+    pe.add_argument(
+        "-f", "--format", default="md", choices=["md", "txt", "json", "csv", "docx", "pdf"]
+    )
+    pe.add_argument("--all", action="store_true", help="导出全部匹配资料（默认只导最新一份）")
+    pe.add_argument("--limit", type=int, default=20)
+    pe.set_defaults(func=cmd_export)
+
+    pr = sub.add_parser("resources", help="列出已归档资料")
+    pr.add_argument("--owner", default="local")
+    pr.add_argument("-s", "--scene", default=None, choices=list(config.SCENES))
+    pr.add_argument("--limit", type=int, default=20)
+    pr.set_defaults(func=cmd_resources)
 
     pw = sub.add_parser("web", help="起本地 Web 页")
     pw.add_argument("--host", default="127.0.0.1")
