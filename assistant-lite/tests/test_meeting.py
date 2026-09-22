@@ -255,6 +255,212 @@ def test_transcript_from_event() -> None:
     assert "王五" in session.load_state("u", "s")["meeting"]["transcript"]
 
 
+def test_meeting_accepts_whiteboard_image() -> None:
+    """回归：会议场景曾完全忽略图片附件。
+
+    旧版 dify 的提示词是「根据 transcript 与白板文字生成纪要」，
+    新版 _extract_transcript 只认 AUDIO_EXT，白板照片会一路落到最后，
+    回一句「没有收到会议内容」——明明刚传了文件，这个提示很误导。
+    """
+    from PIL import Image
+
+    from assistant_lite import llm as L
+
+    tmp = _fresh_db()
+    img = tmp / "board.png"
+    Image.new("RGB", (8, 8), "white").save(img)
+
+    seen: dict = {}
+    original = L.vision
+
+    def fake_vision(prompt, images, system="", **kw):
+        seen["system"] = system
+        seen["images"] = list(images)
+        return "白板内容：\n1. 一期目标：本机版\n2. 负责人：张三"
+
+    L.vision = fake_vision
+    try:
+        o = Orchestrator()
+        r = o.handle(
+            Task(text="", owner="u", session_id="s", request_id="wb1",
+                 files=[str(img)], scene_hint="meeting")
+        )
+    finally:
+        L.vision = original
+
+    assert r.status == STATUS_OK, r.text
+    transcript = session.load_state("u", "s")["meeting"]["transcript"]
+    assert "白板内容" in transcript, transcript
+    assert "张三" in transcript
+    # 必须用「忠实记录」的提示词，不能套考题提示词
+    assert "白板" in seen["system"] and "忠实" in seen["system"], seen["system"]
+    assert "不要猜测" in seen["system"]
+    assert seen["images"] == [str(img)]
+
+
+def test_meeting_accepts_audio_via_asr() -> None:
+    from assistant_lite import llm as L
+
+    tmp = _fresh_db()
+    wav = tmp / "m.wav"
+    wav.write_bytes(b"RIFF0000WAVEfmt ")
+
+    original = L.asr
+    L.asr = lambda path, model=None: "张三：我负责接口文档，周五前提交。"
+    try:
+        o = Orchestrator()
+        r = o.handle(
+            Task(text="", owner="u", session_id="s", request_id="au1",
+                 files=[str(wav)], scene_hint="meeting")
+        )
+    finally:
+        L.asr = original
+
+    assert r.status == STATUS_OK, r.text
+    assert "张三" in session.load_state("u", "s")["meeting"]["transcript"]
+
+
+def test_meeting_combines_audio_and_image() -> None:
+    """录音 + 白板照片同时上传，两份内容都要进转写。"""
+    from PIL import Image
+
+    from assistant_lite import llm as L
+
+    tmp = _fresh_db()
+    wav = tmp / "m.wav"
+    wav.write_bytes(b"RIFF0000WAVEfmt ")
+    img = tmp / "b.png"
+    Image.new("RGB", (8, 8), "white").save(img)
+
+    o_asr, o_vis = L.asr, L.vision
+    L.asr = lambda path, model=None: "李四：我负责前端。"
+    L.vision = lambda *a, **kw: "白板：下周三联调"
+    try:
+        o = Orchestrator()
+        r = o.handle(
+            Task(text="", owner="u", session_id="s", request_id="mix1",
+                 files=[str(wav), str(img)], scene_hint="meeting")
+        )
+    finally:
+        L.asr, L.vision = o_asr, o_vis
+
+    assert r.status == STATUS_OK, r.text
+    transcript = session.load_state("u", "s")["meeting"]["transcript"]
+    assert "李四" in transcript, transcript
+    assert "下周三联调" in transcript, transcript
+
+
+def test_meeting_partial_attachment_failure_is_reported() -> None:
+    """一个附件失败、另一个成功时：内容要保留，失败项要明说，不能静默吞掉。"""
+    from PIL import Image
+
+    from assistant_lite import llm as L
+
+    tmp = _fresh_db()
+    ok_img = tmp / "ok.png"
+    bad_img = tmp / "bad.png"
+    Image.new("RGB", (8, 8), "white").save(ok_img)
+    Image.new("RGB", (8, 8), "white").save(bad_img)
+
+    original = L.vision
+
+    def flaky(prompt, images, system="", **kw):
+        if "bad" in str(images[0]):
+            raise L.LLMError("模拟识图失败")
+        return "白板：一期做本机版"
+
+    L.vision = flaky
+    try:
+        o = Orchestrator()
+        r = o.handle(
+            Task(text="", owner="u", session_id="s", request_id="pf1",
+                 files=[str(ok_img), str(bad_img)], scene_hint="meeting")
+        )
+    finally:
+        L.vision = original
+
+    assert r.status == STATUS_OK, r.text
+    assert "未处理的部分" in r.text, r.text
+    assert "bad.png" in r.text, r.text
+    # 成功的那个附件内容应进转写（回复只报字数，不回显内容）
+    transcript = session.load_state("u", "s")["meeting"]["transcript"]
+    assert "一期做本机版" in transcript, transcript
+
+
+def test_meeting_all_attachments_fail() -> None:
+    from PIL import Image
+
+    from assistant_lite import llm as L
+
+    tmp = _fresh_db()
+    img = tmp / "x.png"
+    Image.new("RGB", (8, 8), "white").save(img)
+
+    original = L.vision
+
+    def boom(*a, **kw):
+        raise L.LLMError("模型不可用")
+
+    L.vision = boom
+    try:
+        o = Orchestrator()
+        r = o.handle(
+            Task(text="", owner="u", session_id="s", request_id="af1",
+                 files=[str(img)], scene_hint="meeting")
+        )
+    finally:
+        L.vision = original
+
+    assert r.status == STATUS_NEED_INPUT
+    assert "附件处理失败" in r.text, r.text
+
+
+def test_meeting_unsupported_attachment_is_explicit() -> None:
+    """既不是音频也不是图片的附件，要给明确说明，不能默默什么都不做。"""
+    _fresh_db()
+    tmp = Path(tempfile.mkdtemp(prefix="alite-mt-"))
+    txt = tmp / "notes.txt"
+    txt.write_text("hello", encoding="utf-8")
+
+    o = Orchestrator()
+    r = o.handle(
+        Task(text="", owner="u", session_id="s", request_id="us1",
+             files=[str(txt)], scene_hint="meeting")
+    )
+    assert r.status == STATUS_NEED_INPUT, r.text
+    assert "没能从附件里提取到内容" in r.text, r.text
+
+
+def test_meeting_event_transcript_still_wins() -> None:
+    """事件里带 transcript 时，不应对附件再调模型。"""
+    from PIL import Image
+
+    from assistant_lite import llm as L
+
+    tmp = _fresh_db()
+    img = tmp / "b.png"
+    Image.new("RGB", (8, 8), "white").save(img)
+
+    original = L.vision
+
+    def must_not_call(*a, **kw):
+        raise AssertionError("有 event.transcript 时不应调用视觉模型")
+
+    L.vision = must_not_call
+    try:
+        o = Orchestrator()
+        r = o.handle(
+            Task(text="", owner="u", session_id="s", request_id="ev1",
+                 files=[str(img)],
+                 event={"semantic_action": "append_meeting", "transcript": "王五：预算 30 万。"})
+        )
+    finally:
+        L.vision = original
+
+    assert r.status == STATUS_OK, r.text
+    assert "王五" in session.load_state("u", "s")["meeting"]["transcript"]
+
+
 # --------------------------------------------------------------------------- #
 def _run_all() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]

@@ -22,6 +22,8 @@ from ..base import BaseAgent
 from . import prompts, state as st
 
 AUDIO_EXT = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".amr", ".wma", ".mp4"}
+#: 会议现场照片（白板 / 投屏 / 手写笔记）——走视觉模型忠实记录，不是 OCR
+IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
 
 #: 超过这个长度就分段滚动摘要，避免把整段转写塞进一次调用
 ROLL_THRESHOLD = 20000
@@ -58,23 +60,69 @@ class MeetingAgent(BaseAgent):
     # ------------------------------------------------------------------ #
     # 转写内容提取
     # ------------------------------------------------------------------ #
-    def _extract_transcript(self, task: Task) -> tuple[str, str]:
-        """返回 (转写文本, 错误说明)。优先用事件里的 transcript，其次音频转写，最后用正文。"""
+    def _extract_transcript(self, task: Task) -> tuple[str, str, list[str]]:
+        """返回 (转写文本, 致命错误, 警告列表)。
+
+        优先级：事件里的 transcript > 附件 > 正文。
+        - 音频附件走 ASR 转写
+        - 图片附件走视觉模型做**忠实记录**（白板/投屏/手写笔记），不是 OCR
+
+        附件里只要有任意一个成功，就不算失败；失败的那些作为警告返回，
+        既不阻断流程，也不静默吞掉。
+        """
         ev = task.event or {}
         if isinstance(ev.get("transcript"), str) and ev["transcript"].strip():
-            return ev["transcript"].strip(), ""
+            return ev["transcript"].strip(), "", []
+
+        parts: list[str] = []
+        warnings: list[str] = []
 
         for f in task.files:
-            if Path(f).suffix.lower() in AUDIO_EXT:
+            p = Path(f)
+            ext = p.suffix.lower()
+            if ext in AUDIO_EXT:
                 try:
-                    return llm.asr(f).strip(), ""
+                    got = llm.asr(f).strip()
+                    if got:
+                        parts.append(got)
+                    else:
+                        warnings.append(f"{p.name}：没有识别到语音内容")
                 except llm.LLMError as e:
-                    return "", f"录音转写失败：{e}"
+                    warnings.append(f"{p.name} 转写失败：{e}")
+            elif ext in IMAGE_EXT:
+                try:
+                    got = llm.vision(
+                        "请记录这张会议现场图片里的全部内容。",
+                        [f],
+                        system=prompts.WHITEBOARD,
+                        temperature=0.1,
+                    ).strip()
+                    if got:
+                        parts.append(f"【白板 / 现场照片：{p.name}】\n{got}")
+                    else:
+                        warnings.append(f"{p.name}：没有识别到内容")
+                except llm.LLMError as e:
+                    warnings.append(f"{p.name} 识图失败：{e}")
+
+        if parts:
+            return "\n\n".join(parts), "", warnings
+        if warnings:
+            return "", "附件处理失败：" + "；".join(warnings), []
+        if task.files:
+            return (
+                "",
+                "没能从附件里提取到内容。支持音频（自动转写）与图片（白板 / 笔记识别）。",
+                [],
+            )
 
         text = (task.text or "").strip()
         if st.looks_like_meta(text):
-            return "", "这条像是操作指令而不是会议内容。请把转写文本粘贴进来，或上传录音文件。"
-        return text, ""
+            return (
+                "",
+                "这条像是操作指令而不是会议内容。请把转写文本粘贴进来，或上传录音 / 白板图片。",
+                [],
+            )
+        return text, "", []
 
     # ------------------------------------------------------------------ #
     # 摘要
@@ -159,10 +207,12 @@ class MeetingAgent(BaseAgent):
             )
 
         # 默认 append
-        transcript, err = self._extract_transcript(task)
+        transcript, err, warnings = self._extract_transcript(task)
         if err:
             return self._reply(err, STATUS_NEED_INPUT, "append", working)
         text, status = st.append(working, transcript)
+        if warnings:
+            text += "\n\n未处理的部分：\n" + "\n".join(f"· {w}" for w in warnings)
         return self._reply(text, status, "append", working)
 
     # ------------------------------------------------------------------ #
