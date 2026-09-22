@@ -12,7 +12,7 @@ import json
 from dataclasses import asdict
 from typing import Any
 
-from . import config, llm, progress, session
+from . import config, llm, progress, session, speech
 from .agents.base import BaseAgent
 from .schemas import (
     SCENE_FITNESS,
@@ -202,6 +202,10 @@ class Orchestrator:
                 status=STATUS_ERROR,
             )
         progress.finish(task.request_id, error=(reply.status == STATUS_ERROR))
+
+        # 语音播报兜底：Agent 没给就用规则压缩（不调模型，测试里也安全）
+        if not reply.speech:
+            reply.speech = speech.truncate(speech.to_plain(reply.text))
 
         self._apply(task, state, reply)
 

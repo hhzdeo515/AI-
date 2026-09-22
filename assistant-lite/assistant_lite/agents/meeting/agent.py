@@ -9,7 +9,7 @@ import copy
 from pathlib import Path
 from typing import Any
 
-from ... import llm
+from ... import llm, speech
 from ...schemas import (
     SCENE_MEETING,
     STATUS_ERROR,
@@ -18,6 +18,7 @@ from ...schemas import (
     Reply,
     Task,
 )
+from ...tools import audio
 from ..base import BaseAgent
 from . import prompts, state as st
 
@@ -81,14 +82,22 @@ class MeetingAgent(BaseAgent):
             p = Path(f)
             ext = p.suffix.lower()
             if ext in AUDIO_EXT:
+                # 长会议必须分片：ASR 单次调用有时长上限
+                chunks, note = audio.split(f)
+                if note:
+                    warnings.append(f"{p.name}：{note}")
                 try:
-                    got = llm.asr(f).strip()
+                    got = "\n".join(
+                        t for t in (llm.asr(c).strip() for c in chunks) if t
+                    )
                     if got:
                         parts.append(got)
                     else:
                         warnings.append(f"{p.name}：没有识别到语音内容")
                 except llm.LLMError as e:
                     warnings.append(f"{p.name} 转写失败：{e}")
+                finally:
+                    audio.cleanup(chunks, p)
             elif ext in IMAGE_EXT:
                 try:
                     got = llm.vision(
@@ -193,17 +202,20 @@ class MeetingAgent(BaseAgent):
                 return self._reply(msg, STATUS_NEED_INPUT, action, working)
             transcript = working["meeting"]["transcript"]
             try:
-                summary = self._summarize(transcript)
+                raw = self._summarize(transcript)
             except llm.LLMError as e:
                 return self._reply(f"生成纪要失败：{e}", STATUS_ERROR, action, working)
+            # 模型用 <<<SPEECH>>> 顺带给出播报语；没给就规则压缩
+            body, spoken = speech.resolve(raw)
             return self._reply(
-                summary,
+                body,
                 STATUS_OK,
                 action,
                 working,
                 archive=True,
                 archive_title="会议纪要",
                 archive_source=transcript,
+                spoken=spoken,
             )
 
         # 默认 append
@@ -225,6 +237,7 @@ class MeetingAgent(BaseAgent):
         archive: bool = False,
         archive_title: str = "",
         archive_source: str = "",
+        spoken: str = "",
     ) -> Reply:
         delta: dict[str, Any] = {
             "meeting": working["meeting"],
@@ -242,6 +255,7 @@ class MeetingAgent(BaseAgent):
             scene=SCENE_MEETING,
             action=action,
             status=status,
+            speech=spoken,
             state_delta=delta,
             archive=archive,
         )

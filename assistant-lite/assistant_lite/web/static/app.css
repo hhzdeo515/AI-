@@ -396,6 +396,19 @@ textarea:focus{border-color:var(--accent-line);background:#fff}
 }
 .vision-side{display:flex;flex-direction:column;gap:14px}
 
+/* 播报语：给「耳朵」的短版，眼镜端直接念这句 */
+.speech{
+  display:flex; align-items:flex-start; gap:10px;
+  margin:-4px 0 16px; padding:11px 14px; border-radius:var(--r);
+  background:var(--accent-wash); border:1px solid var(--accent-line);
+  font-size:13.5px; line-height:1.6; color:var(--accent-ink);
+}
+.speech-label{
+  flex:none; margin-top:1px;
+  font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent-ink); opacity:.7;
+}
+
 /* ── Result（渲染后端返回的 markdown-ish 文本） ──────────────────────── */
 .result{
   background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);

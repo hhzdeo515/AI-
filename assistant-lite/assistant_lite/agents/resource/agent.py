@@ -166,6 +166,7 @@ class ResourceAgent(BaseAgent):
             scene=SCENE_RESOURCE,
             action="export",
             status=STATUS_OK,
+            speech=f"已把{label}导出为 {fmt.upper()}。",
             artifacts=[
                 {
                     "kind": "file",
@@ -199,6 +200,7 @@ class ResourceAgent(BaseAgent):
             scene=SCENE_RESOURCE,
             action="list",
             status=STATUS_OK,
+            speech=f"共找到 {len(rows)} 份资料。",
             state_delta={"active_scene": SCENE_RESOURCE},
         )
 

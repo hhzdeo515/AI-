@@ -11,7 +11,7 @@ from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, send_file
 
-from .. import config, progress, session
+from .. import config, progress, session, tasks
 from ..orchestrator import Orchestrator
 from ..schemas import Task
 from ..tools import export
@@ -68,11 +68,15 @@ def create_app() -> Flask:
                 "model_asr": config.MODEL_ASR,
                 "api_key_configured": bool(config.DASHSCOPE_API_KEY),
                 "data_dir": str(config.DATA_DIR),
+                "tasks": tasks.stats(),
             }
         )
 
-    @app.post("/api/chat")
-    def api_chat():
+    # ------------------------------------------------------------------ #
+    # 对话：同步与异步共用同一套解析与执行，避免两份逻辑漂移
+    # ------------------------------------------------------------------ #
+    def _parse_chat_form():
+        """解析表单。返回 (参数 dict, 错误响应 或 None)。"""
         owner = (request.form.get("owner") or "local").strip() or "local"
         sid = (request.form.get("session_id") or "web").strip() or "web"
         text = request.form.get("text") or ""
@@ -83,7 +87,7 @@ def create_app() -> Flask:
 
         files, rejected = _save_uploads(request.files.getlist("files"))
         if not text.strip() and not files:
-            return jsonify({"error": "请提供文字，或上传图片/音频"}), 400
+            return None, (jsonify({"error": "请提供文字，或上传图片/音频"}), 400)
 
         # 结构化事件（模拟眼镜按键/语音）：前端以 JSON 字符串提交
         event: dict = {}
@@ -94,33 +98,76 @@ def create_app() -> Flask:
                 if isinstance(parsed, dict):
                     event = parsed
             except json.JSONDecodeError:
-                return jsonify({"error": "event 不是合法 JSON"}), 400
+                return None, (jsonify({"error": "event 不是合法 JSON"}), 400)
 
-        task = Task(
-            text=text,
-            owner=owner,
-            session_id=sid,
-            request_id=rid,
-            files=files,
-            scene_hint=scene,
-            event=event,
+        return {
+            "owner": owner,
+            "session_id": sid,
+            "text": text,
+            "scene": scene,
+            "request_id": rid,
+            "files": files,
+            "event": event,
+            "rejected": rejected,
+        }, None
+
+    def _run_chat(p: dict) -> dict:
+        reply = orch.handle(
+            Task(
+                text=p["text"],
+                owner=p["owner"],
+                session_id=p["session_id"],
+                request_id=p["request_id"],
+                files=p["files"],
+                scene_hint=p["scene"],
+                event=p["event"],
+            )
         )
+        return {
+            "text": reply.text,
+            # 眼镜端播报用：短句。屏幕看 text，耳朵听 speech。
+            "speech": reply.speech,
+            "scene": reply.scene,
+            "action": reply.action,
+            "status": reply.status,
+            "artifacts": reply.artifacts,
+            "rejected_files": p["rejected"],
+            "request_id": p["request_id"],
+        }
+
+    @app.post("/api/chat")
+    def api_chat():
+        p, err = _parse_chat_form()
+        if err:
+            return err
         try:
-            reply = orch.handle(task)
+            return jsonify(_run_chat(p))
         except Exception as e:  # 兜底，避免把栈回溯吐给前端
             return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
 
+    @app.post("/api/chat/async")
+    def api_chat_async():
+        """提交后立刻返回 task_id，结果用 /api/task 轮询。
+
+        为长耗时场景准备：一次拍题要 ~27 秒（三次视觉调用），
+        设备端不能干等。同步接口 /api/chat 保留，供短请求使用。
+        """
+        p, err = _parse_chat_form()
+        if err:
+            return err
+        tid = tasks.submit(lambda: _run_chat(p))
         return jsonify(
-            {
-                "text": reply.text,
-                "scene": reply.scene,
-                "action": reply.action,
-                "status": reply.status,
-                "artifacts": reply.artifacts,
-                "rejected_files": rejected,
-                "request_id": rid,
-            }
-        )
+            {"task_id": tid, "request_id": p["request_id"], "status": "pending"}
+        ), 202
+
+    @app.get("/api/task")
+    def api_task():
+        """查询异步任务状态。done 时 result 里是完整的回复载荷。"""
+        tid = (request.args.get("task_id") or "").strip()
+        rec = tasks.get(tid)
+        if not rec:
+            return jsonify({"error": "找不到该任务（可能已过期）"}), 404
+        return jsonify(rec)
 
     @app.get("/api/resources")
     def api_resources():

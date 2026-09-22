@@ -32,6 +32,12 @@ MEETING_CHAR_LIMIT = 48000  # 单场会议转写字符上限
 VISION_MAX_EDGE = 2048  # 送模型前图片长边上限
 ASR_CHUNK_SECONDS = 240  # 长音频分片长度（秒）
 
+# ---------- 外部工具 ----------
+# 约定：新增安装物一律放 E 盘，不占系统盘。
+TOOLS_DIR = Path(os.getenv("TOOLS_DIR", r"E:\AI智能助手\tools"))
+#: ffmpeg 可执行文件路径。留空则按 TOOLS_DIR/ffmpeg/bin -> PATH 顺序自动查找。
+FFMPEG_PATH = os.getenv("FFMPEG_PATH", "").strip()
+
 SCENES = ("meeting", "exam", "fitness", "resource", "general")
 
 

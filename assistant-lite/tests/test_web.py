@@ -321,6 +321,92 @@ def test_static_assets_not_cached() -> None:
     assert "no-cache" in cc or "max-age=0" in cc or "no-store" in cc, cc
 
 
+def test_async_chat_returns_task_and_result() -> None:
+    """异步接口：提交后立刻拿 task_id，结果用 /api/task 轮询。"""
+    import time
+
+    _fresh()
+    c = _client()
+    r = c.post(
+        "/api/chat/async",
+        data={"text": "开始会议记录", "session_id": "s1", "owner": "u"},
+    )
+    assert r.status_code == 202, r.get_data(as_text=True)
+    j = r.get_json()
+    assert j["task_id"], j
+    assert j["request_id"], j
+    tid = j["task_id"]
+
+    rec = None
+    for _ in range(80):
+        rec = c.get("/api/task?task_id=" + tid).get_json()
+        if rec["status"] in ("done", "error"):
+            break
+        time.sleep(0.1)
+
+    assert rec["status"] == "done", rec
+    assert rec["result"]["scene"] == "meeting", rec
+    assert rec["result"]["speech"], "异步结果也要带播报语"
+
+
+def test_async_task_unknown_id() -> None:
+    _fresh()
+    c = _client()
+    r = c.get("/api/task?task_id=nope")
+    assert r.status_code == 404
+    assert "找不到" in r.get_json()["error"]
+
+
+def test_async_rejects_bad_input_like_sync() -> None:
+    _fresh()
+    c = _client()
+    assert c.post("/api/chat/async", data={"text": "   ", "session_id": "s1"}).status_code == 400
+    assert (
+        c.post("/api/chat/async", data={"text": "x", "session_id": "s1", "event": "{oops"}).status_code
+        == 400
+    )
+
+
+def test_health_reports_task_stats() -> None:
+    _fresh()
+    c = _client()
+    j = c.get("/health").get_json()
+    assert "tasks" in j
+    for key in ("pending", "running", "done", "error"):
+        assert key in j["tasks"]
+
+
+def test_tasks_module_lifecycle() -> None:
+    from assistant_lite import tasks
+
+    tasks.clear()
+    tid = tasks.submit(lambda: {"ok": 1})
+    assert tasks.get(tid)["status"] in ("pending", "running")
+
+    import time
+
+    for _ in range(50):
+        rec = tasks.get(tid)
+        if rec["status"] == "done":
+            break
+        time.sleep(0.05)
+    assert rec["status"] == "done"
+    assert rec["result"] == {"ok": 1}
+
+    # 任务内部异常要落到记录里，不能凭空消失
+    bad = tasks.submit(lambda: (_ for _ in ()).throw(ValueError("boom")))
+    for _ in range(50):
+        rec = tasks.get(bad)
+        if rec["status"] == "error":
+            break
+        time.sleep(0.05)
+    assert rec["status"] == "error"
+    assert "boom" in rec["error"]
+
+    assert tasks.get("不存在") is None
+    tasks.clear()
+
+
 # --------------------------------------------------------------------------- #
 def _run_all() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]

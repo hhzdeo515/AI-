@@ -119,8 +119,16 @@
     return out.join("");
   }
 
-  function resultHtml(text, extra) {
-    return '<div class="md">' + renderMd(text) + "</div>" + (extra || "");
+  function speechHtml(spoken, text) {
+    // 播报语是给「耳朵」的短版；和正文不同才显示，避免重复
+    if (!spoken || spoken === text) return "";
+    return '<div class="speech"><span class="speech-label">播报</span>' +
+      "<span>" + esc(spoken) + "</span></div>";
+  }
+
+  function resultHtml(text, extra, spoken) {
+    return speechHtml(spoken, text) +
+      '<div class="md">' + renderMd(text) + "</div>" + (extra || "");
   }
 
   /* ── API ────────────────────────────────────────────────────────── */
@@ -145,6 +153,20 @@
 
   function send(opts) {
     return apiJson("/api/chat", { method: "POST", body: form(opts) });
+  }
+
+  // 长耗时场景用：提交后立刻拿到 task_id，再轮询结果。
+  // 一次拍题要 ~27 秒，同步请求会长时间挂起，设备端更没法等。
+  async function sendAsync(opts) {
+    const started = await apiJson("/api/chat/async", { method: "POST", body: form(opts) });
+    const tid = started.task_id;
+    for (let i = 0; i < 600; i++) {
+      await new Promise((r) => setTimeout(r, 1000));
+      const rec = await apiJson("/api/task?task_id=" + encodeURIComponent(tid));
+      if (rec.status === "done") return rec.result;
+      if (rec.status === "error") throw new Error(rec.error || "任务失败");
+    }
+    throw new Error("任务超时");
   }
 
   /* ── Toast ──────────────────────────────────────────────────────── */
@@ -637,7 +659,7 @@
 
       let data;
       try {
-        data = await send({
+        data = opts.async ? await sendAsync(opts) : await send({
           text: opts.text,
           scene: opts.scene,
           files: opts.files,
@@ -770,7 +792,7 @@
       const host = $("#meeting-result");
       host.hidden = false;
       host.innerHTML = resultHtml(r.text, r.artifacts && r.artifacts.length
-        ? exportBar(r.artifacts[0].id, r.scene) : "");
+        ? exportBar(r.artifacts[0].id, r.scene) : "", r.speech);
       if (r.artifacts && r.artifacts.length) bindExport(host, r.artifacts[0].id);
       host.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
@@ -801,7 +823,7 @@
       const btn = $("#vision-solve");
       btn.disabled = true;
       btn.textContent = "Solving…";
-      const r = await runComposer({ text: "解这道题", scene: "exam", files: imgs });
+      const r = await runComposer({ text: "解这道题", scene: "exam", files: imgs, async: true });
       btn.disabled = false;
       btn.textContent = "Solve";
       if (!r) return;
@@ -813,12 +835,13 @@
         const m = r.text.match(/^\*\*答案：(.+?)\*\*/);
         const answer = m ? m[1] : "";
         const rest = m ? r.text.replace(m[0], "").trim() : r.text;
-        host.innerHTML = resultHtml(rest, "");
+        host.innerHTML = resultHtml(rest, "", r.speech);
         if (answer) {
           host.innerHTML =
             '<div class="answer-block"><span class="answer-kicker">ANSWER</span>' +
             '<span class="answer-value">' + esc(answer) + "</span></div>" +
             '<p class="answer-note">已回看原图复核，并用程序工具校验计算</p>' +
+            speechHtml(r.speech, r.text) +
             '<div class="md">' + renderMd(rest) + "</div>" +
             (r.artifacts && r.artifacts.length ? exportBar(r.artifacts[0].id, r.scene) : "");
         }
@@ -867,7 +890,7 @@
       if (!r) return;
       const host = $("#fitness-result");
       host.hidden = false;
-      host.innerHTML = resultHtml(r.text, r.artifacts && r.artifacts.length ? exportBar(r.artifacts[0].id, r.scene) : "");
+      host.innerHTML = resultHtml(r.text, r.artifacts && r.artifacts.length ? exportBar(r.artifacts[0].id, r.scene) : "", r.speech);
       if (r.artifacts && r.artifacts.length) bindExport(host, r.artifacts[0].id);
       host.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
@@ -935,10 +958,10 @@
     // 附件是图片 → 同时更新 Vision 预览
     if (files.some((f) => IMAGE_EXT.test(f.name)) && S.view === "vision") showVisionPreview();
 
-    if (r.status === "need_input") { pushLive(resultHtml(r.text)); return; }
+    if (r.status === "need_input") { pushLive(resultHtml(r.text, "", r.speech)); return; }
 
     pushLive(resultHtml(r.text, r.artifacts && r.artifacts.length
-      ? exportBar(r.artifacts[0].id, r.scene) : ""), (card) => {
+      ? exportBar(r.artifacts[0].id, r.scene) : "", r.speech), (card) => {
       if (r.artifacts && r.artifacts.length) bindExport(card, r.artifacts[0].id);
     });
   }

@@ -143,6 +143,8 @@ def cmd_ask(args: argparse.Namespace) -> int:
         return 1
     print(f"[场景 {reply.scene} / 动作 {reply.action} / 状态 {reply.status}]")
     print(reply.text)
+    if reply.speech and reply.speech != reply.text:
+        print(f"\n[播报] {reply.speech}")
     for a in reply.artifacts:
         ref = a.get("path") or a.get("id") or ""
         print(f"  -> {a.get('label', '产出')}: {ref}")

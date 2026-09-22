@@ -12,7 +12,7 @@ import copy
 from pathlib import Path
 from typing import Any
 
-from ... import llm
+from ... import llm, speech
 from ...schemas import (
     SCENE_FITNESS,
     STATUS_ERROR,
@@ -214,13 +214,23 @@ class FitnessAgent(BaseAgent):
 
         if action == "pain_report":
             body, status = wk.pain_report(fit, text)
-            return self._reply(body, status, action, working)
+            # 安全相关的内容必须念清楚，不能靠通用截断——截掉就医提示就麻烦了
+            where = "未指明部位"
+            pains = (fit.get("workout") or {}).get("pain") or []
+            if pains:
+                where = pains[-1].get("where") or where
+            spoken = (
+                f"已暂停训练。{where}不适已记录，请立即停止该动作，观察十到十五分钟。"
+                "如果出现肿胀、变形、麻木或疼痛加重，请尽快就医。"
+            )
+            return self._reply(body, status, action, working, spoken=spoken)
 
         # end_workout：生成总结 + 下一步计划并归档
         facts, err = wk.end(fit)
         if err:
             return self._reply(err, STATUS_NEED_INPUT, action, working)
-        body = self._write_summary(facts, task.owner)
+        raw = self._write_summary(facts, task.owner)
+        body, spoken = speech.resolve(raw)
         return self._reply(
             body,
             STATUS_OK,
@@ -229,6 +239,7 @@ class FitnessAgent(BaseAgent):
             archive=True,
             archive_title="训练总结",
             archive_source=wk.render_facts(facts),
+            spoken=spoken,
         )
 
     @staticmethod
@@ -391,6 +402,7 @@ class FitnessAgent(BaseAgent):
         archive: bool = False,
         archive_title: str = "",
         archive_source: str = "",
+        spoken: str = "",
     ) -> Reply:
         delta: dict[str, Any] = {
             "fitness": working.get("fitness", default_fitness()),
@@ -408,6 +420,7 @@ class FitnessAgent(BaseAgent):
             scene=SCENE_FITNESS,
             action=action,
             status=status,
+            speech=spoken,
             state_delta=delta,
             archive=archive,
         )

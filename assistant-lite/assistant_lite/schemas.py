@@ -43,6 +43,9 @@ class Reply:
     """一次请求的完整输出。"""
 
     text: str = ""
+    #: 给语音播报的短版。眼镜是听觉优先设备，600 字的纪要没法念。
+    #: 留空时由编排层按规则压缩（不额外调模型）。
+    speech: str = ""
     scene: str = SCENE_GENERAL
     action: str = ""
     status: str = STATUS_OK

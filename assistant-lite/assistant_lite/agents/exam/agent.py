@@ -124,11 +124,19 @@ class ExamAgent(BaseAgent):
                 "source": observation or text,
             }
 
+        # 语音播报：优先用终审给的 speech；没有就至少把答案念出来
+        spoken = str(final.get("speech") or "").strip()
+        if not spoken and answerable:
+            ans = str(final.get("answer") or "").strip()
+            if ans:
+                spoken = f"答案是 {ans}。"
+
         return Reply(
             text=body,
             scene=SCENE_EXAM,
             action="solve",
             status=STATUS_OK,
+            speech=spoken,
             state_delta=delta,
             archive=answerable,
         )
