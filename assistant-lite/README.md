@@ -10,40 +10,48 @@
 
 > **这一节是跨上下文的接续锚点。每次中断（上下文将满、会话结束）前必须更新。**
 
-- **当前阶段**：`P4 锻炼-训练状态机与事件提醒` — 已完成
-- **状态**：P0–P4 完成；下一步 P5
+- **当前阶段**：`P5 Web 页与 ASR` — 已完成
+- **状态**：P0–P5 完成；下一步 P6
 - **已完成**：
   - **P0**：`config.py` / `schemas.py` / `llm.py` / `agents/base.py` / `run.py` CLI / 根 `.gitignore`
   - **P1**：`session.py`、`orchestrator.py`（五级路由）、`agents/meeting/`、`agents/general.py`
   - **P2**：`agents/exam/`（五步链）、`tools/grids.py`、`tools/calc.py`
-  - **P3**：`agents/fitness/`——`profile.py`（建档问卷）、`equipment.py`（15 项器械知识库）
-  - **P4**：`agents/fitness/state.py`（训练状态机 + 规则引擎）、`agent.py` 接入四个训练事件、
-    `prompts.py` 增加 `WORKOUT_SUMMARY`；`run.py` 支持 `--event` 结构化事件
-- **测试**（共 62 项，全部不需要 API Key）：
+  - **P3**：`agents/fitness/profile.py`（建档问卷）、`equipment.py`（15 项器械知识库）
+  - **P4**：`agents/fitness/state.py`（训练状态机）、`agent.py` 接入四个训练事件
+  - **P5**：`web/app.py`（Flask：`/`、`/health`、`/api/chat`、`/api/resources`、`/api/state`）、
+    `web/templates/index.html`（深色单页：场景切换 / 附件上传 / 对话历史 / 状态徽标）；
+    `llm.asr()` 走 dashscope 的 `qwen3-asr-flash`，供会议录音转写
+- **测试**（共 72 项，全部不需要 API Key）：
   ```
   python tests/test_meeting.py     -> 13/13
   python tests/test_exam_tools.py  -> 11/11
   python tests/test_fitness.py     -> 18/18
   python tests/test_workout.py     -> 20/20
+  python tests/test_web.py         -> 10/10
   ```
-- **实测 CLI（完整训练流程）**：
+- **实测 CLI / Web**：
   ```
+  # CLI
   run.py ask "开始卧推 3组10次 60公斤"                      -> start_exercise
   run.py ask "做完一组"                                     -> set_done  「卧推」第 1 组已记录（10 次）
   run.py ask "膝盖有点疼" -e '{"semantic_action":"pain_report"}' -> 已暂停 + 停练/就医建议
   run.py ask "结束训练" -e '{"semantic_action":"end_workout"}'   -> 事实清单 + 归档「训练总结」
+
+  # Web（真实起服务 + curl 验收）
+  python run.py web --port 8801
+  curl http://127.0.0.1:8801/health
+  curl -X POST http://127.0.0.1:8801/api/chat -F "text=开始会议记录" -F "session_id=c1"
+  curl -X POST ... -F "files=@t.png"    -> 落盘为 uuid 名；bad.sh 被拦且不落盘
   ```
-  > 训练规则：组间休息 60–90 秒；每 3 组给一次动作提示（取自器械知识库的常见错误）；
-  > 报告疼痛立即暂停并给处置建议；结束输出总结 + 下一步计划（模型不可用时降级为事实清单，不编造）。
   > 路由顺序：事件映射 → 显式场景 → **关键词** → **粘性场景**（会议 collecting / 建档 awaiting / 训练 active）→ LLM 兜底。
+  > 附件只允许图片与音频扩展名，一律重命名为 uuid 存 `data/uploads/`，非法格式跳过而不整单失败。
 - **下一步**：
   1. **填入 `DASHSCOPE_API_KEY`**，跑 `python run.py check`。
      **仍是唯一未验证项**——所有需要真实模型的路径（会议纪要生成、拍题五步链、器械个性化润色、
-     训练总结）目前都只跑过降级路径。
-  2. **P5 Web 页与 ASR**：新建 `web/app.py`（Flask，`/api/chat` 支持图片/音频上传）+
-     `web/templates/index.html`（场景切换、上传、会话历史）；
-     `llm.asr()` 接百炼 ASR 模型（`qwen3-asr-flash`），用于会议纪要的语音转写。
-     注意：agent-browser 在 Windows 不可用，验收靠 `curl -F` 打接口 + 手动开页面。
+     训练总结、ASR 转写）目前都只跑过降级路径。
+  2. **P6 导出与收尾**：`tools/export.py` 参考旧 `service.py` 的 `export_resources`
+     实现 docx/pdf 导出（旧项目用 `python-docx` / `reportlab` + 中文字体）；
+     补 `requirements.txt` 里的导出依赖；整体回归与 README 收尾。
 
 ---
 

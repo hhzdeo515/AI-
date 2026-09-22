@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>assistant-lite</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel-2:#1e222b; --line:#2a2f3a;
+    --fg:#e6e8eb; --fg-dim:#98a1b0; --accent:#4c9aff; --accent-2:#2fd6a8;
+    --warn:#ffb454; --err:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg); color:var(--fg);
+    font:15px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    display:flex; flex-direction:column;
+  }
+  header{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    padding:12px 18px; background:var(--panel); border-bottom:1px solid var(--line);
+  }
+  header h1{font-size:15px; margin:0; font-weight:600; letter-spacing:.3px}
+  header .dot{width:8px;height:8px;border-radius:50%;background:var(--accent-2);display:inline-block;margin-right:7px;vertical-align:middle}
+  header label{color:var(--fg-dim); font-size:13px}
+  select,input[type=text]{
+    background:var(--panel-2); color:var(--fg); border:1px solid var(--line);
+    border-radius:7px; padding:6px 9px; font-size:13px; outline:none;
+  }
+  select:focus,input[type=text]:focus{border-color:var(--accent)}
+  #spacer{flex:1}
+  #status{font-size:12px;color:var(--fg-dim)}
+  main{flex:1; overflow-y:auto; padding:20px 18px 8px; display:flex; flex-direction:column; gap:14px}
+  .row{display:flex; gap:10px; max-width:900px; width:100%; margin:0 auto}
+  .row.user{justify-content:flex-end}
+  .bubble{
+    padding:11px 14px; border-radius:12px; white-space:pre-wrap; word-break:break-word;
+    max-width:min(760px,86%);
+  }
+  .user .bubble{background:#22354a; border:1px solid #2f4a68}
+  .bot .bubble{background:var(--panel); border:1px solid var(--line)}
+  .meta{display:flex; gap:7px; align-items:center; margin-bottom:6px; flex-wrap:wrap}
+  .tag{
+    font-size:11px; padding:1px 7px; border-radius:20px;
+    background:var(--panel-2); border:1px solid var(--line); color:var(--fg-dim);
+  }
+  .tag.scene{color:var(--accent); border-color:#2c4a70}
+  .tag.ok{color:var(--accent-2); border-color:#1f5a48}
+  .tag.warn{color:var(--warn); border-color:#6a4a1c}
+  .tag.err{color:var(--err); border-color:#6a2a2a}
+  .files{font-size:12px; color:var(--fg-dim); margin-top:7px}
+  .artifacts{margin-top:8px; font-size:12px; color:var(--accent-2)}
+  footer{border-top:1px solid var(--line); background:var(--panel); padding:12px 18px}
+  .composer{display:flex; gap:9px; max-width:900px; margin:0 auto; align-items:flex-end}
+  #text{
+    flex:1; resize:none; min-height:44px; max-height:160px; padding:11px 12px;
+    background:var(--panel-2); color:var(--fg); border:1px solid var(--line);
+    border-radius:9px; font:inherit; outline:none;
+  }
+  #text:focus{border-color:var(--accent)}
+  button{
+    background:var(--accent); color:#06121f; border:0; border-radius:9px;
+    padding:11px 18px; font-size:14px; font-weight:600; cursor:pointer;
+  }
+  button:disabled{opacity:.45; cursor:not-allowed}
+  .attach{
+    background:var(--panel-2); color:var(--fg); border:1px solid var(--line);
+    border-radius:9px; padding:10px 12px; cursor:pointer; font-size:13px;
+  }
+  .hint{max-width:900px; margin:8px auto 0; font-size:12px; color:var(--fg-dim); display:flex; gap:12px; flex-wrap:wrap}
+  .hint b{color:var(--fg); font-weight:600}
+  .empty{color:var(--fg-dim); text-align:center; margin:auto; font-size:14px; line-height:2}
+  .empty code{background:var(--panel-2); padding:2px 6px; border-radius:5px; color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="dot"></span>assistant-lite</h1>
+  <label>场景
+    <select id="scene">
+      <option value="">自动判断</option>
+      <option value="meeting">会议纪要</option>
+      <option value="exam">拍照解题</option>
+      <option value="fitness">锻炼指导</option>
+      <option value="general">通用问答</option>
+    </select>
+  </label>
+  <label>会话 <input type="text" id="session" value="web" size="10"></label>
+  <div id="spacer"></div>
+  <div id="status">就绪</div>
+</header>
+
+<main id="log">
+  <div class="empty" id="empty">
+    三个场景，一句话或一张图开始：<br>
+    <code>开始会议记录</code> 然后粘贴转写 &nbsp;·&nbsp;
+    <code>上传题目图片</code> &nbsp;·&nbsp;
+    <code>建立健康档案</code> / <code>开始卧推 3组10次 60公斤</code>
+  </div>
+</main>
+
+<footer>
+  <div class="composer">
+    <label class="attach" title="支持图片与音频">＋ 附件
+      <input type="file" id="file" multiple accept="image/*,audio/*" hidden>
+    </label>
+    <textarea id="text" placeholder="输入内容，Enter 发送，Shift+Enter 换行"></textarea>
+    <button id="send">发送</button>
+  </div>
+  <div class="hint">
+    <span>已选附件：<b id="filelist">无</b></span>
+    <span>附件上限 32MB</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  const log = document.getElementById("log");
+  const empty = document.getElementById("empty");
+  const textEl = document.getElementById("text");
+  const sendBtn = document.getElementById("send");
+  const fileEl = document.getElementById("file");
+  const fileList = document.getElementById("filelist");
+  const sceneEl = document.getElementById("scene");
+  const sessionEl = document.getElementById("session");
+  const statusEl = document.getElementById("status");
+
+  let pending = [];
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function tagClass(status) {
+    if (status === "ok") return "tag ok";
+    if (status === "error") return "tag err";
+    if (status === "need_input" || status === "duplicate") return "tag warn";
+    return "tag";
+  }
+
+  function addUser(text, files) {
+    const row = document.createElement("div");
+    row.className = "row user";
+    let html = '<div class="bubble">' + esc(text || "(仅附件)");
+    if (files && files.length) {
+      html += '<div class="files">附件：' + esc(files.join("、")) + "</div>";
+    }
+    html += "</div>";
+    row.innerHTML = html;
+    log.appendChild(row);
+  }
+
+  function addBot(d) {
+    const row = document.createElement("div");
+    row.className = "row bot";
+    let html = '<div class="bubble">';
+    html += '<div class="meta">'
+      + '<span class="tag scene">' + esc(d.scene) + "</span>"
+      + '<span class="tag">' + esc(d.action || "-") + "</span>"
+      + '<span class="' + tagClass(d.status) + '">' + esc(d.status) + "</span>"
+      + "</div>";
+    html += esc(d.text || d.error || "(空)");
+    if (d.rejected_files && d.rejected_files.length) {
+      html += '<div class="files">已跳过：' + esc(d.rejected_files.join("、")) + "</div>";
+    }
+    if (d.artifacts && d.artifacts.length) {
+      html += '<div class="artifacts">'
+        + d.artifacts.map(function (a) {
+            return "已归档：" + esc(a.label || "产出") + (a.id ? "（" + esc(a.id.slice(0, 8)) + "）" : "");
+          }).join("<br>")
+        + "</div>";
+    }
+    html += "</div>";
+    row.innerHTML = html;
+    log.appendChild(row);
+  }
+
+  function scrollDown() { log.scrollTop = log.scrollHeight; }
+
+  function refreshFiles() {
+    pending = Array.from(fileEl.files || []);
+    fileList.textContent = pending.length
+      ? pending.map(function (f) { return f.name; }).join("、")
+      : "无";
+  }
+  fileEl.addEventListener("change", refreshFiles);
+
+  async function send() {
+    const text = textEl.value.trim();
+    if (!text && !pending.length) return;
+    if (empty) empty.style.display = "none";
+
+    addUser(text, pending.map(function (f) { return f.name; }));
+    scrollDown();
+
+    const fd = new FormData();
+    fd.append("text", text);
+    fd.append("scene", sceneEl.value);
+    fd.append("session_id", sessionEl.value.trim() || "web");
+    pending.forEach(function (f) { fd.append("files", f, f.name); });
+
+    textEl.value = "";
+    fileEl.value = "";
+    pending = [];
+    refreshFiles();
+    sendBtn.disabled = true;
+    statusEl.textContent = "处理中…";
+
+    try {
+      const res = await fetch("/api/chat", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) {
+        addBot({ scene: "-", action: "-", status: "error", error: data.error || ("HTTP " + res.status) });
+      } else {
+        addBot(data);
+      }
+      statusEl.textContent = "就绪";
+    } catch (e) {
+      addBot({ scene: "-", action: "-", status: "error", error: "请求失败：" + e.message });
+      statusEl.textContent = "出错";
+    } finally {
+      sendBtn.disabled = false;
+      scrollDown();
+    }
+  }
+
+  sendBtn.addEventListener("click", send);
+  textEl.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+
+  fetch("/health").then(function (r) { return r.json(); }).then(function (h) {
+    statusEl.textContent = h.api_key_configured ? "就绪" : "未配置 API Key";
+  }).catch(function () {});
+})();
+</script>
+</body>
+</html>
