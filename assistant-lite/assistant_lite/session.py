@@ -79,6 +79,9 @@ def default_state() -> dict[str, Any]:
         "active_scene": "general",
         "meeting": {"id": "", "status": "idle", "transcript": ""},
         "fitness": {"awaiting": "", "draft": {}},
+        #: 播报代际号。设备端播放前比对：代际变了说明这条音频已作废，直接丢弃。
+        #: 这是"播报打断"的服务端一半——设备端只需实现"比对并停播"。
+        "playback": {"generation": 0},
         "last_question": "",
         "last_answer": "",
     }

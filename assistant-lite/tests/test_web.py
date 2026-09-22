@@ -407,6 +407,105 @@ def test_tasks_module_lifecycle() -> None:
     tasks.clear()
 
 
+def test_speak_returns_audio_with_generation() -> None:
+    _fresh()
+    from assistant_lite import llm as L
+
+    original = L.tts
+    L.tts = lambda text, voice=None: b"ID3FAKEAUDIO"
+    try:
+        c = _client()
+        r = c.get("/api/speak", query_string={"owner": "u", "session_id": "s1", "text": "答案是B"})
+    finally:
+        L.tts = original
+
+    assert r.status_code == 200, r.get_data(as_text=True)
+    assert r.headers["Content-Type"] == "audio/mpeg"
+    assert r.headers["X-Playback-Generation"] == "0"
+    assert r.data == b"ID3FAKEAUDIO"
+
+
+def test_speak_rejects_empty_and_too_long() -> None:
+    _fresh()
+    c = _client()
+    assert c.get("/api/speak", query_string={"text": "   "}).status_code == 400
+
+    r = c.get("/api/speak", query_string={"text": "字" * (config.SPEECH_MAX_CHARS + 1)})
+    assert r.status_code == 400
+    assert "过长" in r.get_json()["error"]
+
+
+def test_speak_reports_tts_failure() -> None:
+    _fresh()
+    from assistant_lite import llm as L
+
+    original = L.tts
+
+    def boom(text, voice=None):
+        raise L.LLMError("模拟合成失败")
+
+    L.tts = boom
+    try:
+        c = _client()
+        r = c.get("/api/speak", query_string={"text": "测试"})
+    finally:
+        L.tts = original
+
+    assert r.status_code == 502
+    assert "合成失败" in r.get_json()["error"]
+
+
+def test_stop_playback_bumps_generation() -> None:
+    """播报打断：代际号递增，设备端据此丢弃已作废的音频。"""
+    _fresh()
+    c = _client()
+    q = {"owner": "u", "session_id": "s1"}
+    assert c.get("/api/playback", query_string=q).get_json()["generation"] == 0
+
+    for want in (1, 2):
+        r = c.post("/api/chat", data={
+            "text": "停止播报", **q,
+            "event": '{"semantic_action": "stop_playback"}',
+        })
+        assert r.status_code == 200, r.get_data(as_text=True)
+        assert r.get_json()["action"] == "stop_playback"
+        assert c.get("/api/playback", query_string=q).get_json()["generation"] == want
+
+
+def test_speak_carries_current_generation() -> None:
+    """打断之后再取语音，代际号必须是新的，否则设备不会停播。"""
+    _fresh()
+    from assistant_lite import llm as L
+
+    original = L.tts
+    L.tts = lambda text, voice=None: b"AUDIO"
+    try:
+        c = _client()
+        c.post("/api/chat", data={
+            "text": "停止播报", "owner": "u", "session_id": "s1",
+            "event": '{"semantic_action": "stop_playback"}',
+        })
+        r = c.get("/api/speak", query_string={"owner": "u", "session_id": "s1", "text": "测试"})
+    finally:
+        L.tts = original
+
+    assert r.headers["X-Playback-Generation"] == "1"
+
+
+def test_playback_generation_is_per_session() -> None:
+    """不同会话的播报代际互不影响。"""
+    _fresh()
+    c = _client()
+    c.post("/api/chat", data={
+        "text": "停止播报", "owner": "u", "session_id": "A",
+        "event": '{"semantic_action": "stop_playback"}',
+    })
+    a = c.get("/api/playback", query_string={"owner": "u", "session_id": "A"}).get_json()
+    b = c.get("/api/playback", query_string={"owner": "u", "session_id": "B"}).get_json()
+    assert a["generation"] == 1
+    assert b["generation"] == 0
+
+
 # --------------------------------------------------------------------------- #
 def _run_all() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]

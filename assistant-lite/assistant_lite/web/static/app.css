@@ -408,6 +408,16 @@ textarea:focus{border-color:var(--accent-line);background:#fff}
   font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
   color:var(--accent-ink); opacity:.7;
 }
+.speech-text{flex:1; min-width:0}
+.speech-play{
+  flex:none; width:26px; height:26px; border-radius:50%;
+  display:grid; place-items:center; font-size:9px; line-height:1;
+  color:var(--accent-ink); background:rgba(255,255,255,.7);
+  border:1px solid var(--accent-line);
+  transition:background var(--t-fast) var(--ease),transform var(--t-fast) var(--ease);
+}
+.speech-play:hover{background:#fff}
+.speech-play:active{transform:scale(.92)}
 
 /* ── Result（渲染后端返回的 markdown-ish 文本） ──────────────────────── */
 .result{

@@ -18,6 +18,9 @@ BASE_URL = os.getenv(
 MODEL_TEXT = os.getenv("MODEL_TEXT", "qwen-plus").strip()
 MODEL_VISION = os.getenv("MODEL_VISION", "qwen-vl-max").strip()
 MODEL_ASR = os.getenv("MODEL_ASR", "qwen3-asr-flash").strip()
+#: 语音合成。只用 tts_v2(cosyvoice)——sambert 那套在百炼新账号上返回空数据。
+MODEL_TTS = os.getenv("MODEL_TTS", "cosyvoice-v1").strip()
+TTS_VOICE = os.getenv("TTS_VOICE", "longxiaochun").strip()
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "120"))
 
 # ---------- 路径 ----------
@@ -31,6 +34,7 @@ EXPORT_DIR = DATA_DIR / "exports"
 MEETING_CHAR_LIMIT = 48000  # 单场会议转写字符上限
 VISION_MAX_EDGE = 2048  # 送模型前图片长边上限
 ASR_CHUNK_SECONDS = 240  # 长音频分片长度（秒）
+SPEECH_MAX_CHARS = 300  # 单次语音合成的文本上限（播报语本该很短）
 
 # ---------- 外部工具 ----------
 # 约定：新增安装物一律放 E 盘，不占系统盘。

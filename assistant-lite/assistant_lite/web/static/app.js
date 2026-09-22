@@ -123,7 +123,41 @@
     // 播报语是给「耳朵」的短版；和正文不同才显示，避免重复
     if (!spoken || spoken === text) return "";
     return '<div class="speech"><span class="speech-label">播报</span>' +
-      "<span>" + esc(spoken) + "</span></div>";
+      '<span class="speech-text">' + esc(spoken) + "</span>" +
+      '<button class="speech-play" type="button" aria-label="播放播报">▶</button>' +
+      "</div>";
+  }
+
+  /* ── 语音合成播放（眼镜端由设备自己播，这里是网页预览） ─────────── */
+  let speechAudio = null;
+  let speechBtn = null;
+
+  function stopSpeech() {
+    if (speechAudio) { speechAudio.pause(); speechAudio = null; }
+    if (speechBtn) { speechBtn.textContent = "▶"; speechBtn = null; }
+  }
+
+  async function toggleSpeech(text, btn) {
+    if (speechBtn === btn && speechAudio) { stopSpeech(); return; }
+    stopSpeech();
+    const url =
+      "/api/speak?owner=" + encodeURIComponent(S.owner) +
+      "&session_id=" + encodeURIComponent(S.session) +
+      "&text=" + encodeURIComponent(text);
+    speechAudio = new Audio(url);
+    speechBtn = btn;
+    btn.textContent = "■";
+    speechAudio.addEventListener("ended", stopSpeech);
+    speechAudio.addEventListener("error", () => {
+      stopSpeech();
+      toast("语音合成失败");
+    });
+    try {
+      await speechAudio.play();
+    } catch (e) {
+      stopSpeech();
+      toast("播放失败：" + e.message);
+    }
   }
 
   function resultHtml(text, extra, spoken) {
@@ -203,6 +237,7 @@
     $("#nav").classList.remove("is-open");
     $("#stage").scrollTop = 0;
     $("#live-host").innerHTML = "";
+    stopSpeech();
 
     if (view === "memory") loadMemory();
     if (view === "fitness") loadProfile();
@@ -697,6 +732,14 @@
 
   /* ── 事件绑定 ───────────────────────────────────────────────────── */
   function bind() {
+    // 播报播放：事件委托，避免每次渲染都重新绑定
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest && e.target.closest(".speech-play");
+      if (!btn) return;
+      const host = btn.parentElement.querySelector(".speech-text");
+      if (host && host.textContent) toggleSpeech(host.textContent, btn);
+    });
+
     // 导航
     $$("[data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
     // 浏览器前进/后退与手改 hash 都要生效

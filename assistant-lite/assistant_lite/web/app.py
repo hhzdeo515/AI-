@@ -9,9 +9,9 @@ import json
 import uuid
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, jsonify, make_response, render_template, request, send_file
 
-from .. import config, progress, session, tasks
+from .. import config, llm, progress, session, tasks
 from ..orchestrator import Orchestrator
 from ..schemas import Task
 from ..tools import export
@@ -196,6 +196,49 @@ def create_app() -> Flask:
             return jsonify({"error": str(e)}), 400
         return send_file(
             str(path), as_attachment=True, download_name=f"{path.stem[:8]}.{path.suffix.lstrip('.')}"
+        )
+
+    @app.get("/api/speak")
+    def api_speak():
+        """把播报语合成为音频，供设备端播放。
+
+        响应头 `X-Playback-Generation` 是当前播报代际号：
+        设备播放前/播放中比对它，不一致说明已被打断，应丢弃并停播。
+        这是「播报打断」的服务端一半——设备端只需实现比对与停播。
+        """
+        owner = (request.args.get("owner") or "local").strip() or "local"
+        sid = (request.args.get("session_id") or "web").strip() or "web"
+        text = (request.args.get("text") or "").strip()
+        if not text:
+            return jsonify({"error": "缺少 text"}), 400
+        if len(text) > config.SPEECH_MAX_CHARS:
+            return jsonify(
+                {"error": f"播报语过长（上限 {config.SPEECH_MAX_CHARS} 字）；"
+                          "长内容应走 text，不要念出来"}
+            ), 400
+
+        state = session.load_state(owner, sid)
+        gen = int((state.get("playback") or {}).get("generation", 0))
+        voice = (request.args.get("voice") or "").strip() or None
+        try:
+            audio = llm.tts(text, voice=voice)
+        except llm.LLMError as e:
+            return jsonify({"error": str(e)}), 502
+
+        resp = make_response(audio)
+        resp.headers["Content-Type"] = "audio/mpeg"
+        resp.headers["X-Playback-Generation"] = str(gen)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @app.get("/api/playback")
+    def api_playback():
+        """查询当前播报代际号，设备端轮询它判断是否该停播。"""
+        owner = (request.args.get("owner") or "local").strip() or "local"
+        sid = (request.args.get("session_id") or "web").strip() or "web"
+        state = session.load_state(owner, sid)
+        return jsonify(
+            {"generation": int((state.get("playback") or {}).get("generation", 0))}
         )
 
     @app.get("/api/state")

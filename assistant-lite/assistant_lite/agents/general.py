@@ -29,6 +29,19 @@ class GeneralAgent(BaseAgent):
         return 0.1
 
     def handle(self, task: Task, state: dict[str, Any]) -> Reply:
+        # 播报打断：递增代际号，让设备端在播的音频作废。
+        # 设备端只需实现「播放前比对代际号，不一致就丢弃并停播」。
+        if task.action == "stop_playback":
+            gen = int((state.get("playback") or {}).get("generation", 0)) + 1
+            return Reply(
+                text="已停止播报。",
+                speech="",
+                scene=SCENE_GENERAL,
+                action="stop_playback",
+                status=STATUS_OK,
+                state_delta={"playback": {"generation": gen}},
+            )
+
         try:
             text = llm.chat(
                 [

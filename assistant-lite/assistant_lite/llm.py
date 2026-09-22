@@ -239,3 +239,35 @@ def asr(audio_path: str | Path, model: str | None = None) -> str:
 
     texts = [c.get("text", "") for c in parts if isinstance(c, dict)]
     return "".join(texts).strip()
+
+
+# --------------------------------------------------------------------------- #
+# 语音合成
+# --------------------------------------------------------------------------- #
+def tts(text: str, voice: str | None = None, model: str | None = None) -> bytes:
+    """把文本合成为语音，返回 mp3 字节。
+
+    走 dashscope 的 tts_v2（cosyvoice）。**不用 sambert 那套**——
+    在百炼新账号上它返回空音频，实测过。
+    """
+    if not (text or "").strip():
+        raise LLMError("要合成的文本为空")
+
+    try:
+        import dashscope
+        from dashscope.audio.tts_v2 import SpeechSynthesizer
+    except ImportError as e:
+        raise LLMError("未安装 dashscope，无法做语音合成") from e
+
+    dashscope.api_key = config.DASHSCOPE_API_KEY
+    synth = SpeechSynthesizer(
+        model=model or config.MODEL_TTS,
+        voice=voice or config.TTS_VOICE,
+    )
+    try:
+        audio = synth.call(text)
+    except Exception as e:
+        raise LLMError(f"语音合成失败：{e}") from e
+    if not audio:
+        raise LLMError("语音合成返回空音频")
+    return audio

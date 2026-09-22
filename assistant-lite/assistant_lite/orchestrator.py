@@ -37,6 +37,7 @@ ACTION_MAP: dict[str, tuple[str | None, str]] = {
     "end_workout": ("fitness", "end_workout"),
     "export_resource": ("resource", "export"),
     "list_resources": ("resource", "list"),
+    "stop_playback": (None, "stop_playback"),
     "switch_scene": (None, "switch_scene"),
 }
 
