@@ -8,6 +8,10 @@ assistant-lite/data/
 __pycache__/
 *.py[cod]
 *.log
+
+# ---- 外部工具（安装物不入库，体积大） ----
+# 约定：ffmpeg、独立 Python 包等都装在这里，代码通过 config.TOOLS_DIR 引用
+tools/
 .venv/
 venv/
 *.sqlite3
