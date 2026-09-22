@@ -280,6 +280,47 @@ def test_page_has_no_leftover_placeholders() -> None:
         assert bad not in body, f"页面残留 {bad!r}"
 
 
+def test_chat_accepts_structured_event() -> None:
+    """前端提交的 event 必须被采纳——这是眼镜按键/语音事件的入口。
+
+    回归：/api/chat 曾经只读 text/scene，把 event 整个丢掉，
+    导致 set_done 这类不带关键词的事件只能靠 LLM 兜底路由。
+    """
+    _fresh()
+    c = _client()
+    c.post("/api/chat", data={
+        "text": "开始深蹲", "session_id": "s1", "owner": "u",
+        "event": '{"semantic_action": "start_exercise"}',
+    })
+    # 文本本身不含任何关键词，只能靠 event 路由
+    r = c.post("/api/chat", data={
+        "text": "嗯", "session_id": "s1", "owner": "u",
+        "event": '{"semantic_action": "set_done"}',
+    })
+    j = r.get_json()
+    assert j["scene"] == "fitness", j
+    assert j["action"] == "set_done", j
+    assert "第 1 组" in j["text"], j["text"]
+
+
+def test_chat_rejects_bad_event_json() -> None:
+    _fresh()
+    c = _client()
+    r = c.post("/api/chat", data={"text": "开始深蹲", "session_id": "s1", "event": "{oops"})
+    assert r.status_code == 400
+    assert "event" in r.get_json()["error"]
+
+
+def test_static_assets_not_cached() -> None:
+    """本地工具改了 app.js/app.css 要能立刻生效，不能被浏览器缓存住。"""
+    _fresh()
+    c = _client()
+    r = c.get("/static/app.js")
+    assert r.status_code == 200
+    cc = (r.headers.get("Cache-Control") or "").lower()
+    assert "no-cache" in cc or "max-age=0" in cc or "no-store" in cc, cc
+
+
 # --------------------------------------------------------------------------- #
 def _run_all() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]

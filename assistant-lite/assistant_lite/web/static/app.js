@@ -319,6 +319,44 @@
     if (meetingTimer) { clearInterval(meetingTimer); meetingTimer = null; }
   }
 
+  /* ── 组间休息倒计时 ─────────────────────────────────────────────── */
+  // 时长直接取自后端返回的建议（"休息 60–90 秒再开始下一组"），不自己编数字。
+  const RING_LEN = 113; // 2πr, r=18
+
+  function parseRest(text) {
+    const m = String(text || "").match(/休息\s*(\d+)\s*[–\-~至]\s*(\d+)\s*秒/);
+    return m ? parseInt(m[2], 10) : 0;
+  }
+
+  let restTimer = null;
+
+  function stopRest() {
+    if (restTimer) { clearInterval(restTimer); restTimer = null; }
+  }
+
+  function startRest(seconds) {
+    stopRest();
+    if (!seconds) return;
+    const ring = $("#rest-ring");
+    let left = seconds;
+    $("#fit-rest").hidden = false;
+
+    const tick = () => {
+      const m = Math.floor(left / 60), s = left % 60;
+      $("#rest-time").textContent =
+        String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      if (ring) ring.style.strokeDashoffset = String(RING_LEN * (1 - left / seconds));
+      if (left <= 0) {
+        $("#rest-time").textContent = "READY";
+        stopRest();
+        return;
+      }
+      left -= 1;
+    };
+    tick();
+    restTimer = setInterval(tick, 1000);
+  }
+
   /* ── Fitness ────────────────────────────────────────────────────── */
   async function loadProfile() {
     try {
@@ -372,13 +410,17 @@
           : "");
     }
 
-    // Workout 区
-    const w = (S.fitness.workout || {});
+    // Workout 区：空闲态与活跃态都在 DOM 里，只切换显示，绝不重写 innerHTML。
+    // （曾用 innerHTML 覆盖空闲态，切到活跃态时 #fit-sets 等元素已不存在 →
+    //   TypeError → refreshState 抛出 → runComposer 的 busy 永远不释放 → UI 锁死）
+    const w = S.fitness.workout || {};
     const active = w.status === "active" || w.status === "paused";
-    const session = $("#fit-session");
+
+    $("#fit-session").hidden = false;
+    $("#fit-idle").hidden = active;
+    $("#fit-active").hidden = !active;
 
     if (active) {
-      session.hidden = false;
       $("#fit-badge").textContent = w.status === "paused" ? "PAUSED" : "ACTIVE";
       $("#fit-badge").className = "badge " + (w.status === "paused" ? "is-warn" : "is-live");
       $("#fit-sets").textContent = String(w.total_sets || 0);
@@ -386,30 +428,9 @@
       $("#fit-state").textContent = (w.status || "idle").toUpperCase();
       $("#fit-rest").hidden = w.status !== "active";
     } else {
-      session.hidden = false;
-      session.innerHTML =
-        '<div class="panel-head"><span class="panel-title">Workout</span>' +
-        '<span class="badge is-idle">IDLE</span></div>' +
-        '<p class="frame-hint" style="margin:0 0 14px;text-align:left">' +
-        "输入要练的动作开始记录，例如「深蹲」「卧推 3组10次 60公斤」。</p>";
-      const row = el("div", "actions");
-      row.style.marginBottom = "0";
-      const input = el("input");
-      input.type = "text";
-      input.placeholder = "深蹲";
-      input.style.cssText =
-        "flex:1;min-width:140px;padding:9px 13px;border-radius:9px;" +
-        "border:1px solid var(--line-2);background:rgba(255,255,255,.72);outline:none";
-      const btn = el("button", "btn btn-primary", "Start Workout");
-      const start = () => {
-        const v = (input.value || "").trim() || "深蹲";
-        runComposer({ text: "开始" + v, scene: "fitness", event: { semantic_action: "start_exercise" } });
-      };
-      btn.addEventListener("click", start);
-      input.addEventListener("keydown", (e) => { if (e.key === "Enter") start(); });
-      row.appendChild(input);
-      row.appendChild(btn);
-      session.appendChild(row);
+      $("#fit-badge").textContent = "IDLE";
+      $("#fit-badge").className = "badge is-idle";
+      stopRest();
     }
   }
 
@@ -598,43 +619,46 @@
     const hasAudio = (opts.files || []).some((f) => AUDIO_EXT.test(f.name));
 
     let stopPoll = null;
-    if (opts.scene === "exam" && hasImage) {
-      renderPipeline($("#vision-pipeline"), [
-        { id: "capture", label: "Capture", state: "done" },
-        { id: "recognize", label: "Recognize", state: "active" },
-        { id: "solve", label: "Solve", state: "pending" },
-        { id: "verify", label: "Verify", state: "pending" },
-      ], { numbered: true });
-      stopPoll = pollProgress(rid, (p) => renderPipeline($("#vision-pipeline"), p.steps, { numbered: true }));
-    }
-    if (opts.scene === "meeting" && opts.text === "生成会议纪要") {
-      S.meetingStage = "structuring";
-      renderMeeting();
-    }
-
-    let data = null;
     try {
-      data = await send({
-        text: opts.text,
-        scene: opts.scene,
-        files: opts.files,
-        event: opts.event,
-      });
-    } catch (e) {
+      if (opts.scene === "exam" && hasImage) {
+        renderPipeline($("#vision-pipeline"), [
+          { id: "capture", label: "Capture", state: "done" },
+          { id: "recognize", label: "Recognize", state: "active" },
+          { id: "solve", label: "Solve", state: "pending" },
+          { id: "verify", label: "Verify", state: "pending" },
+        ], { numbered: true });
+        stopPoll = pollProgress(rid, (p) =>
+          renderPipeline($("#vision-pipeline"), p.steps, { numbered: true }));
+      }
+      if (opts.scene === "meeting" && opts.text === "生成会议纪要") {
+        S.meetingStage = "structuring";
+        renderMeeting();
+      }
+
+      let data;
+      try {
+        data = await send({
+          text: opts.text,
+          scene: opts.scene,
+          files: opts.files,
+          event: opts.event,
+        });
+      } catch (e) {
+        S.meetingStage = "";
+        toast("请求失败：" + e.message, 4200);
+        return null;
+      }
+
+      if (hasAudio) S.meetingHadAudio = true;
+      await refreshState();
+      return data;
+    } finally {
+      // 无论成功、请求失败还是渲染异常，都必须释放锁。
+      // 曾经 refreshState 抛 TypeError 导致 busy 永远为 true，整个 UI 卡死。
       if (stopPoll) stopPoll();
-      S.meetingStage = "";
-      toast("请求失败：" + e.message, 4200);
       S.busy = false;
       $("#send").disabled = false;
-      return null;
     }
-    if (stopPoll) stopPoll();
-
-    if (hasAudio) S.meetingHadAudio = true;
-    await refreshState();
-    S.busy = false;
-    $("#send").disabled = false;
-    return data;
   }
 
   async function refreshState() {
@@ -809,17 +833,36 @@
     });
 
     // Fitness
-    $("#fit-setdone").addEventListener("click", () =>
-      runComposer({ text: "做完一组", scene: "fitness", event: { semantic_action: "set_done" } }));
+    const fitStart = () => {
+      const v = ($("#fit-exercise").value || "").trim() || "深蹲";
+      stopRest();
+      runComposer({
+        text: "开始" + v, scene: "fitness",
+        event: { semantic_action: "start_exercise" },
+      });
+    };
+    $("#fit-start").addEventListener("click", fitStart);
+    $("#fit-exercise").addEventListener("keydown", (e) => { if (e.key === "Enter") fitStart(); });
+
+    $("#fit-setdone").addEventListener("click", async () => {
+      const r = await runComposer({
+        text: "做完一组", scene: "fitness", event: { semantic_action: "set_done" },
+      });
+      if (!r || r.status !== "ok") return;
+      const rest = parseRest(r.text);
+      if (rest) startRest(rest); else stopRest();
+    });
     $("#fit-pain").addEventListener("click", async () => {
       const where = window.prompt("哪个部位不适？例如：膝盖 / 腰 / 肩", "膝盖");
       if (!where) return;
+      stopRest();
       await runComposer({
         text: where + "有点疼", scene: "fitness",
         event: { semantic_action: "pain_report" },
       });
     });
     $("#fit-end").addEventListener("click", async () => {
+      stopRest();
       const r = await runComposer({ text: "结束训练", scene: "fitness", event: { semantic_action: "end_workout" } });
       if (!r) return;
       const host = $("#fitness-result");

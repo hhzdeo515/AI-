@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from pathlib import Path
 
@@ -47,6 +48,8 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
     app.config["JSON_AS_ASCII"] = False
+    # 本地工具：静态资源每次都要回源校验，否则改了 app.js/app.css 浏览器还拿旧的
+    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
     orch = Orchestrator()
 
     # ------------------------------------------------------------------ #
@@ -82,6 +85,17 @@ def create_app() -> Flask:
         if not text.strip() and not files:
             return jsonify({"error": "请提供文字，或上传图片/音频"}), 400
 
+        # 结构化事件（模拟眼镜按键/语音）：前端以 JSON 字符串提交
+        event: dict = {}
+        raw_event = (request.form.get("event") or "").strip()
+        if raw_event:
+            try:
+                parsed = json.loads(raw_event)
+                if isinstance(parsed, dict):
+                    event = parsed
+            except json.JSONDecodeError:
+                return jsonify({"error": "event 不是合法 JSON"}), 400
+
         task = Task(
             text=text,
             owner=owner,
@@ -89,6 +103,7 @@ def create_app() -> Flask:
             request_id=rid,
             files=files,
             scene_hint=scene,
+            event=event,
         )
         try:
             reply = orch.handle(task)

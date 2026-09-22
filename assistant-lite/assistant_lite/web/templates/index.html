@@ -244,32 +244,45 @@
             <span class="panel-title">Workout</span>
             <span class="badge" id="fit-badge">READY</span>
           </div>
-          <div class="fit-stats">
-            <div class="stat">
-              <span class="stat-label">Sets logged</span>
-              <span class="stat-value" id="fit-sets">0</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">Current</span>
-              <span class="stat-value" id="fit-current">—</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">Workout State</span>
-              <span class="stat-value state" id="fit-state">IDLE</span>
+
+          <!-- 空闲：开始一次训练 -->
+          <div id="fit-idle">
+            <p class="frame-hint">输入要练的动作开始记录，例如「深蹲」「卧推 3组10次 60公斤」。</p>
+            <div class="start-row">
+              <input type="text" id="fit-exercise" placeholder="深蹲">
+              <button class="btn btn-primary" id="fit-start">Start Workout</button>
             </div>
           </div>
-          <div class="fit-actions">
-            <button class="btn" id="fit-setdone">Log a Set</button>
-            <button class="btn btn-ghost" id="fit-pain">Report Discomfort</button>
-            <button class="btn btn-primary" id="fit-end">End Workout</button>
-          </div>
-          <div class="rest" id="fit-rest" hidden>
-            <svg class="ring" viewBox="0 0 44 44" aria-hidden="true">
-              <circle class="ring-bg" cx="22" cy="22" r="18"/>
-              <circle class="ring-fg" cx="22" cy="22" r="18" id="rest-ring"/>
-            </svg>
-            <span class="rest-label">REST</span>
-            <span class="mono-time" id="rest-time">--:--</span>
+
+          <!-- 进行中 -->
+          <div id="fit-active" hidden>
+            <div class="fit-stats">
+              <div class="stat">
+                <span class="stat-label">Sets logged</span>
+                <span class="stat-value" id="fit-sets">0</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Current</span>
+                <span class="stat-value" id="fit-current">—</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Workout State</span>
+                <span class="stat-value state" id="fit-state">IDLE</span>
+              </div>
+            </div>
+            <div class="fit-actions">
+              <button class="btn" id="fit-setdone">Log a Set</button>
+              <button class="btn btn-ghost" id="fit-pain">Report Discomfort</button>
+              <button class="btn btn-primary" id="fit-end">End Workout</button>
+            </div>
+            <div class="rest" id="fit-rest" hidden>
+              <svg class="ring" viewBox="0 0 44 44" aria-hidden="true">
+                <circle class="ring-bg" cx="22" cy="22" r="18"/>
+                <circle class="ring-fg" cx="22" cy="22" r="18" id="rest-ring"/>
+              </svg>
+              <span class="rest-label">REST</span>
+              <span class="mono-time" id="rest-time">--:--</span>
+            </div>
           </div>
         </div>
 

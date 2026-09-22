@@ -468,6 +468,15 @@ textarea:focus{border-color:var(--accent-line);background:#fff}
 .stat-value em{font-style:normal;font-size:13px;font-weight:500;color:var(--ink-4)}
 .stat-value.state{font-size:12.5px;letter-spacing:.12em;color:var(--accent-ink);font-family:var(--mono)}
 .fit-actions{display:flex;gap:9px;flex-wrap:wrap}
+#fit-idle .frame-hint{margin:0 0 14px;text-align:left}
+.start-row{display:flex;gap:9px;flex-wrap:wrap}
+.start-row input{
+  flex:1;min-width:150px;padding:9px 13px;border-radius:var(--r-sm);
+  border:1px solid var(--line-2);background:rgba(255,255,255,.72);outline:none;
+  transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease);
+}
+.start-row input::placeholder{color:var(--ink-4)}
+.start-row input:focus{border-color:var(--accent-line);background:#fff}
 
 .rest{
   display:flex;align-items:center;gap:12px;margin-top:16px;padding-top:16px;
