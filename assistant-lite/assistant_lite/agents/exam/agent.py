@@ -103,28 +103,29 @@ class ExamAgent(BaseAgent):
         # 5) 渲染
         body = self._render(final, tool_result)
         answerable = bool(final.get("answerable"))
+
+        delta: dict[str, Any] = {
+            "active_scene": SCENE_EXAM,
+            "last_question": text or observation[:500],
+            "last_answer": body,
+        }
+        if answerable:
+            # 与 meeting / fitness 用同一套归档约定：编排层看到 _archive 才写资料库。
+            # 之前这里只塞了个假的 resource artifact，结果题解根本没落库。
+            delta["_archive"] = {
+                "scene": SCENE_EXAM,
+                "title": f"题解·{final.get('module') or '题目'}",
+                "content": body,
+                "source": observation or text,
+            }
+
         return Reply(
             text=body,
             scene=SCENE_EXAM,
             action="solve",
             status=STATUS_OK,
-            state_delta={
-                "active_scene": SCENE_EXAM,
-                "last_question": text or observation[:500],
-                "last_answer": body,
-            },
+            state_delta=delta,
             archive=answerable,
-            artifacts=(
-                [
-                    {
-                        "kind": "resource",
-                        "label": f"题解·{final.get('module', '题目')}",
-                        "content": body,
-                    }
-                ]
-                if answerable
-                else []
-            ),
         )
 
     # ------------------------------------------------------------------ #

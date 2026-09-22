@@ -268,15 +268,53 @@ def test_full_workout_session_via_events() -> None:
     assert r.action == "pain_report"
     assert "已暂停" in r.text
 
-    r = o.handle(Task(text="结束训练", event={"semantic_action": "end_workout"},
-                      request_id="w5", **common))
+    # 结束：给模型打桩，保证测试结果与「是否配置 API Key」无关
+    from assistant_lite import llm as L
+
+    original = L.chat
+    L.chat = lambda *a, **kw: "【本次总结】完成卧推 2 组，因膝部不适提前结束。\n【下次计划】改用臀桥。"
+    try:
+        r = o.handle(Task(text="结束训练", event={"semantic_action": "end_workout"},
+                          request_id="w5", **common))
+    finally:
+        L.chat = original
+
     assert r.action == "end_workout"
     assert r.status == STATUS_OK
     assert r.archive is True, "训练总结应归档"
-    assert "总组数：2" in r.text, r.text
-    assert "不适记录" in r.text
-    # 归档产出
+    assert "本次总结" in r.text
     assert any(a.get("kind") == "resource" for a in r.artifacts), r.artifacts
+    # 归档产出必须带真实资料 ID，不能是空壳
+    assert all(a.get("id") for a in r.artifacts if a.get("kind") == "resource"), r.artifacts
+
+
+def test_workout_summary_degrades_without_model() -> None:
+    """模型不可用时降级为事实清单：不报错、不编造。"""
+    _fresh_db()
+    from assistant_lite import llm as L
+
+    o = Orchestrator()
+    common = {"owner": "u", "session_id": "s"}
+    o.handle(Task(text="开始深蹲", event={"semantic_action": "start_exercise"},
+                  request_id="d1", **common))
+    o.handle(Task(text="做完一组", event={"semantic_action": "set_done"},
+                  request_id="d2", **common))
+
+    original = L.chat
+
+    def boom(*a, **kw):
+        raise L.LLMError("模拟模型不可用")
+
+    L.chat = boom
+    try:
+        r = o.handle(Task(text="结束训练", event={"semantic_action": "end_workout"},
+                          request_id="d3", **common))
+    finally:
+        L.chat = original
+
+    assert r.status == STATUS_OK, r.text
+    assert "模型暂时不可用" in r.text
+    assert "总组数：1" in r.text, r.text
 
 
 def test_workout_sticky_routing_by_text() -> None:

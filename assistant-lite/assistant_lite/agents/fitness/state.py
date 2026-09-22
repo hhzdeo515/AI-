@@ -418,8 +418,10 @@ def facts(w: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+    minutes = _elapsed_min(w.get("started", ""))
     return {
-        "duration_min": _elapsed_min(w.get("started", "")),
+        # 不足 1 分钟不报时长，否则模型会把它解读成"未实际执行"
+        "duration_min": minutes if minutes and minutes >= 1 else None,
         "total_sets": w["total_sets"],
         "exercises": detail,
         "pain": list(w["pain"]),

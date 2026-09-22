@@ -154,6 +154,86 @@ def test_tools_are_wired_into_solver() -> None:
     assert out["grid_checks"]["status"] == "checked"
 
 
+def test_exam_result_is_archived() -> None:
+    """回归：题解必须通过 _archive 约定真正落库。
+
+    之前 exam agent 只塞了个假的 resource artifact、没写 _archive，
+    结果题解根本没进资料库（只有 meeting / fitness 写了）。
+    单测没抓到是因为没断言"落库"这件事——这里把 LLM 打桩后走完整链路。
+    """
+    import json as _json
+
+    from PIL import Image
+
+    from assistant_lite import llm as L
+    from assistant_lite.schemas import STATUS_OK as _OK
+
+    tmp = _fresh_db()
+    img = tmp / "q.png"
+    Image.new("RGB", (8, 8), "white").save(img)
+
+    draft = {
+        "module": "数量关系",
+        "subtype": "一元一次方程",
+        "question": "2x+6=14",
+        "answerable": True,
+        "candidate": "B",
+        "evidence": ["移项得 2x=8"],
+        "option_checks": ["A 不符"],
+        "uncertainties": [],
+        "calculations": [{"label": "x", "expression": "8/2"}],
+        "binary_grid": None,
+    }
+    final = {
+        "module": "数量关系",
+        "subtype": "一元一次方程",
+        "answerable": True,
+        "answer": "B) 4",
+        "explanation": "2x=8，x=4",
+        "review_notes": "已回看原图核对",
+        "needed": "",
+    }
+
+    original = L.vision
+
+    def fake_vision(prompt, images, system="", **kw):
+        s = system or ""
+        if "观察员" in s:
+            return "方程题：2x+6=14，选项 A)2 B)4 C)6 D)8"
+        if "初解节点" in s:
+            return _json.dumps(draft, ensure_ascii=False)
+        return _json.dumps(final, ensure_ascii=False)
+
+    L.vision = fake_vision
+    try:
+        o = Orchestrator()
+        r = o.handle(
+            Task(
+                text="解这道题",
+                owner="u",
+                session_id="s",
+                request_id="arch1",
+                files=[str(img)],
+            )
+        )
+    finally:
+        L.vision = original
+
+    assert r.status == _OK, r.text
+    assert r.archive is True
+    assert "B) 4" in r.text
+
+    # 关键断言：真的落库了
+    rows = session.list_resources("u", "exam")
+    assert rows, "题解必须被归档进资料库"
+    assert rows[0]["title"].startswith("题解")
+
+    # 归档产出应带真实资料 ID，而不是空壳
+    ids = [a.get("id") for a in r.artifacts if a.get("kind") == "resource"]
+    assert ids, f"应有 resource 类型的产出，实际 {r.artifacts}"
+    assert all(ids), f"归档产出必须带资料 ID，实际 {r.artifacts}"
+
+
 # --------------------------------------------------------------------------- #
 def _run_all() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]

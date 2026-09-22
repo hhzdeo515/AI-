@@ -10,8 +10,8 @@
 
 > **这一节是跨上下文的接续锚点。每次中断（上下文将满、会话结束）前必须更新。**
 
-- **当前阶段**：`P0–P6 全部完成`
-- **状态**：三场景 + CLI + Web + 导出 全部就绪；**唯一未验证项是真实模型调用**
+- **当前阶段**：`P0–P7 全部完成，真实模型已跑通`
+- **状态**：三场景 + CLI + Web + 导出 + 资料查询 全部就绪并已用真实模型验证
 - **各阶段**：
   - **P0**：`config.py` / `schemas.py` / `llm.py` / `agents/base.py` / `run.py` CLI / 根 `.gitignore`
   - **P1**：`session.py`、`orchestrator.py`（五级路由）、`agents/meeting/`、`agents/general.py`
@@ -23,16 +23,37 @@
     `web` 的 `/api/export`；PDF 用 reportlab 内置 STSong-Light 中文字体（不依赖外部字体文件）
   - **P7**：`agents/resource/`（资料查询与自然语言导出）——「我有哪些资料」「导出刚才的纪要成 Word」
     「导出 6e13c22b 成 PDF」全部零 token 解析；导出意图给 0.95 置信度以压过其它场景关键词
-- **测试**（共 106 项，全部不需要 API Key）：
+- **测试**（共 108 项，全部不需要 API Key）：
   ```
   python tests/test_meeting.py     -> 13/13   会议状态机、去重、owner 隔离
-  python tests/test_exam_tools.py  -> 11/11   算术工具、黑白格、路由
+  python tests/test_exam_tools.py  -> 12/12   算术工具、黑白格、路由、题解归档
   python tests/test_fitness.py     -> 18/18   建档问卷、器械知识库
-  python tests/test_workout.py     -> 20/20   训练状态机、事件提醒、粘性路由
+  python tests/test_workout.py     -> 21/21   训练状态机、事件提醒、粘性路由、降级
   python tests/test_web.py         -> 10/10   Flask 接口、附件上传与拦截
   python tests/test_export.py      -> 16/16   六种格式导出与边界
   python tests/test_resource.py    -> 18/18   资料查询、自然语言导出、跨 owner 拒绝
   ```
+  > **测试策略：任何测试都不允许打真实 API。** 需要模型的路径一律打桩
+  > （见 `test_exam_result_is_archived`、`test_workout_summary_degrades_without_model`）。
+  > 这样无论有没有配 Key，回归结果都一致——曾因为没打桩导致配上 Key 后测试变红。
+
+## 真实模型验证记录（2026-09-22）
+
+| 路径 | 结果 | 耗时 |
+| --- | --- | --- |
+| 会议纪要生成 | ✅ 结构完整（主题/覆盖范围/讨论要点/决策/行动项/待确认） | ~10s |
+| 拍照解题五步链 | ✅ 正确识别 2x+6=14 并选 B)4，含程序计算校验 | ~27s |
+| 器械个性化指导 | ✅ 结合 42 岁/高血压/膝盖伤/减脂目标，避开深蹲、休息调至 90s | ~17s |
+| 训练总结 + 下一步计划 | ✅ 用臀桥替代深蹲，给血压自测与就医提醒 | ~13s |
+| 自然语言导出 | ✅ 「导出最新一份成 Word」生成合法 docx | <1s |
+| ASR 通路 | ✅ 鉴权/模型名/请求格式均正常（用正弦音测试，无语音故返回空） | ~2s |
+
+**发现并修掉的两个真实问题**：
+1. **题解从未落库**：`exam` agent 只塞了个假的 artifact、没写 `_archive`，导致拍照解题的结果
+   不进资料库（meeting / fitness 都写了）。已修 + 加回归测试。
+2. **纪要编造约束**：模型曾把"需李四确认"扩写成"需在 2 个工作日内确认"，并凭空生成
+   "启动财务流程"行动项。已强化提示词（明确禁止补全原文没有的时间期限/流程步骤），
+   复测后正确输出"截止时间：未明确"。
 
 ## 用法速查
 
@@ -48,11 +69,10 @@ python run.py export --owner u -f docx                 # 直接导出最新一�
 python run.py web --port 8801                          # 起本地 Web 页
 ```
 
-- **下一步（唯一待办）**：**填入 `DASHSCOPE_API_KEY`**（复制 `.env.example` 为 `.env`），
-  跑 `python run.py check`。目前所有需要真实模型的路径——会议纪要生成、拍题五步链、
-  器械个性化润色、训练总结、ASR 转写——都只跑过降级路径（降级逻辑本身已验证正确）。
 - **已知边界（首版有意不做）**：摄像头抽帧实时分析、运动后视频离线分析；TTS；
   多租户与鉴权；知识库语义检索；导出未做 SRT/ZIP 打包。
+- **一个待办**：`DASHSCOPE_API_KEY` 写在 `.env` 里（已被 gitignore 排除）。
+  若 Key 泄露或轮换，直接改 `.env` 即可，无需动代码。
 
 ---
 
