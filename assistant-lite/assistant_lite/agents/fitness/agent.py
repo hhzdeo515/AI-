@@ -1,9 +1,9 @@
-"""锻炼指导 Agent：健康档案 + 器械识别。
+"""锻炼指导 Agent：健康档案 + 器械识别 + 训练状态机。
 
-P3 范围：问卷建档、器械识别（照片 / 文字）。
-P4 会在此之上加训练状态机与事件提醒。
+P3：问卷建档、器械识别（照片 / 文字）。
+P4：训练状态机与事件提醒（start_exercise / set_done / pain_report / end_workout）。
 
-动作解析：编排层 action > 建档流程中（awaiting）> 文本关键词 > 默认 advice。
+动作解析：编排层 action > 建档流程中（awaiting）> 文本事件识别 > 关键词 > 默认 advice。
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from ...schemas import (
 )
 from ..base import BaseAgent
 from . import equipment, profile, prompts
+from . import state as wk
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
 
@@ -30,10 +31,15 @@ PROFILE_TRIGGERS = ("建档", "健康档案", "我的档案", "更新档案", "�
 CANCEL_TRIGGERS = ("取消建档", "不建了", "退出建档", "算了", "不填了")
 EQUIPMENT_TRIGGERS = ("器械", "器材", "怎么用", "用法", "这台", "这个机器", "这个设备", "怎么练")
 
+#: 训练状态机处理的四个动作
+WORKOUT_ACTIONS = frozenset(
+    {"start_exercise", "set_done", "pain_report", "end_workout"}
+)
+
 
 def default_fitness() -> dict[str, Any]:
     """锻炼场景的会话状态。"""
-    return {"awaiting": "", "draft": {}}
+    return {"awaiting": "", "draft": {}, "workout": wk.default_workout()}
 
 
 class FitnessAgent(BaseAgent):
@@ -56,6 +62,8 @@ class FitnessAgent(BaseAgent):
         "几组",
         "健康档案",
         "建档",
+        "做完",
+        "练完",
     )
 
     # ------------------------------------------------------------------ #
@@ -79,6 +87,8 @@ class FitnessAgent(BaseAgent):
         try:
             if action == "profile":
                 return self._profile_flow(task, working, fit)
+            if action in WORKOUT_ACTIONS:
+                return self._workout(task, working, fit, action)
             if action == "equipment":
                 return self._equipment(task, working, fit)
             return self._advice(task, working, fit)
@@ -91,19 +101,33 @@ class FitnessAgent(BaseAgent):
         if task.action:
             return task.action
         text = task.text or ""
-        # 建档进行中，除非用户明确取消，否则所有输入都当作问卷答案
+
+        # 建档进行中，所有输入都当作问卷答案（取消也走 profile 分支处理）
         if fit.get("awaiting"):
-            if any(w in text for w in CANCEL_TRIGGERS):
-                return "profile"
             return "profile"
         if any(w in text for w in CANCEL_TRIGGERS):
             return "profile"
         if any(w in text for w in PROFILE_TRIGGERS):
             return "profile"
+
+        # 训练事件（文本形式；结构化事件由编排层直接给出 action）
+        if wk.is_end(text):
+            return "end_workout"
+        if wk.is_pain_report(text):
+            return "pain_report"
+        if wk.is_set_done(text):
+            return "set_done"
+
+        started = wk.detect_start(text)
+        if started and wk.is_active(fit):
+            return "start_exercise"
+
         if task.files:
             return "equipment"
         if any(w in text for w in EQUIPMENT_TRIGGERS):
             return "equipment"
+        if started:
+            return "start_exercise"
         return "advice"
 
     # ------------------------------------------------------------------ #
@@ -171,6 +195,65 @@ class FitnessAgent(BaseAgent):
             "profile",
             working,
         )
+
+    # ------------------------------------------------------------------ #
+    # 训练状态机
+    # ------------------------------------------------------------------ #
+    def _workout(
+        self, task: Task, working: dict[str, Any], fit: dict[str, Any], action: str
+    ) -> Reply:
+        text = (task.text or "").strip()
+
+        if action == "start_exercise":
+            body, status = wk.start(fit, text)
+            return self._reply(body, status, action, working)
+
+        if action == "set_done":
+            body, status = wk.set_done(fit, text)
+            return self._reply(body, status, action, working)
+
+        if action == "pain_report":
+            body, status = wk.pain_report(fit, text)
+            return self._reply(body, status, action, working)
+
+        # end_workout：生成总结 + 下一步计划并归档
+        facts, err = wk.end(fit)
+        if err:
+            return self._reply(err, STATUS_NEED_INPUT, action, working)
+        body = self._write_summary(facts, task.owner)
+        return self._reply(
+            body,
+            STATUS_OK,
+            action,
+            working,
+            archive=True,
+            archive_title="训练总结",
+            archive_source=wk.render_facts(facts),
+        )
+
+    @staticmethod
+    def _write_summary(facts: dict[str, Any], owner: str) -> str:
+        """让模型基于结构化事实 + 健康档案写总结与下一步计划；模型不可用时降级为事实清单。"""
+        prof = profile.load(owner)
+        user = (
+            f"本次训练记录：\n{wk.render_facts(facts)}\n\n"
+            f"用户健康档案：\n{profile.summarize(prof)}"
+        )
+        try:
+            return llm.chat(
+                [
+                    {"role": "system", "content": prompts.WORKOUT_SUMMARY},
+                    {"role": "user", "content": user},
+                ],
+                temperature=0.4,
+            )
+        except llm.LLMError:
+            # 不编造建议，只给事实
+            return (
+                "（模型暂时不可用，先给你本次训练的事实记录）\n\n"
+                + wk.render_facts(facts)
+                + "\n\n（模型恢复后可以说「结束训练」重新生成总结与下一步计划。）"
+            )
 
     # ------------------------------------------------------------------ #
     # 器械
@@ -301,15 +384,30 @@ class FitnessAgent(BaseAgent):
     # ------------------------------------------------------------------ #
     @staticmethod
     def _reply(
-        text: str, status: str, action: str, working: dict[str, Any]
+        text: str,
+        status: str,
+        action: str,
+        working: dict[str, Any],
+        archive: bool = False,
+        archive_title: str = "",
+        archive_source: str = "",
     ) -> Reply:
+        delta: dict[str, Any] = {
+            "fitness": working.get("fitness", default_fitness()),
+            "active_scene": SCENE_FITNESS,
+        }
+        if archive and archive_title:
+            delta["_archive"] = {
+                "scene": SCENE_FITNESS,
+                "title": archive_title,
+                "content": text,
+                "source": archive_source,
+            }
         return Reply(
             text=text,
             scene=SCENE_FITNESS,
             action=action,
             status=status,
-            state_delta={
-                "fitness": working.get("fitness", default_fitness()),
-                "active_scene": SCENE_FITNESS,
-            },
+            state_delta=delta,
+            archive=archive,
         )

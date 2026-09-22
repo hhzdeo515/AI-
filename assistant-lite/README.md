@@ -10,37 +10,40 @@
 
 > **这一节是跨上下文的接续锚点。每次中断（上下文将满、会话结束）前必须更新。**
 
-- **当前阶段**：`P3 锻炼-健康档案与器械识别` — 已完成
-- **状态**：P0–P3 完成；下一步 P4
+- **当前阶段**：`P4 锻炼-训练状态机与事件提醒` — 已完成
+- **状态**：P0–P4 完成；下一步 P5
 - **已完成**：
   - **P0**：`config.py` / `schemas.py` / `llm.py` / `agents/base.py` / `run.py` CLI / 根 `.gitignore`
   - **P1**：`session.py`、`orchestrator.py`（五级路由）、`agents/meeting/`、`agents/general.py`
   - **P2**：`agents/exam/`（五步链）、`tools/grids.py`、`tools/calc.py`
-  - **P3**：`agents/fitness/`（`profile.py` 建档问卷 + `equipment.py` 器械知识库 15 项 + `agent.py`）
-- **测试**（共 42 项，全部不需要 API Key）：
+  - **P3**：`agents/fitness/`——`profile.py`（建档问卷）、`equipment.py`（15 项器械知识库）
+  - **P4**：`agents/fitness/state.py`（训练状态机 + 规则引擎）、`agent.py` 接入四个训练事件、
+    `prompts.py` 增加 `WORKOUT_SUMMARY`；`run.py` 支持 `--event` 结构化事件
+- **测试**（共 62 项，全部不需要 API Key）：
   ```
   python tests/test_meeting.py     -> 13/13
   python tests/test_exam_tools.py  -> 11/11
   python tests/test_fitness.py     -> 18/18
+  python tests/test_workout.py     -> 20/20
   ```
-- **实测 CLI**：
+- **实测 CLI（完整训练流程）**：
   ```
-  run.py ask "建立健康档案"     -> fitness/profile （1/9）年龄？
-  run.py ask "35"               -> fitness/profile （2/9）身高？   ← 粘性路由
-  run.py ask "史密斯机怎么用"    -> fitness/equipment 知识库直接作答
-  run.py ask "这个器械怎么用"    -> fitness/equipment need_input + 内置器械清单
+  run.py ask "开始卧推 3组10次 60公斤"                      -> start_exercise
+  run.py ask "做完一组"                                     -> set_done  「卧推」第 1 组已记录（10 次）
+  run.py ask "膝盖有点疼" -e '{"semantic_action":"pain_report"}' -> 已暂停 + 停练/就医建议
+  run.py ask "结束训练" -e '{"semantic_action":"end_workout"}'   -> 事实清单 + 归档「训练总结」
   ```
-  > 路由顺序：事件映射 → 显式场景 → **关键词** → **粘性场景**（会议 collecting / 建档 awaiting）→ LLM 兜底。
-  > 关键词必须排在粘性之前（已修复并有回归测试）。
-  > 器械名不进关键词表，改由 `FitnessAgent.can_handle` 查知识库判定（0.9 分）。
+  > 训练规则：组间休息 60–90 秒；每 3 组给一次动作提示（取自器械知识库的常见错误）；
+  > 报告疼痛立即暂停并给处置建议；结束输出总结 + 下一步计划（模型不可用时降级为事实清单，不编造）。
+  > 路由顺序：事件映射 → 显式场景 → **关键词** → **粘性场景**（会议 collecting / 建档 awaiting / 训练 active）→ LLM 兜底。
 - **下一步**：
   1. **填入 `DASHSCOPE_API_KEY`**，跑 `python run.py check`。
-     **仍是唯一未验证项**——所有需要真实模型的路径（会议纪要生成、拍题五步链、器械个性化润色）都没跑过。
-  2. **P4 训练状态机与事件提醒**：在 `agents/fitness/` 新增 `state.py`，
-     处理 `start_exercise` / `set_done` / `pain_report` / `end_workout` 四个事件
-     （`orchestrator.ACTION_MAP` 已预留映射，事件到达即自动路由）。
-     规则要点：痛点即停并给建议、组间休息 60–90 秒、每 N 组动作提示、
-     `end_workout` 输出总结 + 下一步计划（结合 `profile.load(owner)`）。
+     **仍是唯一未验证项**——所有需要真实模型的路径（会议纪要生成、拍题五步链、器械个性化润色、
+     训练总结）目前都只跑过降级路径。
+  2. **P5 Web 页与 ASR**：新建 `web/app.py`（Flask，`/api/chat` 支持图片/音频上传）+
+     `web/templates/index.html`（场景切换、上传、会话历史）；
+     `llm.asr()` 接百炼 ASR 模型（`qwen3-asr-flash`），用于会议纪要的语音转写。
+     注意：agent-browser 在 Windows 不可用，验收靠 `curl -F` 打接口 + 手动开页面。
 
 ---
 

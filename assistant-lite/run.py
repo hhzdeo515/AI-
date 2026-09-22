@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import uuid
 from pathlib import Path
@@ -59,6 +60,7 @@ def make_task(
     session_id: str = "default",
     files: list[str] | None = None,
     scene_hint: str | None = None,
+    event: dict[str, Any] | None = None,
 ) -> Any:
     from assistant_lite.schemas import Task
 
@@ -69,6 +71,7 @@ def make_task(
         request_id=uuid.uuid4().hex[:12],
         files=files or [],
         scene_hint=scene_hint,
+        event=event or {},
     )
 
 
@@ -115,9 +118,23 @@ def cmd_check(_args: argparse.Namespace) -> int:
 
 def cmd_ask(args: argparse.Namespace) -> int:
     config.ensure_dirs()
+    event: dict[str, Any] = {}
+    if args.event:
+        try:
+            event = json.loads(args.event)
+        except json.JSONDecodeError as e:
+            print(f"[错误] --event 不是合法 JSON：{e}", file=sys.stderr)
+            return 1
+        if not isinstance(event, dict):
+            print("[错误] --event 必须是 JSON 对象", file=sys.stderr)
+            return 1
     task = make_task(
-        args.text, owner=args.owner, session_id=args.session, files=args.file,
+        args.text,
+        owner=args.owner,
+        session_id=args.session,
+        files=args.file,
         scene_hint=args.scene,
+        event=event,
     )
     try:
         reply = handle(task)
@@ -127,7 +144,8 @@ def cmd_ask(args: argparse.Namespace) -> int:
     print(f"[场景 {reply.scene} / 动作 {reply.action} / 状态 {reply.status}]")
     print(reply.text)
     for a in reply.artifacts:
-        print(f"  -> {a.get('label', '产出')}: {a.get('path', '')}")
+        ref = a.get("path") or a.get("id") or ""
+        print(f"  -> {a.get('label', '产出')}: {ref}")
     return 0 if reply.status != "error" else 1
 
 
@@ -181,6 +199,12 @@ def main(argv: list[str] | None = None) -> int:
     pa.add_argument("text", help="提问内容")
     pa.add_argument("-f", "--file", action="append", default=[], help="附带图片/音频，可重复")
     pa.add_argument("-s", "--scene", default=None, choices=list(config.SCENES))
+    pa.add_argument(
+        "-e",
+        "--event",
+        default=None,
+        help='结构化事件 JSON，如 \'{"semantic_action":"set_done"}\'（模拟眼镜按键/语音事件）',
+    )
     pa.add_argument("--owner", default="local")
     pa.add_argument("--session", default="default")
     pa.set_defaults(func=cmd_ask)

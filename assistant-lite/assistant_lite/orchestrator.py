@@ -122,13 +122,18 @@ class Orchestrator:
         # 4) 粘性场景：进行中的多轮流程，后续输入默认仍归该场景。
         #    会议记录：全部输入当会议内容；说"结束会议"退出。
         #    锻炼建档：全部输入当问卷答案；说"取消建档"退出。
+        #    训练进行中：全部输入当训练事件；说"结束训练"退出。
         if state:
             m = state.get("meeting")
             if isinstance(m, dict) and m.get("status") == "collecting":
                 return SCENE_MEETING, "", "sticky"
             f = state.get("fitness")
-            if isinstance(f, dict) and f.get("awaiting"):
-                return SCENE_FITNESS, "", "sticky"
+            if isinstance(f, dict):
+                if f.get("awaiting"):
+                    return SCENE_FITNESS, "", "sticky"
+                w = f.get("workout")
+                if isinstance(w, dict) and w.get("status") in ("active", "paused"):
+                    return SCENE_FITNESS, "", "sticky"
 
         # 5) LLM 兜底
         return self._llm_route(task)
