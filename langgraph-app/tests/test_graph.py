@@ -856,6 +856,52 @@ def test_vision_chain_runs_deterministic_grid_check() -> None:
     assert abs(tools["calculations"][0]["result"] - 100.0) < 1e-9
 
 
+def test_vision_drops_tautological_calculations() -> None:
+    """同义反复的「算式」必须被丢弃，且不得留下「程序计算校验」标题。
+
+    实测截图里出现过：::
+
+        程序计算校验
+          13.34 = 13.34
+          10.66 = 10.66
+
+    政治理论/常识类题本来就无物可算，而提示词要求「尽量提供关键算式」，
+    模型便把「选项里的数 = 资料里的数」写成算式交差。这比不显示更糟——
+    **它让没做过的校验看起来像做过了**。
+    """
+    from lg_assistant import vision
+
+    # 全部是同义反复 → 不产生 calculations，但留下计数痕迹
+    tools = vision.run_tools(
+        {"calculations": [{"expression": "13.34 = 13.34"}, {"expression": "10.66"}]}
+    )
+    assert "calculations" not in tools, "同义反复不该进计算校验"
+    assert tools["calculations_skipped"] == 2
+
+    # 渲染时不得出现「程序计算校验」标题，但要如实交代没做校验
+    body = vision.render({"answerable": True, "answer": "B"}, tools)
+    assert "程序计算校验" not in body
+    assert "无需计算校验" in body
+
+    # 真假混杂 → 只保留真算式
+    mixed = vision.run_tools(
+        {"calculations": [{"expression": "13.34 = 13.34"}, {"expression": "8/2"}]}
+    )
+    assert [c["expression"] for c in mixed["calculations"]] == ["8/2"]
+    assert mixed["calculations"][0]["result"] == 4.0
+    assert mixed["calculations_skipped"] == 1
+
+
+def test_is_meaningful_calc_keeps_real_arithmetic() -> None:
+    """判定器本身：真算式一律保留，纯等值声明一律丢弃。"""
+    from lg_assistant.vision import is_meaningful_calc
+
+    for good in ["8/2", "2**10", "120*(1+0.2)", "18+24", "100%7", "2+3=5"]:
+        assert is_meaningful_calc(good), f"{good} 是有效算式，不该被丢"
+    for bad in ["13.34 = 13.34", "10.66", "C", "  ", "", "选项B"]:
+        assert not is_meaningful_calc(bad), f"{bad!r} 不是算式，必须丢弃"
+
+
 def test_vision_render_refuses_to_assert_when_not_answerable() -> None:
     """模型判定无法作答时，正文必须明确说「无法确定」，不得偷渡猜测。"""
     from lg_assistant import vision

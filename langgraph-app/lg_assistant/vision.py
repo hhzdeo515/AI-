@@ -126,11 +126,39 @@ def review(
 # --------------------------------------------------------------------------- #
 # 工具校验（纯函数，零 token）
 # --------------------------------------------------------------------------- #
+def is_meaningful_calc(expression: str) -> bool:
+    """这个算式是否真的做了计算？
+
+    **为什么需要**：实测出现过这样一段「程序计算校验」：
+
+        13.34 = 13.34
+        10.66 = 10.66
+
+    这两行是同义反复，什么都没验证——但界面上照样挂着「程序计算校验」的标题，
+    读者会以为程序真的核对过那两个数字。比不显示更糟：**它让没做的校验
+    看起来像做过了**。
+
+    成因：政治理论/常识类题是事实核对，本来就没有可算的东西，而提示词要求
+    「尽量提供关键算式」，模型于是把「选项里的数 = 资料里的数」写成算式来交差。
+
+    判定：没有任何运算符的表达式不构成计算。
+    """
+    s = (expression or "").strip()
+    if not s:
+        return False
+    # 去掉等号两侧的写法（2+3=5）只保留表达式部分
+    s = s.split("=", 1)[0]
+    return any(ch in s for ch in "+-*/%") or "**" in s
+
+
 def run_tools(draft: dict[str, Any]) -> dict[str, Any]:
     """把初解给出的算式与黑白格交给确定性工具执行。
 
     模型结果只作参考：算式由 AST 安全求值，黑白格由逐格运算校验。
     「程序算式成立」不等于「看图正确」——终审仍须回看原图。
+
+    **只保留真正做了计算的算式**：同义反复（``13.34 = 13.34``）会被丢弃，
+    否则界面上会出现一个空有标题的「程序计算校验」段落。
     """
     result: dict[str, Any] = {}
     # 工具校验（零 token）与终审同属 verify 这一步：模型初解已经出来了，
@@ -138,13 +166,18 @@ def run_tools(draft: dict[str, Any]) -> dict[str, Any]:
     progress.mark("verify")
     calcs = draft.get("calculations")
     if isinstance(calcs, list) and calcs:
-        exprs = [
+        wanted = [
             c.get("expression", "")
             for c in calcs
             if isinstance(c, dict) and c.get("expression")
         ]
-        if exprs:
-            result["calculations"] = calc_tool.calculate_many(exprs)
+        kept = [e for e in wanted if is_meaningful_calc(e)]
+        dropped = len(wanted) - len(kept)
+        if dropped:
+            # 留痕便于排查：为什么这次没有计算校验
+            result["calculations_skipped"] = dropped
+        if kept:
+            result["calculations"] = calc_tool.calculate_many(kept)
 
     grid = draft.get("binary_grid")
     if isinstance(grid, dict) and grid:
@@ -182,6 +215,14 @@ def render(final: dict[str, Any], tool_result: dict[str, Any]) -> str:
             else:
                 lines.append(f"  {c['expression']} -> 计算失败：{c.get('error', '')}")
         parts.append("\n**程序计算校验**\n" + "\n".join(lines))
+    elif tool_result.get("calculations_skipped"):
+        # 说明为什么没有计算校验：模型交上来的全是同义反复。
+        # 不静默隐藏——用户看到「这次没做计算校验」比看到一个空的
+        # 「程序计算校验」标题更诚实。
+        parts.append(
+            f"\n（本题无需计算校验：模型给出的 {tool_result['calculations_skipped']} "
+            "个「算式」都是同义反复，未做程序核对。）"
+        )
 
     grid = tool_result.get("grid_checks")
     if grid and grid.get("status") == "checked":
