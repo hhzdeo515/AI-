@@ -1,0 +1,64 @@
+﻿sequenceDiagram
+    autonumber
+    participant D as 端侧 1–3B
+    participant LG as LangGraph 编排
+    participant ST as 状态与存储
+    participant DF as Dify 场景层
+    participant M as 模型能力
+
+    Note over D,M: ① 唤醒与上行决策（端侧本地）
+    D->>D: 唤醒 + 意图识别 + 置信度
+    alt 置信度 < 0.45 且非唤醒后
+        D-->>D: 丢弃，不上行（省电）
+    else train_pain 不适报告
+        D->>LG: 无条件上行（安全不降级）
+    else 置信度 ≥ 0.75
+        D->>LG: 上行事件包
+    else 0.45 – 0.75
+        D->>D: 本地追问一句确认
+    end
+
+    Note over D,M: ② 编排与权威路由（零 token 优先）
+    LG->>LG: device_gate 归一化端侧判定
+    LG->>LG: route 五级：事件→显式→关键词→粘性→LLM
+    LG->>ST: telemetry 落库（端侧判对率）
+    LG->>LG: dispatch 确定性分发
+
+    Note over D,M: ③ 场景执行（三条路径）
+    alt 带图片且 scene=exam
+        LG->>M: ① 精读 VLM
+        M-->>LG: 观察记录（只记录，不解题）
+        LG->>M: ② 初解（重新看原图）
+        M-->>LG: 结构化 JSON + 算式 + 黑白格
+        LG->>LG: ③ 工具校验：calc AST / grids 逐格（零 token）
+        LG->>M: ④ 终审（再次重新看原图）
+        M-->>LG: 终审结论（可推翻初解）
+    else EXEC_BACKEND=dify
+        LG->>DF: 场景 + 归一化 query + scene_hint
+        DF->>DF: normalize（零 token）
+        DF->>DF: question-classifier 分发
+        DF->>M: 对应场景 Agent
+        M-->>DF: 正文
+        DF-->>LG: 正文
+    else 其余（含纯算术）
+        LG->>LG: calc_quick 命中则零 token 出结果
+        LG->>M: 未命中则本地场景提示词
+        M-->>LG: 正文
+    end
+
+    Note over D,M: ④ 后处理与回传
+    LG->>LG: postprocess 补播报语（规则压缩，不二次调模型）
+    LG->>ST: 按场景归档 + 幂等记录
+    LG-->>D: text 屏幕完整版
+    LG-->>D: speech 语音精简版
+
+    Note over D,M: ⑤ 断连与恢复（本版新增能力）
+    D--xLG: 连接断开
+    D->>D: payload 落本地队列（request_id 固定）
+    D->>LG: 重连补传，request_id 不变
+    LG->>ST: 命中 receipts → 返回 duplicate，不重复执行
+    D->>LG: 若上次未收到响应，先查 /api/payload
+    LG-->>D: 命中则直接确认，避免孤儿归档
+    D->>LG: invoke(None) + 同 thread_id
+    LG->>ST: 从检查点恢复
+    LG->>LG: 只执行未完成的节点

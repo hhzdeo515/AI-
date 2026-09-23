@@ -3,6 +3,13 @@ assistant-lite/data/
 .env
 **/.env
 !**/.env.example
+# Dify 控制台令牌是**活凭据**（access / csrf / refresh），绝不能入库。
+# 这些文件曾放在这里且未被忽略，上线前扫描才发现——差一步就推上公开仓库。
+.workbuddy-ai/tmp/
+
+# ---- 新项目的运行时数据 ----
+dify-multiagent/.build/
+langgraph-app/data/
 
 # ---- Python ----
 __pycache__/
@@ -30,3 +37,8 @@ dify-assistant/reference-*.yaml
 .vscode/
 .DS_Store
 Thumbs.db
+
+# ---- 一次性探测脚本的残留 ----
+.probe_*.txt
+.probe_*.py
+*.prd_q.png

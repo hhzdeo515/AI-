@@ -1,0 +1,15 @@
+# LangGraph 版本依赖
+#
+# 与 assistant-lite 的差异：多了编排框架（langgraph + langgraph-checkpoint-sqlite
+# + langchain-core 传递依赖 + grandalf 仅用于 `run.py graph` 的 ASCII 渲染）。
+# 模型调用仍是 openai SDK 直连百炼，**没有**引入 langchain-openai——
+# 模型是外部服务，包一层不产生收益，反而让「测试不依赖外部 API」更难维持。
+
+langgraph>=1.0
+langgraph-checkpoint-sqlite>=3.0
+grandalf>=0.8
+openai>=1.50
+python-dotenv>=1.0
+pillow>=10.0
+
+# 移植资产未新增依赖：calc 只用 ast/operator，grids 无依赖，speech 只用 re。

@@ -1,0 +1,60 @@
+flowchart LR
+    subgraph CAP["模型能力 · 按任务分工"]
+        direction TB
+        M1["qwen-plus<br/>文本生成 · 路由兜底"]
+        M2["qwen-vl-max<br/>视觉理解 · 图片精读"]
+        M3["qwen3-asr-flash<br/>语音识别 · 长音频分片"]
+        M4["cosyvoice-v1<br/>语音合成 · 播报"]
+        M5["deepseek-v4-flash<br/>Dify 场景 Agent"]
+    end
+
+    subgraph USE["使用方"]
+        direction TB
+        U1["local_llm<br/>本地场景回复"]
+        U2["route 第 5 级<br/>LLM 兜底"]
+        U3["exam_vision<br/>精读 · 初解 · 终审"]
+        U4["meeting<br/>录音转写"]
+        U5["postprocess → /api/speak<br/>播报代际号"]
+        U6["Dify 五个场景 Agent"]
+    end
+
+    subgraph DET["确定性工具 · 零 token 不调模型"]
+        direction TB
+        T1["calc<br/>AST 安全求值<br/>长度≤300 · 深度≤15 · 幂≤20"]
+        T2["grids<br/>黑白格逐格运算<br/>异或/并集/交集/同或/差集"]
+        T3["speech<br/>屏幕长文 → 可朗读短句"]
+        T4["audio<br/>wav 标准库 / 其余 ffmpeg"]
+        T5["export<br/>md txt json csv docx pdf"]
+    end
+
+    U1 --> M1
+    U2 --> M1
+    U3 --> M2
+    U4 --> M3
+    U5 --> M4
+    U6 --> M5
+
+    subgraph RULE["关键设计：能不用模型就不用"]
+        direction TB
+        R1["算术 → calc AST 求值<br/>不交给模型算数"]
+        R2["图形推理 → grids 逐格校验<br/>模型结果只作参考"]
+        R3["播报语 → 规则压缩<br/>不额外调模型"]
+        R4["路由 → 五级规则优先<br/>规则命中时绝不调模型"]
+        R5["结果测试不依赖外部 API<br/>需要模型的路径一律打桩"]
+        R1 --> R5
+        R2 --> R5
+        R3 --> R5
+        R4 --> R5
+    end
+
+    DET --> RULE
+
+    classDef model fill:#F3F6F8,stroke:#8A9AA8,color:#1F2933
+    classDef use fill:#EAF6F5,stroke:#3FA7A3,color:#1F2933
+    classDef det fill:#FFF4D6,stroke:#D9A441,color:#1F2933
+    classDef rule fill:#E7F1FB,stroke:#4A7FB5,color:#1F2933
+
+    class M1,M2,M3,M4,M5 model
+    class U1,U2,U3,U4,U5,U6 use
+    class T1,T2,T3,T4,T5 det
+    class R1,R2,R3,R4,R5 rule

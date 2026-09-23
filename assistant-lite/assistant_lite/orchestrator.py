@@ -12,7 +12,7 @@ import json
 from dataclasses import asdict
 from typing import Any
 
-from . import config, llm, progress, session, speech
+from . import config, dify_backend, llm, progress, session, speech
 from .agents.base import BaseAgent
 from .schemas import (
     SCENE_FITNESS,
@@ -40,6 +40,29 @@ ACTION_MAP: dict[str, tuple[str | None, str]] = {
     "stop_playback": (None, "stop_playback"),
     "switch_scene": (None, "switch_scene"),
 }
+
+#: 端侧 1–3B 意图枚举 → 场景。契约见 `docs/端侧适配设计_眼镜.md` §3.1。
+#: 与 Dify DSL 里 normalize 节点的映射表保持一致——两边都改才算改契约。
+DEVICE_INTENT_SCENES: dict[str, str] = {
+    "meeting_start": SCENE_MEETING,
+    "meeting_append": SCENE_MEETING,
+    "meeting_summarize": SCENE_MEETING,
+    "meeting_stop": SCENE_MEETING,
+    "solve": "exam",
+    "train_start": SCENE_FITNESS,
+    "train_done": SCENE_FITNESS,
+    "train_pain": SCENE_FITNESS,
+    # 无场景语义：switch_scene 场景取自事件、stop/cancel/wake 不产生请求
+    "switch_scene": "",
+    "stop": "",
+    "cancel": "",
+    "wake": "",
+}
+
+#: 端侧判定可信阈值。低于此值的 device 意图只作证据、不作提示。
+DEVICE_CONFIDENCE_FLOOR = 0.75
+#: 安全相关意图永不降级（与 fitness 的「不适即停」一致）。
+DEVICE_NEVER_DOWNGRADE = frozenset({"train_pain"})
 
 ROUTER_PROMPT = """你是智能助手总控，只输出一个 JSON 对象，不要代码围栏。
 字段：scene, action, reason。
@@ -191,17 +214,13 @@ class Orchestrator:
         scene, action, source = self.route(task, state)
         task.action = action
 
+        # 路由遥测：端侧判对率的数据来源。必须在执行之前记录，
+        # 这样即使执行失败也留下了路由判定的事实。
+        self._record_routing(task, scene, action, source)
+
         agent = self._agent_for(scene)
         progress.begin(task.request_id, scene)
-        try:
-            reply = agent.handle(task, state)
-        except Exception as e:  # Agent 内部异常不应炸掉整个服务
-            reply = Reply(
-                text=f"处理失败：{type(e).__name__}: {e}",
-                scene=scene,
-                action=action,
-                status=STATUS_ERROR,
-            )
+        reply = self._execute(task, state, agent, scene, action, source)
         progress.finish(task.request_id, error=(reply.status == STATUS_ERROR))
 
         # 语音播报兜底：Agent 没给就用规则压缩（不调模型，测试里也安全）
@@ -213,6 +232,157 @@ class Orchestrator:
         if task.request_id:
             session.remember(task.owner, task.request_id, "handle", asdict(reply))
         return reply
+
+    # ------------------------------------------------------------------ #
+    # 端侧上下文
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def device_context(task: Task) -> dict[str, Any]:
+        """从 event 里读端侧 1–3B 的判定结果。
+
+        契约：`event.device = {intent, confidence}`（见设计文档 §4.2）。
+        也接受扁平的 `event.device_intent`，便于设备端少一层嵌套。
+        未知枚举一律静默忽略——绝不能因为设备多发了个字段就影响既有路由。
+        """
+        ev = task.event or {}
+        dev = ev.get("device")
+        dev = dev if isinstance(dev, dict) else {}
+
+        intent = str(dev.get("intent") or ev.get("device_intent") or "").strip()
+        raw_conf = dev.get("confidence", ev.get("device_confidence"))
+        confidence: float | None
+        try:
+            confidence = None if raw_conf is None or raw_conf == "" else float(raw_conf)
+        except (TypeError, ValueError):
+            confidence = None
+
+        device_scene = DEVICE_INTENT_SCENES.get(intent, "")
+        if not device_scene:
+            trusted: bool | None = False if intent else None
+        elif intent in DEVICE_NEVER_DOWNGRADE:
+            trusted = True
+        else:
+            trusted = (confidence or 0.0) >= DEVICE_CONFIDENCE_FLOOR
+
+        return {
+            "intent": intent,
+            "confidence": confidence,
+            "scene": device_scene,
+            "trusted": trusted,
+        }
+
+    def _record_routing(self, task: Task, scene: str, action: str, source: str) -> None:
+        try:
+            d = self.device_context(task)
+            session.record_routing(
+                owner=task.owner,
+                session_id=task.session_id,
+                request_id=task.request_id,
+                scene=scene,
+                action=action,
+                source=source,
+                device_intent=d["intent"],
+                device_confidence=d["confidence"],
+                device_scene=d["scene"],
+                device_trusted=d["trusted"],
+            )
+        except Exception:
+            # 遥测是横切关注点，任何异常都不该影响主链路
+            pass
+
+    # ------------------------------------------------------------------ #
+    # 执行：本地 Agent 或 Dify 后端
+    # ------------------------------------------------------------------ #
+    def _execute(
+        self,
+        task: Task,
+        state: dict[str, Any],
+        agent: BaseAgent,
+        scene: str,
+        action: str,
+        source: str,
+    ) -> Reply:
+        """按 `EXEC_BACKEND` 决定场景 Agent 在哪执行。路由永远已经完成。"""
+        if config.EXEC_BACKEND == "dify":
+            return self._execute_dify(task, state, agent, scene, action, source)
+        return self._execute_local(task, state, agent, scene, action)
+
+    def _execute_local(
+        self,
+        task: Task,
+        state: dict[str, Any],
+        agent: BaseAgent,
+        scene: str,
+        action: str,
+    ) -> Reply:
+        try:
+            return agent.handle(task, state)
+        except Exception as e:  # Agent 内部异常不应炸掉整个服务
+            return Reply(
+                text=f"处理失败：{type(e).__name__}: {e}",
+                scene=scene,
+                action=action,
+                status=STATUS_ERROR,
+            )
+
+    def _execute_dify(
+        self,
+        task: Task,
+        state: dict[str, Any],
+        agent: BaseAgent,
+        scene: str,
+        action: str,
+        source: str,
+    ) -> Reply:
+        """把场景执行转发给 Dify 工作流。
+
+        刻意只在「纯文本、无附件」时转发：图片/音频需要先经本地
+        ASR / VLM 预处理，而那条路径涉及会话状态与归档，绕开它会破坏
+        既有约定。带附件时保持本地执行，行为可预期。
+
+        另外：本地有状态机的场景（会议收集中、训练进行中、建档问卷）
+        必须留在本地——Dify 侧没有这些状态。粘性路由（source="sticky"）
+        正是这些情况的标志。
+        """
+        d = self.device_context(task)
+        reason = ""
+        if task.files:
+            reason = "本次请求带附件，需本地 ASR/VLM 预处理"
+        elif source == "sticky":
+            reason = "处于多轮有状态流程中，Dify 侧无此会话状态"
+
+        if reason:
+            reply = self._execute_local(task, state, agent, scene, action)
+            reply.text = f"{reply.text}\n\n（未转发 Dify：{reason}。）" if reply.text else reply.text
+            return reply
+
+        try:
+            text = dify_backend.run_scene(
+                text=task.text,
+                scene=scene,
+                device_intent=d["intent"],
+                device_confidence=d["confidence"],
+                user=task.owner,
+            )
+        except dify_backend.DifyError as e:
+            if not config.DIFY_FALLBACK_LOCAL:
+                return Reply(
+                    text=f"Dify 后端执行失败：{e}",
+                    scene=scene,
+                    action=action,
+                    status=STATUS_ERROR,
+                )
+            reply = self._execute_local(task, state, agent, scene, action)
+            reply.text = f"{reply.text}\n\n（Dify 后端不可用，已回退本地：{e}）"
+            return reply
+
+        return Reply(
+            text=text,
+            scene=scene,
+            action=action or "answer",
+            speech="",  # 由编排层统一规则压缩，避免 Dify 侧再产生一次差异
+            state_delta={"active_scene": scene},
+        )
 
     # ------------------------------------------------------------------ #
     @staticmethod

@@ -1,0 +1,8 @@
+# 第三方渲染库（3.5MB）不入库——与 tools/ 同样的约定：
+# 安装物不入库，需要时重新下载。见 render_mermaid.py 顶部说明。
+vendor/
+
+# 渲染中间产物
+out/_*.html
+out/_prof_*/
+out/_render_report.json

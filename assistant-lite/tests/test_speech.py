@@ -33,6 +33,22 @@ def _fresh() -> Path:
 # --------------------------------------------------------------------------- #
 # 纯函数
 # --------------------------------------------------------------------------- #
+def test_to_plain_strips_all_headings_not_just_first() -> None:
+    """回归：标题正则原本锚定行首（``^\\s{0,3}#{1,6}\\s*`` + re.M），
+    在重复串里只会匹配**第一个**标题——后续的 "## 标题" 前面是空格而非行首，
+    于是「井号井号」被原样送进 TTS。
+
+    这是从 assistant-lite 移植到 langgraph-app 时在那边发现并修掉的同一个 bug；
+    此处回流并加回归，避免它再被搬回去。
+    """
+    repeated = "## 标题\n\n**结论**：一切正常。" * 12
+    assert "#" not in speech.to_plain(repeated), "重复串里只去掉了第一个标题"
+    assert "#" not in speech.truncate(repeated)
+
+    short = "## 标题\n正文。"
+    assert "#" not in speech.truncate(short), f"短文本分支必须同样清理：{speech.truncate(short)!r}"
+
+
 def test_to_plain_strips_markdown() -> None:
     src = (
         "# 会议纪要\n\n"

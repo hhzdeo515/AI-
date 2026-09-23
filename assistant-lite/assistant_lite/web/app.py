@@ -247,6 +247,16 @@ def create_app() -> Flask:
         sid = (request.args.get("session_id") or "web").strip() or "web"
         return jsonify(session.load_state(owner, sid))
 
+    @app.get("/api/routing-stats")
+    def api_routing_stats():
+        """端侧判对率：端侧意图与云端权威路由的一致率（设计文档 §8 指标）。
+
+        路由留在本地才有这张表——这是「方案 B」的直接产出。
+        不给 owner 则统计全部。
+        """
+        owner = (request.args.get("owner") or "").strip() or None
+        return jsonify(session.routing_stats(owner))
+
     @app.get("/api/progress")
     def api_progress():
         """请求级进度快照，供前端的 pipeline 显示真实执行阶段。

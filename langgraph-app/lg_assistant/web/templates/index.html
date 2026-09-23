@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>assistant-lite · Glasses Companion</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+
+<!-- Ambient background：极低透明度光斑 + 网格，只做氛围，不参与信息表达 -->
+<div class="ambient" aria-hidden="true">
+  <span class="blob blob-a"></span>
+  <span class="blob blob-b"></span>
+  <span class="blob blob-c"></span>
+  <span class="grid"></span>
+</div>
+
+<div class="app">
+
+  <!-- ── 左侧导航 ───────────────────────────────────────────────── -->
+  <aside class="nav" id="nav">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="12" cy="12" r="7.5"/>
+          <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/>
+        </svg>
+      </span>
+      <span class="brand-text">
+        <strong>assistant-lite</strong>
+        <em>Glasses Companion</em>
+      </span>
+    </div>
+
+    <nav class="nav-group">
+      <button class="nav-item" data-go="home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/>
+        </svg>
+        <span class="nav-txt"><b>Home</b></span>
+      </button>
+    </nav>
+
+    <p class="nav-label">Assistant</p>
+    <nav class="nav-group">
+      <button class="nav-item" data-go="meeting">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>
+        </svg>
+        <span class="nav-txt"><b>Meeting</b><i>会议纪要</i></span>
+      </button>
+      <button class="nav-item" data-go="vision">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 8V5.6A1.6 1.6 0 0 1 5.6 4H8"/><path d="M16 4h2.4A1.6 1.6 0 0 1 20 5.6V8"/>
+          <path d="M20 16v2.4a1.6 1.6 0 0 1-1.6 1.6H16"/><path d="M8 20H5.6A1.6 1.6 0 0 1 4 18.4V16"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <span class="nav-txt"><b>Vision</b><i>拍照解题</i></span>
+      </button>
+      <button class="nav-item" data-go="fitness">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12.5h3.4l2-5.2 3 10.4 2.4-7.2 1.8 4h4.9"/>
+        </svg>
+        <span class="nav-txt"><b>Fitness</b><i>锻炼指导</i></span>
+      </button>
+    </nav>
+
+    <p class="nav-label">Library</p>
+    <nav class="nav-group">
+      <button class="nav-item" data-go="memory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.2 3.2 7.6 12 12l8.8-4.4L12 3.2Z"/>
+          <path d="m3.2 12.4 8.8 4.4 8.8-4.4"/><path d="m3.2 16.8 8.8 4.4 8.8-4.4"/>
+        </svg>
+        <span class="nav-txt"><b>Memory</b><i>资料库</i></span>
+      </button>
+    </nav>
+
+    <div class="nav-foot">
+      <span class="mode-badge" id="mode-badge">Demo Mode</span>
+      <span class="mode-note" id="mode-note">未连接眼镜硬件</span>
+    </div>
+  </aside>
+
+  <!-- ── 工作区 ─────────────────────────────────────────────────── -->
+  <main class="workspace">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" id="nav-toggle" aria-label="菜单">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div class="crumb" id="crumb">Home</div>
+      <div class="spacer"></div>
+      <div class="chips" id="chips">
+        <span class="chip" data-chip="vision"><i class="dot"></i>Vision</span>
+        <span class="chip" data-chip="audio"><i class="dot"></i>Audio</span>
+        <span class="chip" data-chip="assistant"><i class="dot"></i>Assistant</span>
+      </div>
+      <button class="icon-btn" id="ctx-toggle" aria-label="上下文面板" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <path d="M9 5h10M9 12h10M9 19h10"/>
+          <circle cx="4.6" cy="5" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="4.6" cy="12" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="4.6" cy="19" r="1.1" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+    </header>
+
+    <div class="stage" id="stage">
+
+      <!-- ── HOME ───────────────────────────────────────────────── -->
+      <section class="view" data-view="home">
+        <header class="hero">
+          <p class="hero-greet" id="greeting">Good afternoon</p>
+          <h1 class="hero-line">你的智能助手已就绪</h1>
+          <p class="hero-sub">3 个场景可用 · 数据留在本机</p>
+        </header>
+
+        <div class="cards">
+          <button class="card card-meeting" data-go="meeting">
+            <span class="card-kicker">MEETING</span>
+            <span class="card-motif" aria-hidden="true">
+              <svg class="wave" viewBox="0 0 120 28" preserveAspectRatio="none">
+                <path class="wave-path" d="M0 14h9l3-7 4 14 4-11 3 8 3-4h11l3-6 4 12 4-9 3 6 3-3h11l3-5 4 10 4-8 3 5 3-2h11l3-4 4 8 4-6 3 4 3-2h9"/>
+              </svg>
+            </span>
+            <span class="card-title">Capture the conversation</span>
+            <span class="card-desc">提交会议转写或录音，整理要点、决策与行动项。</span>
+            <span class="card-cta">Start Meeting <em>→</em></span>
+          </button>
+
+          <button class="card card-vision" data-go="vision">
+            <span class="card-kicker">VISION</span>
+            <span class="card-motif viewfinder" aria-hidden="true">
+              <i class="vf tl"></i><i class="vf tr"></i><i class="vf bl"></i><i class="vf br"></i>
+              <span class="vf-core"></span>
+            </span>
+            <span class="card-title">Capture a question</span>
+            <span class="card-desc">上传题目图片，识别、求解并回看原图做程序校验。</span>
+            <span class="card-cta">Open Vision <em>→</em></span>
+          </button>
+
+          <button class="card card-fitness" data-go="fitness">
+            <span class="card-kicker">FITNESS</span>
+            <span class="card-motif" aria-hidden="true">
+              <svg class="imu" viewBox="0 0 120 28" preserveAspectRatio="none">
+                <path class="imu-path" d="M0 18h14l4-9 6 15 6-12 5 7 5-3h14l4-8 6 14 6-11 5 6 5-2h14l4-7 6 12 6-9 5 5 4-2h11"/>
+              </svg>
+            </span>
+            <span class="card-title">Train smarter</span>
+            <span class="card-desc">建立健康档案，逐组记录训练并实时调整。</span>
+            <span class="card-cta">Start Workout <em>→</em></span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ── MEETING ────────────────────────────────────────────── -->
+      <section class="view" data-view="meeting">
+        <header class="scene-head">
+          <span class="card-kicker">MEETING</span>
+          <h2>Listen. Understand. Remember.</h2>
+          <p>转写与纪要留在本机；生成后可导出 Word / PDF / Markdown。</p>
+        </header>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="meeting-start">Start from Text</button>
+          <button class="btn" id="meeting-audio">Upload Audio</button>
+          <button class="btn btn-ghost" id="meeting-stop" hidden>End Session</button>
+        </div>
+
+        <div class="panel" id="meeting-session" hidden>
+          <div class="panel-head">
+            <span class="panel-title">Session</span>
+            <span class="badge" id="meeting-badge">READY</span>
+          </div>
+
+          <div class="audio-monitor" id="meeting-monitor" hidden>
+            <span class="mono-time" id="mono-time">00:00</span>
+            <svg class="wave wave-live" viewBox="0 0 240 34" preserveAspectRatio="none">
+              <path class="wave-path" d="M0 17h10l4-9 5 18 5-14 4 10 4-6h12l4-8 5 16 5-12 4 8 4-4h12l4-7 5 14 5-10 4 7 4-3h12l4-6 5 12 5-9 4 6 4-3h12l4-5 5 10 5-8 4 5 4-2h14l4-6 5 11 5-8 4 6 4-3h13"/>
+            </svg>
+            <span class="mono-state" id="mono-state">Listening</span>
+          </div>
+
+          <textarea id="meeting-transcript" rows="5" placeholder="粘贴会议转写内容，例如：&#10;张三：我负责接口文档，周五前提交。"></textarea>
+          <div class="panel-foot">
+            <span class="count" id="meeting-count">0 字</span>
+            <div class="spacer"></div>
+            <button class="btn btn-ghost" id="meeting-append">Append</button>
+            <button class="btn btn-primary" id="meeting-summarize">Generate Summary</button>
+          </div>
+        </div>
+
+        <div class="pipeline" id="meeting-pipeline" hidden></div>
+        <div class="result" id="meeting-result" hidden></div>
+      </section>
+
+      <!-- ── VISION ─────────────────────────────────────────────── -->
+      <section class="view" data-view="vision">
+        <header class="scene-head">
+          <span class="card-kicker">VISION</span>
+          <h2>Capture. Recognise. Verify.</h2>
+          <p>一次一题，保留完整题干与全部选项；结果会回看原图复核。</p>
+        </header>
+
+        <div class="vision-grid">
+          <div class="frame" id="vision-frame">
+            <i class="vf tl"></i><i class="vf tr"></i><i class="vf bl"></i><i class="vf br"></i>
+            <div class="frame-body" id="vision-body">
+              <svg class="frame-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 8V5.6A1.6 1.6 0 0 1 5.6 4H8"/><path d="M16 4h2.4A1.6 1.6 0 0 1 20 5.6V8"/>
+                <path d="M20 16v2.4a1.6 1.6 0 0 1-1.6 1.6H16"/><path d="M8 20H5.6A1.6 1.6 0 0 1 4 18.4V16"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <p class="frame-hint">选择或拖入一张题目图片</p>
+              <button class="btn btn-primary" id="vision-pick">Choose Image</button>
+            </div>
+          </div>
+
+          <div class="vision-side">
+            <div class="pipeline" id="vision-pipeline" hidden></div>
+            <div class="actions actions-stack">
+              <button class="btn btn-primary" id="vision-solve" disabled>Solve</button>
+              <button class="btn btn-ghost" id="vision-clear" hidden>Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="result" id="vision-result" hidden></div>
+      </section>
+
+      <!-- ── FITNESS ────────────────────────────────────────────── -->
+      <section class="view" data-view="fitness">
+        <header class="scene-head">
+          <span class="card-kicker">FITNESS</span>
+          <h2>Motion-aware training</h2>
+          <p>依据健康档案调整动作与负荷；报告不适时立即暂停。</p>
+        </header>
+
+        <div class="fit-profile" id="fit-profile"></div>
+
+        <div class="fit-session" id="fit-session" hidden>
+          <div class="panel-head">
+            <span class="panel-title">Workout</span>
+            <span class="badge" id="fit-badge">READY</span>
+          </div>
+
+          <!-- 空闲：开始一次训练 -->
+          <div id="fit-idle">
+            <p class="frame-hint">输入要练的动作开始记录，例如「深蹲」「卧推 3组10次 60公斤」。</p>
+            <div class="start-row">
+              <input type="text" id="fit-exercise" placeholder="深蹲">
+              <button class="btn btn-primary" id="fit-start">Start Workout</button>
+            </div>
+          </div>
+
+          <!-- 进行中 -->
+          <div id="fit-active" hidden>
+            <div class="fit-stats">
+              <div class="stat">
+                <span class="stat-label">Sets logged</span>
+                <span class="stat-value" id="fit-sets">0</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Current</span>
+                <span class="stat-value" id="fit-current">—</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Workout State</span>
+                <span class="stat-value state" id="fit-state">IDLE</span>
+              </div>
+            </div>
+            <div class="fit-actions">
+              <button class="btn" id="fit-setdone">Log a Set</button>
+              <button class="btn btn-ghost" id="fit-pain">Report Discomfort</button>
+              <button class="btn btn-primary" id="fit-end">End Workout</button>
+            </div>
+            <div class="rest" id="fit-rest" hidden>
+              <svg class="ring" viewBox="0 0 44 44" aria-hidden="true">
+                <circle class="ring-bg" cx="22" cy="22" r="18"/>
+                <circle class="ring-fg" cx="22" cy="22" r="18" id="rest-ring"/>
+              </svg>
+              <span class="rest-label">REST</span>
+              <span class="mono-time" id="rest-time">--:--</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="result" id="fitness-result" hidden></div>
+      </section>
+
+      <!-- ── MEMORY ─────────────────────────────────────────────── -->
+      <section class="view" data-view="memory">
+        <header class="scene-head">
+          <span class="card-kicker">MEMORY</span>
+          <h2>Everything your glasses kept</h2>
+          <p>会议纪要、题解与训练总结都归档在本机，可导出。</p>
+        </header>
+
+        <div class="filters" id="memory-filters">
+          <button class="filter is-on" data-filter="">All</button>
+          <button class="filter" data-filter="meeting">Meetings</button>
+          <button class="filter" data-filter="exam">Vision</button>
+          <button class="filter" data-filter="fitness">Fitness</button>
+        </div>
+
+        <div class="memory" id="memory-list"></div>
+        <div class="result" id="memory-detail" hidden></div>
+      </section>
+
+    </div>
+
+    <!-- ── Composer：Command Layer，只占底部一条 ─────────────────── -->
+    <footer class="composer">
+      <div class="composer-inner">
+        <div class="attach-wrap">
+          <button class="plus" id="plus" aria-label="添加附件" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <div class="attach-menu" id="attach-menu" hidden>
+            <button data-attach="image">Photo</button>
+            <button data-attach="audio">Audio</button>
+          </div>
+        </div>
+        <textarea id="input" rows="1" placeholder="Ask assistant..."></textarea>
+        <button class="send" id="send" aria-label="发送">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+      <div class="composer-foot">
+        <span class="attached" id="attached"></span>
+      </div>
+    </footer>
+  </main>
+
+  <!-- ── Context Panel：需要时从右侧滑出 ────────────────────────── -->
+  <aside class="ctx" id="ctx" aria-hidden="true">
+    <div class="ctx-head">
+      <span class="panel-title">Context</span>
+      <button class="icon-btn" id="ctx-close" aria-label="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="ctx-body" id="ctx-body"></div>
+  </aside>
+</div>
+
+<!-- ── Mobile 底部 Tab ──────────────────────────────────────────── -->
+<nav class="tabbar" id="tabbar">
+  <button data-go="home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/></svg>
+    <span>Home</span>
+  </button>
+  <button data-go="meeting">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+    <span>Meeting</span>
+  </button>
+  <button data-go="vision">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5.6A1.6 1.6 0 0 1 5.6 4H8"/><path d="M16 4h2.4A1.6 1.6 0 0 1 20 5.6V8"/><path d="M20 16v2.4a1.6 1.6 0 0 1-1.6 1.6H16"/><path d="M8 20H5.6A1.6 1.6 0 0 1 4 18.4V16"/><circle cx="12" cy="12" r="3"/></svg>
+    <span>Vision</span>
+  </button>
+  <button data-go="fitness">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12.5h3.4l2-5.2 3 10.4 2.4-7.2 1.8 4h4.9"/></svg>
+    <span>Fitness</span>
+  </button>
+  <button data-go="memory">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 3.2 7.6 12 12l8.8-4.4L12 3.2Z"/><path d="m3.2 12.4 8.8 4.4 8.8-4.4"/><path d="m3.2 16.8 8.8 4.4 8.8-4.4"/></svg>
+    <span>Memory</span>
+  </button>
+</nav>
+
+<div class="toast" id="toast" hidden></div>
+<input type="file" id="file-input" hidden multiple>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

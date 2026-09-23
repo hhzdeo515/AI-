@@ -43,6 +43,25 @@ CREATE TABLE IF NOT EXISTS resources(
     created  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_resources_owner ON resources(owner, created DESC);
+-- 路由遥测：端侧意图 vs 云端权威路由，用于统计「端侧判对率」（设计文档 §8）。
+-- 只有路由留在本地才拿得到这张表；这就是路由不进 Dify 的理由之一。
+CREATE TABLE IF NOT EXISTS routing_telemetry(
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner            TEXT NOT NULL,
+    session_id       TEXT NOT NULL,
+    request_id       TEXT,
+    device_intent    TEXT,
+    device_confidence REAL,
+    device_scene     TEXT,
+    device_trusted   TEXT,
+    scene            TEXT NOT NULL,
+    action           TEXT,
+    source           TEXT NOT NULL,
+    device_correct   TEXT,
+    rerouted         TEXT,
+    created          TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_routing_owner ON routing_telemetry(owner, created DESC);
 """
 
 
@@ -230,3 +249,94 @@ def get_resource(owner: str, rid: str) -> dict | None:
             "SELECT * FROM resources WHERE owner=? AND id=?", (owner, rid)
         ).fetchone()
     return dict(row) if row else None
+
+
+# --------------------------------------------------------------------------- #
+# 路由遥测（端侧判对率）
+# --------------------------------------------------------------------------- #
+def record_routing(
+    *,
+    owner: str,
+    session_id: str,
+    request_id: str,
+    scene: str,
+    action: str,
+    source: str,
+    device_intent: str = "",
+    device_confidence: float | None = None,
+    device_scene: str = "",
+    device_trusted: bool | None = None,
+) -> None:
+    """记录一次路由判定，用于统计端侧意图判对率与 reroute 率。
+
+    `device_correct` / `rerouted` 只在端侧给出了场景映射时才计算；
+    端侧没给意图（例如纯文字网页输入）时留空，不污染统计。
+    """
+    from datetime import datetime, timezone
+
+    if device_scene:
+        correct = "yes" if device_scene == scene else "no"
+        rerouted = "yes" if device_scene != scene else "no"
+    else:
+        correct = ""
+        rerouted = ""
+
+    init()
+    with _LOCK:
+        conn = _connect()
+        conn.execute(
+            "INSERT INTO routing_telemetry("
+            "owner, session_id, request_id, device_intent, device_confidence,"
+            " device_scene, device_trusted, scene, action, source,"
+            " device_correct, rerouted, created"
+            ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                owner,
+                session_id,
+                request_id,
+                device_intent,
+                device_confidence,
+                device_scene,
+                "" if device_trusted is None else ("yes" if device_trusted else "no"),
+                scene,
+                action,
+                source,
+                correct,
+                rerouted,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        conn.commit()
+
+
+def routing_stats(owner: str | None = None) -> dict[str, Any]:
+    """端侧判对率汇总。样本为「端侧给出了场景映射」的记录。"""
+    init()
+    where = "WHERE device_scene != ''"
+    args: list[Any] = []
+    if owner:
+        where += " AND owner=?"
+        args.append(owner)
+
+    with _LOCK:
+        conn = _connect()
+        total = conn.execute(
+            f"SELECT COUNT(*) AS n FROM routing_telemetry {where}", args
+        ).fetchone()["n"]
+        correct = conn.execute(
+            f"SELECT COUNT(*) AS n FROM routing_telemetry {where} AND device_correct='yes'",
+            args,
+        ).fetchone()["n"]
+        by_source = conn.execute(
+            f"SELECT source, COUNT(*) AS n FROM routing_telemetry {where}"
+            " GROUP BY source ORDER BY n DESC",
+            args,
+        ).fetchall()
+
+    return {
+        "samples": total,
+        "device_correct": correct,
+        "accuracy": round(correct / total, 4) if total else None,
+        "by_source": {r["source"]: r["n"] for r in by_source},
+    }
+

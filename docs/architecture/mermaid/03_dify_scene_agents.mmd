@@ -1,0 +1,52 @@
+flowchart LR
+    S["start<br/>端侧事件入口<br/>text · device_intent<br/>device_confidence · scene_hint"]
+    N["normalize<br/><b>Code 节点 · 零 token</b><br/>意图枚举 → 场景<br/>置信度 ≥0.75 才可信<br/>train_pain 永不降级<br/>拼装 query 证据链"]
+    R["scene_router<br/><b>question-classifier</b><br/>deepseek-v4-flash<br/>输出 class_id 并据此分发"]
+    AG1["agent_meeting<br/>LLM 节点"]
+    AG2["agent_exam<br/>LLM 节点"]
+    AG3["agent_fitness<br/>LLM 节点"]
+    AG4["agent_resource<br/>LLM 节点"]
+    AG5["agent_general<br/>LLM 节点"]
+    A1["answer_meeting"]
+    A2["answer_exam"]
+    A3["answer_fitness"]
+    A4["answer_resource"]
+    A5["answer_general"]
+
+    S --> N --> R
+    R -->|"sourceHandle = meeting"| AG1
+    R -->|"sourceHandle = exam"| AG2
+    R -->|"sourceHandle = fitness"| AG3
+    R -->|"sourceHandle = resource"| AG4
+    R -->|"sourceHandle = general"| AG5
+    AG1 --> A1
+    AG2 --> A2
+    AG3 --> A3
+    AG4 --> A4
+    AG5 --> A5
+
+    note1["⚠️ 关键约束<br/>question-classifier 的 edge_source_handle = class_id<br/>边必须用 class_id 作 sourceHandle<br/>否则图静默停止：status=succeeded 但 outputs 为空"]
+
+    note2["⚠️ 不要用 variable-aggregator 汇聚<br/>每次只有一个分支执行<br/>聚合会永久等待其余四条"]
+
+    subgraph PROMPT["五 Agent 的硬约束"]
+        direction TB
+        P1["meeting<br/>只能依据原文<br/>禁止补全期限/流程/责任人"]
+        P2["exam<br/>图形题不能只做 OCR<br/>须按行列坐标记录"]
+        P3["fitness<br/><b>无 PPG → 禁止心率/负荷/恢复度</b><br/>疼痛必须立即停止并说就医指征"]
+        P4["resource<br/>不得编造资料标题/ID"]
+        P5["general<br/>不宣称未执行的动作"]
+    end
+
+    classDef code fill:#FFF4D6,stroke:#D9A441,color:#1F2933
+    classDef cls fill:#F1ECFB,stroke:#7C61C4,color:#1F2933
+    classDef agent fill:#EAF6F5,stroke:#3FA7A3,color:#1F2933
+    classDef ans fill:#F3F6F8,stroke:#8A9AA8,color:#1F2933
+    classDef warn fill:#FDECEC,stroke:#C05252,color:#1F2933
+
+    class N code
+    class R cls
+    class AG1,AG2,AG3,AG4,AG5 agent
+    class A1,A2,A3,A4,A5 ans
+    class note1,note2 warn
+    class P1,P2,P3,P4,P5 agent

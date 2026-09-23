@@ -1,0 +1,59 @@
+flowchart TB
+    START(["START"]) --> DG["device_gate<br/>读 event.device<br/>意图枚举 → 场景映射<br/>置信度门控 0.75<br/>train_pain 永不降级"]
+    DG --> RT["route<br/>① 结构化事件 ② 显式指定<br/>③ 关键词 ④ 粘性会话 ⑤ LLM 兜底<br/><b>顺序不可换</b>"]
+    RT --> TEL["telemetry<br/>落库 device_intent / scene<br/>→ 端侧判对率"]
+    TEL --> DISP{"dispatch<br/>确定性规则"}
+
+    DISP -->|"action ∈ meta"| META["meta_command<br/>stop_playback / switch_scene"]
+    DISP -->|"有图片 且 scene=exam"| VIS["exam_vision<br/>本地四步视觉链"]
+    DISP -->|"EXEC_BACKEND=dify"| DIFY["dify_scene<br/>转发 Dify 工作流"]
+    DISP -->|"其余"| CALC["calc_quick<br/>AST 安全求值"]
+
+    CALC -->|"calc_hit = true"| POST
+    CALC -->|"calc_hit = false"| LLM["local_llm<br/>场景专用提示词"]
+
+    META --> POST["postprocess<br/>补播报语 · 场景归档"]
+    VIS --> POST
+    DIFY --> POST
+    LLM --> POST
+    POST --> END(["END"])
+
+    subgraph VISION["exam_vision · 本地视觉链"]
+        direction TB
+        V1["① 精读 VLM<br/>只记录，不解题"]
+        V2["② 初解<br/><b>重新查看原图</b>"]
+        V3["③ 工具校验<br/>calc AST + grids 逐格<br/>零 token"]
+        V4["④ 终审<br/><b>再次重新查看原图</b><br/>允许推翻初解"]
+        V1 --> V2 --> V3 --> V4
+    end
+    VIS -.-> VISION
+
+    subgraph GUARD["不转发 Dify 的三条守卫"]
+        direction TB
+        GD1["带图片的解题<br/>→ 本地视觉链"]
+        GD2["其余带附件<br/>→ 需先做 ASR"]
+        GD3["粘性会话<br/>→ 本地状态机"]
+    end
+    DISP -.-> GUARD
+
+    subgraph CP["检查点 · 断点续跑"]
+        direction TB
+        C1["每个节点完成后落盘"]
+        C2["thread_id = owner:session"]
+        C3["重连后 invoke(None) 续跑<br/>不重跑已完成节点"]
+        C1 --> C2 --> C3
+    end
+    TEL -.-> CP
+
+    classDef node fill:#EAF6F5,stroke:#3FA7A3,color:#1F2933
+    classDef ctrl fill:#E7F1FB,stroke:#4A7FB5,color:#1F2933
+    classDef gate fill:#FFF4D6,stroke:#D9A441,color:#1F2933
+    classDef term fill:#F3F6F8,stroke:#8A9AA8,color:#1F2933
+
+    class DG,RT,TEL ctrl
+    class DISP gate
+    class META,VIS,DIFY,CALC,LLM,POST node
+    class START,END term
+    class V1,V2,V3,V4 node
+    class GD1,GD2,GD3 gate
+    class C1,C2,C3 ctrl

@@ -1,0 +1,74 @@
+flowchart TB
+    subgraph DEV["端侧 1–3B：只做判断决策"]
+        direction TB
+        D1["唤醒"]
+        D2["意图识别<br/>固定 11 值枚举 + 置信度"]
+        D3["决定是否上行"]
+    end
+
+    subgraph ENUM["意图枚举契约 · 固定值，不允许自由文本"]
+        direction TB
+        E1["wake · stop · cancel · switch_scene"]
+        E2["meeting_start · meeting_append<br/>meeting_summarize · meeting_stop"]
+        E3["solve"]
+        E4["train_start · train_done · train_pain"]
+    end
+
+    subgraph GATE["四态门控"]
+        direction TB
+        T1["≥ 0.75 → UPLOAD 直接上行"]
+        T2["0.45 – 0.75 → CONFIRM 本地追问"]
+        T3["< 0.45 → DROP 丢弃，省电省流量"]
+        T4["唤醒后仍 < 0.45 → FALLBACK 上行原始音频"]
+        T5["train_pain → 跳过门控，永远上行"]
+    end
+
+    subgraph WHY["为什么意图必须是固定枚举"]
+        direction TB
+        W1["自由文本要在云端再加一层归一化"]
+        W2["那层一旦判错，就分不清<br/>是端侧判错还是归一化判错"]
+        W3["判对率无法归因"]
+        W4["固定枚举 → 判对率变成可测的数字"]
+        W1 --> W2 --> W3 --> W4
+    end
+
+    subgraph AUTH["权威归属 · 端侧判定不具备权威性"]
+        direction TB
+        A1["端侧判错会静默级联<br/>喂错 Agent，用户拿到答非所问的结果"]
+        A2["而端侧永远不会知道自己错了"]
+        A3["云端复核几乎免费<br/>第 1–3 级是纯规则，零 token"]
+        A4["结论：端侧负责门控<br/>云端保留权威路由"]
+        A1 --> A2 --> A3 --> A4
+    end
+
+    subgraph METRIC["端侧判对率 · 可测"]
+        direction TB
+        M1["routing_telemetry 表<br/>device_intent vs 权威 scene"]
+        M2["device_correct / rerouted"]
+        M3["实测：端侧说 exam，云端 reroute 到 fitness<br/>accuracy = 0.0（单样本判错）"]
+        M1 --> M2 --> M3
+    end
+
+    subgraph TODO["明确不做"]
+        direction TB
+        X1["IMU：本版不做<br/>契约留 kind=imu 位<br/>但不得写入/伪造/宣称"]
+        X2["心率等生理指标<br/>设备无 PPG"]
+        X3["端侧做 VLM / 长文生成 / 解题<br/>1–3B 做不到"]
+    end
+
+    DEV --> ENUM
+    ENUM --> GATE
+    GATE --> AUTH
+    AUTH --> METRIC
+
+    classDef edge fill:#FFF4D6,stroke:#D9A441,color:#1F2933
+    classDef cloud fill:#E7F1FB,stroke:#4A7FB5,color:#1F2933
+    classDef metric fill:#EAF6F5,stroke:#3FA7A3,color:#1F2933
+    classDef stopc fill:#FDECEC,stroke:#C05252,color:#1F2933
+    classDef why fill:#F3F6F8,stroke:#8A9AA8,color:#1F2933
+
+    class D1,D2,D3,E1,E2,E3,E4,T1,T2,T3,T4,T5 edge
+    class A1,A2,A3,A4 cloud
+    class M1,M2,M3 metric
+    class X1,X2,X3 stopc
+    class W1,W2,W3,W4 why

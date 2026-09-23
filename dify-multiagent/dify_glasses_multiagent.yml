@@ -1,0 +1,847 @@
+app:
+  description: 端侧 1-3B 只做唤醒/意图/决策，本应用承载云端五个场景 Agent：会议纪要 / 拍照解题 / 锻炼指导 / 资料检索 / 通用问答。权威路由与确定性工具仍在 assistant-lite。
+  icon: 🧠
+  icon_background: '#E8F3FF'
+  icon_type: emoji
+  mode: workflow
+  name: 眼镜多Agent场景层
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/deepseek:0.0.21@5873fe73395aeb49ba26035059eb4e0ec5af01bb66d0545b031f8917b12e8c29
+    version: null
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/volcengine:0.0.19@b18c7067025ff53909fd63a4146a98ee2b0e4b452086b45b774242790fc569ed
+    version: null
+kind: app
+version: 0.7.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions: []
+      allowed_file_types: []
+      allowed_file_upload_methods: []
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+  graph:
+    edges:
+    - id: start-source-normalize
+      source: start
+      sourceHandle: source
+      target: normalize
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: start
+        targetType: code
+    - id: normalize-source-scene_router
+      source: normalize
+      sourceHandle: source
+      target: scene_router
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: code
+        targetType: question-classifier
+    - id: scene_router-source-scene_if
+      source: scene_router
+      sourceHandle: source
+      target: scene_if
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: question-classifier
+        targetType: if-else
+    - id: scene_if-meeting-agent_meeting
+      source: scene_if
+      sourceHandle: meeting
+      target: agent_meeting
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: if-else
+        targetType: llm
+    - id: agent_meeting-source-answer_meeting
+      source: agent_meeting
+      sourceHandle: source
+      target: answer_meeting
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: llm
+        targetType: answer
+    - id: scene_if-exam-agent_exam
+      source: scene_if
+      sourceHandle: exam
+      target: agent_exam
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: if-else
+        targetType: llm
+    - id: agent_exam-source-answer_exam
+      source: agent_exam
+      sourceHandle: source
+      target: answer_exam
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: llm
+        targetType: answer
+    - id: scene_if-fitness-agent_fitness
+      source: scene_if
+      sourceHandle: fitness
+      target: agent_fitness
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: if-else
+        targetType: llm
+    - id: agent_fitness-source-answer_fitness
+      source: agent_fitness
+      sourceHandle: source
+      target: answer_fitness
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: llm
+        targetType: answer
+    - id: scene_if-resource-agent_resource
+      source: scene_if
+      sourceHandle: resource
+      target: agent_resource
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: if-else
+        targetType: llm
+    - id: agent_resource-source-answer_resource
+      source: agent_resource
+      sourceHandle: source
+      target: answer_resource
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: llm
+        targetType: answer
+    - id: scene_if-general-agent_general
+      source: scene_if
+      sourceHandle: general
+      target: agent_general
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: if-else
+        targetType: llm
+    - id: agent_general-source-answer_general
+      source: agent_general
+      sourceHandle: source
+      target: answer_general
+      targetHandle: target
+      type: custom
+      zIndex: 0
+      data:
+        isInIteration: false
+        isInLoop: false
+        iteration_id: null
+        loop_id: null
+        sourceType: llm
+        targetType: answer
+    nodes:
+    - id: start
+      type: custom
+      width: 242
+      height: 72
+      position:
+        x: 0
+        y: 300
+      positionAbsolute:
+        x: 0
+        y: 300
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: start
+        title: 端侧事件入口
+        desc: text=用户话语/转写；device_intent=端侧 1-3B 判定的意图枚举
+        variables:
+        - variable: text
+          label: 用户话语 / 转写文本
+          type: text-input
+          required: false
+          max_length: 48000
+          options: []
+        - variable: device_intent
+          label: 端侧意图（枚举）
+          type: text-input
+          required: false
+          max_length: 64
+          options: []
+        - variable: device_confidence
+          label: 端侧置信度
+          type: text-input
+          required: false
+          max_length: 16
+          options: []
+        - variable: scene_hint
+          label: 云端路由提示（assistant-lite 给出）
+          type: text-input
+          required: false
+          max_length: 32
+          options: []
+    - id: normalize
+      type: custom
+      width: 242
+      height: 100
+      position:
+        x: 300
+        y: 300
+      positionAbsolute:
+        x: 300
+        y: 300
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: code
+        title: 端侧事件归一化（零 token）
+        desc: 对齐设计文档 §3：固定枚举 + 置信度门控；train_pain 不降级
+        code_language: python3
+        code: "import json\n\n\ndef main(text, device_intent, device_confidence, scene_hint):\n    \"\"\"Deterministic pre-processing. No model call, no network.\"\"\"\n    text = (text or \"\").strip()\n    intent = (device_intent or \"\").strip()\n\n    try:\n        conf = float(device_confidence) if str(device_confidence or \"\").strip() else 0.0\n    except (TypeError, ValueError):\n        conf = 0.0\n\n    hint = (scene_hint or \"\").strip().lower()\n    if hint not in (\"meeting\", \"exam\", \"fitness\", \"resource\", \"general\"):\n        hint = \"\"\n\n    # The device intent enum is authoritative only when the device was confident.\n    INTENT_SCENE = {\n        \"meeting_start\": \"meeting\",\n        \"meeting_append\": \"meeting\",\n        \"meeting_summarize\": \"meeting\",\n        \"meeting_stop\": \"meeting\",\n        \"solve\": \"exam\",\n        \"train_start\": \"fitness\",\n        \"train_done\": \"fitness\",\n        \"train_pain\": \"fitness\",\n        \"switch_scene\"\
+          : \"\",\n        \"stop\": \"\",\n        \"cancel\": \"\",\n        \"wake\": \"\",\n    }\n    scene_from_intent = INTENT_SCENE.get(intent, \"\")\n    trusted = bool(scene_from_intent) and conf >= 0.75\n    if intent == \"train_pain\":\n        trusted = True  # safety content is never gated on confidence\n\n    # assitant-lite already routed; its hint wins over a weak device guess.\n    effective = hint or (scene_from_intent if trusted else \"\")\n\n    return {\n        \"query\": text or \"(no text)\",\n        \"scene_hint\": effective or \"unknown\",\n        \"device_scene\": scene_from_intent or \"none\",\n        \"device_trusted\": \"yes\" if trusted else \"no\",\n        \"confidence\": str(conf),\n        \"router_note\": json.dumps(\n            {\n                \"device_intent\": intent,\n                \"confidence\": conf,\n                \"trusted\": trusted,\n                \"hint\": hint,\n            },\n            ensure_ascii=False,\n        ),\n  \
+          \  }\n"
+        variables:
+        - variable: text
+          value_selector:
+          - start
+          - text
+        - variable: device_intent
+          value_selector:
+          - start
+          - device_intent
+        - variable: device_confidence
+          value_selector:
+          - start
+          - device_confidence
+        - variable: scene_hint
+          value_selector:
+          - start
+          - scene_hint
+        outputs:
+          query:
+            type: string
+            children: null
+          scene_hint:
+            type: string
+            children: null
+          device_scene:
+            type: string
+            children: null
+          device_trusted:
+            type: string
+            children: null
+          confidence:
+            type: string
+            children: null
+          router_note:
+            type: string
+            children: null
+    - id: scene_router
+      type: custom
+      width: 242
+      height: 150
+      position:
+        x: 620
+        y: 300
+      positionAbsolute:
+        x: 620
+        y: 300
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: question-classifier
+        title: 场景分发 · 五 Agent
+        desc: 端侧 hint 不可信时由云端复核；这是设计文档里的「权威路由」在 Dify 侧的兜底
+        query_variable_selector:
+        - normalize
+        - query
+        model:
+          provider: langgenius/deepseek/deepseek
+          name: deepseek-v4-flash
+          mode: chat
+          completion_params:
+            temperature: 0
+        classes:
+        - id: meeting
+          name: meeting
+          label: 会议纪要
+        - id: exam
+          name: exam
+          label: 拍照解题
+        - id: fitness
+          name: fitness
+          label: 锻炼指导
+        - id: resource
+          name: resource
+          label: 资料检索
+        - id: general
+          name: general
+          label: 通用问答
+        instruction: '根据用户话语判断属于哪个场景。拿不准时选 general。
+
+          meeting: 会议、开会、纪要、转写、录音整理
+
+          exam: 题目、解题、答案、讲解、计算、图形推理、行测
+
+          fitness: 健身、锻炼、动作、几组、深蹲、卧推、身体不适、疼痛
+
+          resource: 我有哪些资料、查找记录、导出、生成文件
+
+          general: 其他日常问答'
+        memory: null
+    - id: scene_if
+      type: custom
+      width: 242
+      height: 291
+      position:
+        x: 940
+        y: 300
+      positionAbsolute:
+        x: 940
+        y: 300
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: if-else
+        title: 分发至场景 Agent
+        desc: ''
+        cases:
+        - case_id: meeting
+          id: meeting
+          logical_operator: or
+          conditions:
+          - id: a8593f9e-af73-42fd-95f2-e55e3041f978
+            varType: string
+            variable_selector:
+            - scene_router
+            - class_name
+            comparison_operator: is
+            value: meeting
+          - id: 98d51851-db24-470d-b599-f2571fec15a4
+            varType: string
+            variable_selector:
+            - normalize
+            - scene_hint
+            comparison_operator: is
+            value: meeting
+        - case_id: exam
+          id: exam
+          logical_operator: or
+          conditions:
+          - id: 28cbd686-e539-462d-b7c0-23a1e5236993
+            varType: string
+            variable_selector:
+            - scene_router
+            - class_name
+            comparison_operator: is
+            value: exam
+          - id: 2644faa4-c598-4126-81e1-8abca427ed3b
+            varType: string
+            variable_selector:
+            - normalize
+            - scene_hint
+            comparison_operator: is
+            value: exam
+        - case_id: fitness
+          id: fitness
+          logical_operator: or
+          conditions:
+          - id: a030ba7a-a111-44ae-b37a-6b0b8a38beb7
+            varType: string
+            variable_selector:
+            - scene_router
+            - class_name
+            comparison_operator: is
+            value: fitness
+          - id: 42a14731-7dfc-47ce-8df4-075038859dba
+            varType: string
+            variable_selector:
+            - normalize
+            - scene_hint
+            comparison_operator: is
+            value: fitness
+        - case_id: resource
+          id: resource
+          logical_operator: or
+          conditions:
+          - id: ef97e0eb-8b69-465f-9d40-bd81c4c1202f
+            varType: string
+            variable_selector:
+            - scene_router
+            - class_name
+            comparison_operator: is
+            value: resource
+          - id: 4a5e2a4b-0c47-47c9-a35a-0146344ceed5
+            varType: string
+            variable_selector:
+            - normalize
+            - scene_hint
+            comparison_operator: is
+            value: resource
+        - case_id: general
+          id: general
+          logical_operator: or
+          conditions:
+          - id: cbd245ff-067e-4438-93c9-4517d9a41bce
+            varType: string
+            variable_selector:
+            - scene_router
+            - class_name
+            comparison_operator: is
+            value: general
+          - id: c8597049-9313-4ecf-9339-99f87779f954
+            varType: string
+            variable_selector:
+            - normalize
+            - scene_hint
+            comparison_operator: is
+            value: general
+    - id: agent_meeting
+      type: custom
+      width: 242
+      height: 120
+      position:
+        x: 1280
+        y: 300
+      positionAbsolute:
+        x: 1280
+        y: 300
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: llm
+        title: Agent · 会议纪要
+        desc: ''
+        model:
+          provider: langgenius/volcengine/volcengine
+          name: doubao-seed-2-1-pro-260628
+          mode: chat
+          completion_params:
+            temperature: 0.3
+        prompt_template:
+        - id: 83392f7d-83a5-44d1-b000-5ab5967d00a2
+          role: system
+          text: '你是会议纪要 Agent。把用户提供的会议转写/录音文本整理成结构化纪要。
+
+            输出包含：主题、覆盖范围、讨论要点、明确决策、行动项、待确认。
+
+            严格约束：只能依据原文，禁止补全原文没有的时间期限、流程步骤或责任人，原文没说的字段写「未明确」。不要编造参会人姓名。'
+        - id: 0abd5a24-4791-45ce-8228-4b8e11e540fa
+          role: user
+          text: '用户输入：{{#normalize.query#}}
+
+
+            端侧判定：{{#normalize.router_note#}}
+
+            云端路由提示：{{#normalize.scene_hint#}}'
+        context:
+          enabled: false
+          variable_selector: []
+        memory: null
+        vision:
+          enabled: false
+          configs: {}
+    - id: answer_meeting
+      type: custom
+      width: 242
+      height: 110
+      position:
+        x: 1280
+        y: 520
+      positionAbsolute:
+        x: 1280
+        y: 520
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: answer
+        title: 输出 · meeting
+        desc: ''
+        answer: '{{#agent_meeting.text#}}'
+        variables: []
+    - id: agent_exam
+      type: custom
+      width: 242
+      height: 120
+      position:
+        x: 1620
+        y: 300
+      positionAbsolute:
+        x: 1620
+        y: 300
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: llm
+        title: Agent · 拍照解题
+        desc: ''
+        model:
+          provider: langgenius/volcengine/volcengine
+          name: doubao-seed-2-1-pro-260628
+          mode: chat
+          completion_params:
+            temperature: 0.3
+        prompt_template:
+        - id: b4a247a8-6d63-4f7e-a4c0-12d40ed0c00d
+          role: system
+          text: '你是拍照解题 Agent，面向公务员考试行测六类题（言语理解/数量关系/判断推理/资料分析/政治理论/常识）。
+
+            先复述题干与全部选项，再给出答案与解析。
+
+            图形推理题不能只做 OCR：按行列坐标记录每格的黑白与位置关系，说明所用规律，并逐一排除选项。
+
+            算术必须逐步写出算式。公式/规律无法确定时明确说「无法确定」，不要猜答案。
+
+            输出末尾单独一行给出播报语，前缀 <<<SPEECH>>>，不超过 60 字。'
+        - id: 597b04a4-0ee6-4627-a83c-ee5afe01f9a6
+          role: user
+          text: '用户输入：{{#normalize.query#}}
+
+
+            端侧判定：{{#normalize.router_note#}}
+
+            云端路由提示：{{#normalize.scene_hint#}}'
+        context:
+          enabled: false
+          variable_selector: []
+        memory: null
+        vision:
+          enabled: false
+          configs: {}
+    - id: answer_exam
+      type: custom
+      width: 242
+      height: 110
+      position:
+        x: 1620
+        y: 520
+      positionAbsolute:
+        x: 1620
+        y: 520
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: answer
+        title: 输出 · exam
+        desc: ''
+        answer: '{{#agent_exam.text#}}'
+        variables: []
+    - id: agent_fitness
+      type: custom
+      width: 242
+      height: 120
+      position:
+        x: 1960
+        y: 300
+      positionAbsolute:
+        x: 1960
+        y: 300
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: llm
+        title: Agent · 锻炼指导
+        desc: ''
+        model:
+          provider: langgenius/volcengine/volcengine
+          name: doubao-seed-2-1-pro-260628
+          mode: chat
+          completion_params:
+            temperature: 0.3
+        prompt_template:
+        - id: 3e476b97-8906-4cfc-b854-943637a2bef0
+          role: system
+          text: '你是锻炼指导 Agent。用户在运动中双手被占用，回答要短、可执行。
+
+            只依据用户自述的信息给建议，没有的信息不要假设。
+
+            重要：本设备没有心率等生理传感器，禁止给出心率区间、训练负荷、恢复度这类需要生理数据才能得出的结论；卡路里只能粗估并标注误差。
+
+            用户报告疼痛/不适时：立即让其停止该动作，给处置建议，并说明何种情况必须就医；同时声明你不是医生。
+
+            输出末尾单独一行给出播报语，前缀 <<<SPEECH>>>，安全相关内容必须完整念出。'
+        - id: 75822067-d60a-41a0-9b63-54fc1a187773
+          role: user
+          text: '用户输入：{{#normalize.query#}}
+
+
+            端侧判定：{{#normalize.router_note#}}
+
+            云端路由提示：{{#normalize.scene_hint#}}'
+        context:
+          enabled: false
+          variable_selector: []
+        memory: null
+        vision:
+          enabled: false
+          configs: {}
+    - id: answer_fitness
+      type: custom
+      width: 242
+      height: 110
+      position:
+        x: 1960
+        y: 520
+      positionAbsolute:
+        x: 1960
+        y: 520
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: answer
+        title: 输出 · fitness
+        desc: ''
+        answer: '{{#agent_fitness.text#}}'
+        variables: []
+    - id: agent_resource
+      type: custom
+      width: 242
+      height: 120
+      position:
+        x: 2300
+        y: 300
+      positionAbsolute:
+        x: 2300
+        y: 300
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: llm
+        title: Agent · 资料检索
+        desc: ''
+        model:
+          provider: langgenius/volcengine/volcengine
+          name: doubao-seed-2-1-pro-260628
+          mode: chat
+          completion_params:
+            temperature: 0.3
+        prompt_template:
+        - id: 85ff61bb-090f-4d65-b8d4-1d57a5dbb1d8
+          role: system
+          text: '你是资料检索 Agent。用户想查找、列出或导出历史资料（会议纪要/题解/训练记录）。
+
+            真正的检索与导出由 assistant-lite 的资料库执行；在本次纯文本上下文中，请明确说明你无法直接访问资料库，并给出用户应当说的指令句式（例如「导出最新一份成 Word」「我有哪些资料」）。
+
+            不要编造任何资料标题、ID 或内容。'
+        - id: 71e8e29b-d15d-4e2c-bf6b-4ab5d1cd2c55
+          role: user
+          text: '用户输入：{{#normalize.query#}}
+
+
+            端侧判定：{{#normalize.router_note#}}
+
+            云端路由提示：{{#normalize.scene_hint#}}'
+        context:
+          enabled: false
+          variable_selector: []
+        memory: null
+        vision:
+          enabled: false
+          configs: {}
+    - id: answer_resource
+      type: custom
+      width: 242
+      height: 110
+      position:
+        x: 2300
+        y: 520
+      positionAbsolute:
+        x: 2300
+        y: 520
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: answer
+        title: 输出 · resource
+        desc: ''
+        answer: '{{#agent_resource.text#}}'
+        variables: []
+    - id: agent_general
+      type: custom
+      width: 242
+      height: 120
+      position:
+        x: 2640
+        y: 300
+      positionAbsolute:
+        x: 2640
+        y: 300
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: llm
+        title: Agent · 通用问答
+        desc: ''
+        model:
+          provider: langgenius/volcengine/volcengine
+          name: doubao-seed-2-1-pro-260628
+          mode: chat
+          completion_params:
+            temperature: 0.3
+        prompt_template:
+        - id: cc355e6d-ccd5-4252-9ea8-98702000412a
+          role: system
+          text: '你是通用问答 Agent。日常问题简洁作答，不啰嗦。
+
+            不确定的信息要说明不确定，不编造事实、不宣称未实际执行的动作。
+
+            输出末尾单独一行给出播报语，前缀 <<<SPEECH>>>，不超过 60 字。'
+        - id: 21a638e0-36e2-43cb-acd2-4d7895ce8bb9
+          role: user
+          text: '用户输入：{{#normalize.query#}}
+
+
+            端侧判定：{{#normalize.router_note#}}
+
+            云端路由提示：{{#normalize.scene_hint#}}'
+        context:
+          enabled: false
+          variable_selector: []
+        memory: null
+        vision:
+          enabled: false
+          configs: {}
+    - id: answer_general
+      type: custom
+      width: 242
+      height: 110
+      position:
+        x: 2640
+        y: 520
+      positionAbsolute:
+        x: 2640
+        y: 520
+      sourcePosition: right
+      targetPosition: left
+      selected: false
+      zIndex: 0
+      data:
+        type: answer
+        title: 输出 · general
+        desc: ''
+        answer: '{{#agent_general.text#}}'
+        variables: []
+    viewport:
+      x: 0
+      y: 0
+      zoom: 0.7

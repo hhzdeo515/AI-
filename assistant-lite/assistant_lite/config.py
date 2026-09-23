@@ -42,6 +42,20 @@ TOOLS_DIR = Path(os.getenv("TOOLS_DIR", r"E:\AI智能助手\tools"))
 #: ffmpeg 可执行文件路径。留空则按 TOOLS_DIR/ffmpeg/bin -> PATH 顺序自动查找。
 FFMPEG_PATH = os.getenv("FFMPEG_PATH", "").strip()
 
+# ---------- 执行后端（可选）----------
+#: 场景执行放在哪里：local = 本仓库的 Python Agent；dify = 转发给 Dify 工作流。
+#: 注意：路由权威始终在本地 orchestrator（零 token、可测、端侧判对率统计依赖它）。
+#: 该开关只切换「场景 Agent 在哪执行」，不切换路由。
+EXEC_BACKEND = os.getenv("EXEC_BACKEND", "local").strip().lower()
+#: Dify 应用的 Service API 地址（末尾 /v1）。
+DIFY_BASE_URL = os.getenv("DIFY_BASE_URL", "http://127.0.0.1/v1").strip().rstrip("/")
+#: Dify 应用 API Key（app- 开头）。只在 EXEC_BACKEND=dify 时需要。
+DIFY_API_KEY = os.getenv("DIFY_API_KEY", "").strip()
+#: 转发超时（秒）。Dify 侧含 LLM 推理，比普通请求给得更宽。
+DIFY_TIMEOUT = float(os.getenv("DIFY_TIMEOUT", "300"))
+#: 转发失败时是否回退到本地 Agent。True 更稳，False 便于暴露问题。
+DIFY_FALLBACK_LOCAL = os.getenv("DIFY_FALLBACK_LOCAL", "1").strip() not in ("0", "false", "False")
+
 SCENES = ("meeting", "exam", "fitness", "resource", "general")
 
 

@@ -1,0 +1,13 @@
+# 构建产物（含控制台令牌，绝不入库）
+.build/
+
+# 控制台凭据
+dify_access.txt
+dify_csrf.txt
+dify_token.txt
+*_new_refresh.txt
+*.token
+
+# Python
+__pycache__/
+*.py[cod]
