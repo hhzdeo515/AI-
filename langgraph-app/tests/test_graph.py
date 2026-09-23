@@ -768,7 +768,7 @@ def _stub_vision_chain():
         order.append("observe")
         return "题面：2x+6=14，选项 A)2 B)4 C)6 D)8"
 
-    def fake_solve(text, observation, images):
+    def fake_solve(text, observation, images, **kw):
         order.append("solve")
         return {
             "module": "数量关系",
@@ -779,7 +779,7 @@ def _stub_vision_chain():
             "binary_grid": None,
         }
 
-    def fake_review(text, draft, tool_result, images):
+    def fake_review(text, draft, tool_result, images, **kw):
         order.append("review")
         return {
             "module": "数量关系",
@@ -1378,6 +1378,203 @@ def test_postprocess_does_not_warn_on_ordinary_answers() -> None:
         )
         assert "请以官方最新发布为准" not in out["result"]["text"], text
         assert not out["result"].get("stale_warning"), text
+
+
+# --------------------------------------------------------------------------- #
+# 联网检索（时政类问题的正解）
+# --------------------------------------------------------------------------- #
+def test_search_needed_only_for_time_sensitive_questions() -> None:
+    """检索有延迟和成本，不能每道题都查；但宁可多查也不能漏查。
+
+    漏查的后果就是原来那个 bug：把「二十届三中全会」答成「尚未召开」。
+    """
+    from lg_assistant import search
+
+    must = [
+        "党的二十届三中全会是否已经召开？",
+        "最近一次中央经济工作会议有什么重点？",
+        "某政策目前是否生效",
+        "最新版的条例是什么",
+        "第二十届中央委员会第三次全体会议什么时间召开",
+    ]
+    for q in must:
+        assert search.needs_search(q) is True, q
+
+    must_not = [
+        "这道题选什么",
+        "计算 (18+24)*3",
+        "膝盖有点疼",
+        "你好",
+        "帮我生成会议纪要",
+    ]
+    for q in must_not:
+        assert search.needs_search(q) is False, q
+
+
+def test_search_uses_native_dashscope_with_search_enabled() -> None:
+    """**必须走 dashscope 原生接口**——OpenAI 兼容层会忽略 enable_search。
+
+    实测对比（同一个问题、同一个模型）：
+      OpenAI 兼容 + extra_body.enable_search -> 「尚未召开」（没联网）
+      dashscope.Generation.call(enable_search) -> 「2024年7月15日至18日」（真联网）
+    这条断言锁住走哪条路，避免以后"顺手"改成 OpenAI 兼容层把联网弄丢。
+    """
+    from lg_assistant import search
+
+    seen: dict = {}
+
+    class FakeMessage:
+        content = "答案"
+
+    class FakeChoice:
+        message = FakeMessage
+
+    class FakeOutput:
+        choices = [FakeChoice]
+        search_info = {
+            "search_results": [
+                {"title": "T1", "url": "https://a.example/1", "site_name": "S1"},
+                {"title": "T2", "url": "https://a.example/1", "site_name": "S1"},  # 重复
+                {"title": "T3", "url": "https://b.example/2", "site_name": "S2"},
+            ]
+        }
+
+    class FakeResp:
+        status_code = 200
+        output = FakeOutput
+
+    class FakeGeneration:
+        @staticmethod
+        def call(**kw):  # 生产代码走 dashscope.Generation.call(...)
+            seen.update(kw)
+            return FakeResp
+
+    class FakeDashscope:
+        api_key = ""
+        Generation = FakeGeneration
+
+    import lg_assistant.search as search_mod
+
+    orig, orig_key = search_mod._dashscope, config.DASHSCOPE_API_KEY
+    search_mod._dashscope = lambda: FakeDashscope
+    config.DASHSCOPE_API_KEY = "sk-test"
+    try:
+        r = search.search_answer("问题", system="你是助手")
+    finally:
+        search_mod._dashscope = orig
+        config.DASHSCOPE_API_KEY = orig_key
+
+    assert seen.get("enable_search") is True, "必须开 enable_search"
+    assert seen.get("search_options", {}).get("enable_source") is True
+    assert any(m["role"] == "system" for m in seen["messages"]), "system 要透传"
+    assert r["searched"] is True and r["answer"] == "答案"
+    urls = [s["url"] for s in r["sources"]]
+    assert urls == ["https://a.example/1", "https://b.example/2"], urls
+
+
+def test_search_failure_is_explicit_not_silent() -> None:
+    """检索失败必须显式提示，**不能静默改成凭记忆作答**。
+
+    静默降级正是原来出错的方式：用户以为答案是核实过的，其实来自过期知识。
+    """
+    _fresh()
+    from lg_assistant import search
+
+    orig_search, orig_chat = search.search_answer, llm.chat
+
+    def boom(*a, **kw):
+        raise search.SearchError("模拟检索不可用")
+
+    search.search_answer = boom
+    llm.chat = lambda messages, **kw: "党的二十届三中全会尚未召开。"
+    try:
+        out = nodes.local_llm({"text": "党的二十届三中全会是否已经召开？", "routing": {}})
+    finally:
+        search.search_answer, llm.chat = orig_search, orig_chat
+
+    text = out["result"]["text"]
+    assert "联网检索未能完成" in text, "必须显式说明没查到"
+    assert "可能已过时" in text
+    assert out["result"]["note"] == "时效性问题，联网检索失败"
+
+
+def test_search_success_attaches_sources_and_skips_second_call() -> None:
+    """检索成功时直接用检索结果，不再多调一次模型（省一次调用）。"""
+    _fresh()
+    from lg_assistant import search
+
+    calls = {"chat": 0}
+    orig_search, orig_chat = search.search_answer, llm.chat
+
+    search.search_answer = lambda q, **kw: {
+        "answer": "该会已于2024年7月15日至18日召开。",
+        "sources": [{"title": "T", "url": "https://x.example/1", "site": "S"}],
+        "searched": True,
+    }
+
+    def counting_chat(messages, **kw):
+        calls["chat"] += 1
+        return "不应被调用"
+
+    llm.chat = counting_chat
+    try:
+        out = nodes.local_llm({"text": "党的二十届三中全会是否已经召开？", "routing": {}})
+    finally:
+        search.search_answer, llm.chat = orig_search, orig_chat
+
+    text = out["result"]["text"]
+    assert "2024年7月15日至18日" in text
+    assert "检索来源" in text, "必须附来源供核对"
+    assert calls["chat"] == 0, "已有检索结果时不该再调一次模型"
+    assert out["result"]["artifacts"][0]["kind"] == "search"
+
+
+def test_vision_path_searches_with_observation_not_just_user_text() -> None:
+    """图片时政题要联网，且检索词必须含**转写出来的题面**。
+
+    用户那句话通常只是「解这道题」，拿它去检索什么也查不到。
+    """
+    tmp = _fresh()
+    from lg_assistant import search, vision
+
+    seen: dict = {}
+    orig = (search.search_answer, vision.observe, vision.solve, vision.review)
+
+    def fake_search(q, **kw):
+        seen["query"] = q
+        return {"answer": "该会2024年7月召开", "sources": [], "searched": True}
+
+    def fake_observe(text, images):
+        return "题干：党的二十届三中全会是否已经召开？A 已召开 B 未召开"
+
+    def fake_solve(text, observation, images, **kw):
+        seen["solve_web"] = kw.get("web_context", "")
+        return {"answerable": True, "answer": "A", "calculations": [], "binary_grid": None}
+
+    def fake_review(text, draft, tool_result, images, **kw):
+        seen["review_web"] = kw.get("web_context", "")
+        return {"answerable": True, "answer": "A", "explanation": "x", "review_notes": "y"}
+
+    search.search_answer = fake_search
+    vision.observe = fake_observe
+    vision.solve = fake_solve
+    vision.review = fake_review
+    try:
+        nodes.exam_vision(
+            {"files": [_png(tmp)], "text": "解这道题", "routing": {"scene": "exam"}}
+        )
+    finally:
+        (
+            search.search_answer,
+            vision.observe,
+            vision.solve,
+            vision.review,
+        ) = orig
+
+    assert "二十届三中全会" in seen.get("query", ""), "检索词必须含题面"
+    # 初解与终审都要拿到检索结果，否则终审会把它"纠正"回过期答案
+    assert seen.get("solve_web"), "初解必须拿到检索结果"
+    assert seen.get("review_web"), "终审也必须拿到检索结果"
 
 
 # --------------------------------------------------------------------------- #

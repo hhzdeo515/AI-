@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from . import llm
+from . import llm, progress
 from .ported import calc as calc_tool
 from .ported import grids as grids_tool
 from .vision_prompts import REVIEWER, SOLVER, VISION
@@ -72,6 +72,7 @@ def observe(text: str, images: list[str]) -> str:
     """第一步：视觉精读。只记录，不解题。"""
     if not images:
         return ""
+    progress.mark("recognize")
     return llm.vision(
         text or "请识别这道题的全部题干与选项。",
         images,
@@ -80,22 +81,45 @@ def observe(text: str, images: list[str]) -> str:
     )
 
 
-def solve(text: str, observation: str, images: list[str]) -> dict[str, Any]:
-    """第二步：初解。**重新查看原图**，不只读观察记录。"""
+def solve(
+    text: str, observation: str, images: list[str], *, web_context: str = ""
+) -> dict[str, Any]:
+    """第二步：初解。**重新查看原图**，不只读观察记录。
+
+    ``web_context`` 是联网检索到的时政事实（可选）。为什么初解和终审都要带：
+    政治理论/常识题常考「某会议是否召开」这类当前状态，而模型的知识有截止时间——
+    实测把三中全会答成「尚未召开」（该会 2024 年 7 月已召开）。
+    只给初解不给终审的话，终审会把正确结论"纠正"回错误答案。
+    """
+    progress.mark("solve")
     user = f"用户请求：{text or '请解答这道题'}\n\n图片观察记录：\n{observation or '（无图片）'}"
+    if web_context:
+        user += f"\n\n【联网检索到的最新事实】\n{web_context}\n\n以上为实时检索结果，**涉及当前状态时以它为准**，不要用你的既有记忆推翻它。"
     return _json_call(SOLVER, user, images, temperature=0.1)
 
 
 def review(
-    text: str, draft: dict[str, Any], tool_result: dict[str, Any], images: list[str]
+    text: str,
+    draft: dict[str, Any],
+    tool_result: dict[str, Any],
+    images: list[str],
+    *,
+    web_context: str = "",
 ) -> dict[str, Any]:
     """第四步：终审。**再次重新查看原图**，允许推翻初解。"""
+    progress.mark("verify")
     user = (
         f"用户请求：{text or '请解答这道题'}\n\n"
         f"初解结果：\n{json.dumps(draft, ensure_ascii=False, indent=2)}\n\n"
         f"程序工具校验结果：\n{json.dumps(tool_result, ensure_ascii=False, indent=2)}\n\n"
         "请重新直接查看原图核对，并给出终审结论。"
     )
+    if web_context:
+        user += (
+            f"\n\n【联网检索到的最新事实】\n{web_context}\n\n"
+            "以上为实时检索结果。终审时**不得用你的既有记忆推翻它**——"
+            "你的知识有截止时间，它是实时的。"
+        )
     return _json_call(REVIEWER, user, images, temperature=0.1)
 
 
@@ -109,6 +133,9 @@ def run_tools(draft: dict[str, Any]) -> dict[str, Any]:
     「程序算式成立」不等于「看图正确」——终审仍须回看原图。
     """
     result: dict[str, Any] = {}
+    # 工具校验（零 token）与终审同属 verify 这一步：模型初解已经出来了，
+    # 接下来是「用程序核对算式/黑白格」+「再回看原图复核」。
+    progress.mark("verify")
     calcs = draft.get("calculations")
     if isinstance(calcs, list) and calcs:
         exprs = [

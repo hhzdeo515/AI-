@@ -25,7 +25,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from . import config, dify_backend, llm, store, transcribe, vision
+from . import config, dify_backend, llm, search, store, transcribe, vision
 from .ported import calc as calc_tool
 from .ported import speech as speech_tool
 from .routing import (
@@ -308,9 +308,41 @@ def exam_vision(state: AssistantState) -> dict[str, Any]:
     text = state.get("text") or ""
     try:
         observation = vision.observe(text, images)
-        draft = vision.solve(text, observation, images)
+    except (vision.VisionError, llm.LLMError) as e:
+        return {
+            "result": {
+                "text": f"图片识别失败：{e}",
+                "backend": "local",
+                "note": "视觉链路失败",
+            }
+        }
+
+    # 时政类题目先联网核实。**必须用转写出来的题面去查，不能用用户那句
+    # 「解这道题」**——后者不含任何可检索的关键词。
+    #
+    # 为什么非查不可：模型知识有截止时间，实测把「党的二十届三中全会」
+    # 答成「尚未召开」（该会 2024 年 7 月已召开），而且提示词治不好。
+    web_context = ""
+    sources: list[dict] = []
+    search_note = ""
+    query = f"{text}\n{observation}".strip()
+    if query and search.needs_search(query):
+        try:
+            found = search.search_answer(
+                f"请核实以下题目涉及的事实与当前最新状态，并给出准确信息：\n\n{query}"
+            )
+            web_context = found["answer"]
+            sources = found["sources"]
+        except search.SearchError as e:
+            # 检索失败要让用户知道，否则他们会以为这是核实过的答案
+            search_note = f"本题涉及时效性信息，但联网核实未成功（{e}）"
+
+    try:
+        draft = vision.solve(text, observation, images, web_context=web_context)
         tool_result = vision.run_tools(draft)
-        final = vision.review(text, draft, tool_result, images)
+        final = vision.review(
+            text, draft, tool_result, images, web_context=web_context
+        )
     except (vision.VisionError, llm.LLMError) as e:
         return {
             "result": {
@@ -321,6 +353,10 @@ def exam_vision(state: AssistantState) -> dict[str, Any]:
         }
 
     body = vision.render(final, tool_result)
+    if sources:
+        body += search.format_sources(sources)
+    if search_note:
+        body += f"\n\n> ⚠️ {search_note}，以上结论可能已过时，请以官方最新发布为准。"
     return {
         "result": {
             "text": body,
@@ -518,13 +554,74 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
 # 7. 本地场景回复
 # --------------------------------------------------------------------------- #
 def local_llm(state: AssistantState) -> dict[str, Any]:
-    """本地场景回复。纯文本上下文，不假装已实现视觉/检索链路。"""
+    """本地场景回复。有时效性的问题先联网核对，再作答。"""
     rt = state.get("routing") or {}
     scene = rt.get("scene") or "general"
     system = SCENE_PROMPTS.get(scene, SCENE_PROMPTS["general"])
+    question = (state.get("text") or "").strip()
+
+    # 时效性问题必须先联网：模型的知识有截止时间，问「某会是否召开」
+    # 它会给过期结论（实测三次把三中全会答成「尚未召开」）。
+    # 提示词治不好这个病，只能让它去查。
+    if question and search.needs_search(question):
+        try:
+            found = search.search_answer(question, system=system)
+        except search.SearchError as e:
+            # 检索失败不能静默降级成"凭记忆回答"——那正是原来出错的方式。
+            # 明确告诉用户这次没查到，结论可能过期。
+            fallback_system = (
+                system
+                + "\n\n【重要】本次联网检索失败，你只能凭既有知识作答。"
+                "你的知识有截止时间，涉及「某个会议/文件/政策当前状态」时"
+                "**必须明确说明可能已过时、请以官方最新发布为准**，"
+                "不得给出确定结论。"
+            )
+            try:
+                text = llm.chat(
+                    [
+                        {"role": "system", "content": fallback_system},
+                        {"role": "user", "content": question},
+                    ],
+                    temperature=0.3,
+                )
+            except llm.LLMError as e2:
+                return {
+                    "result": {
+                        "text": f"回答失败：{e2}",
+                        "backend": "local",
+                        "note": "模型调用失败",
+                    }
+                }
+            body, spoken = speech_tool.resolve(text)
+            body += f"\n\n> ⚠️ 本次联网检索未能完成（{e}），以上为模型既有知识，可能已过时。"
+            return {
+                "result": {
+                    "text": body,
+                    "speech": spoken,
+                    "backend": "local",
+                    "note": "时效性问题，联网检索失败",
+                }
+            }
+
+        body = found["answer"] + search.format_sources(found["sources"])
+        _, spoken = speech_tool.resolve(found["answer"])
+        return {
+            "result": {
+                "text": body,
+                "speech": spoken,
+                "backend": "local",
+                "artifacts": [
+                    {
+                        "kind": "search",
+                        "sources": found["sources"][:6],
+                        "count": len(found["sources"]),
+                    }
+                ],
+            }
+        }
 
     user = (
-        f"用户输入：{state.get('text') or ''}\n"
+        f"用户输入：{question}\n"
         f"场景：{scene}／动作：{rt.get('action') or 'answer'}\n"
         f"端侧判定：{json.dumps(state.get('device') or {}, ensure_ascii=False)}"
     )
