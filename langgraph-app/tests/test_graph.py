@@ -1007,6 +1007,59 @@ def test_audio_node_transcribes_then_summarises() -> None:
     assert "发言人1" in text and "发言人2" in text, "文字记录要区分发言人"
 
 
+def test_meeting_path_only_uses_transcribe_functions_that_exist() -> None:
+    """会议链路只许调用 ``transcribe`` 里真实存在的函数——本用例不打桩 transcribe。
+
+    **为什么要有这一条**：这个 bug 真的发生过。某次提交只带上了 ``nodes.py``
+    的改动，而它调用的 ``transcribe.diarization_report`` /
+    ``describe_diarization`` 还留在别人的工作区里没提交 —— 于是仓库里
+    ``nodes.py`` 引用着不存在的函数，**克隆下来跑到会议转写就 AttributeError**，
+    而当时所有单测都是绿的。
+
+    绿的原因很具体：``test_audio_node_transcribes_then_summarises`` 只打了
+    ``transcribe_with_speakers`` 的桩，其余仍走真模块；而它断言的是
+    「会议主题」「转写交给模型」这些**上游**行为，从没检查 ``body_extra``
+    里那句发言人统计。这里补上这一块，且**一个桩都不打在 transcribe 上**——
+    凡是 ``nodes`` 与 ``transcribe`` 的接口对不上，本用例必然红。
+    """
+    tmp = _fresh()
+    src = tmp / "m.mp3"
+    src.write_bytes(b"fake-audio")
+
+    from lg_assistant import llm, transcribe
+
+    orig_diar, orig_chat = transcribe.transcribe_with_speakers, llm.chat
+
+    def fake_diar(path, **kw):
+        # 真实形状的 utterances：字段与线上 paraformer-v2 返回一致
+        return {
+            "utterances": [
+                {"speaker": 0, "begin_ms": 1000, "end_ms": 4000, "text": "先看数据获取。"},
+                {"speaker": 1, "begin_ms": 4000, "end_ms": 9000, "text": "我同意。"},
+                {"speaker": 0, "begin_ms": 9000, "end_ms": 11000, "text": "那就这么定。"},
+            ],
+            "speakers": [0, 1],
+            "sentences": [],
+            "duration_ms": 11000,
+            "text": "x",
+        }
+
+    transcribe.transcribe_with_speakers = fake_diar
+    llm.chat = lambda messages, **kw: "**会议主题** 数据获取范式"
+    try:
+        out = nodes.meeting_audio({"files": [str(src)], "routing": {"scene": "meeting"}})
+    finally:
+        transcribe.transcribe_with_speakers, llm.chat = orig_diar, orig_chat
+
+    text = out["result"]["text"]
+    # 发言人统计真的渲染出来了（这正是此前没人断言的那一块）
+    assert "共识别出 2 位发言人" in text, f"缺少发言人统计：{text[:400]}"
+    assert "发言人1 2 段" in text and "发言人2 1 段" in text, "段数统计不对"
+    # 转写正文照旧
+    assert "会议文字记录" in text
+    assert "先看数据获取" in text and "那就这么定" in text, "正文丢了转写内容"
+
+
 def test_audio_node_falls_back_to_plain_asr() -> None:
     """分离失败要降级到纯文本转写，不能炸链路，也不能丢掉录音。"""
     tmp = _fresh()

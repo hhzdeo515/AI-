@@ -474,10 +474,14 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
 
     if diar_ok:
         transcript = transcribe.format_transcript(utterances)
-        # 分离质量如实报告：人数、每人段数、哪些片段归属存疑。
-        # 不替服务改判（改判=可能把别人的话安在别人头上），只说清楚哪里不确定。
-        report = transcribe.diarization_report(utterances)
-        body_extra = transcribe.describe_diarization(report)
+        # 分离质量如实报告：共几位、每人几段。
+        # 不替服务改判（改判=可能把别人的话安在别人头上），只说清楚它分出了什么。
+        stats = transcribe.speaker_stats(utterances)
+        body_extra = (
+            f"（共识别出 {len(stats)} 位发言人；"
+            + "、".join(f"{s['label']} {s['turns']} 段" for s in stats)
+            + "）"
+        )
     else:
         # --- 降级：qwen3-asr-flash，长音频分片 ---
         parts: list[str] = []
