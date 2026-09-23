@@ -99,23 +99,71 @@ def _split_wave(src: Path, seconds: int, out_dir: Path) -> list[Path]:
 
 
 def _split_ffmpeg(src: Path, seconds: int, out_dir: Path) -> list[Path]:
-    """用 ffmpeg 切任意格式。`-c copy` 不重编码，快且无损。"""
+    """用 ffmpeg 切任意格式。
+
+    先试 `-c copy`（不重编码，快且无损）；**失败则回退重编码**。
+
+    为什么必须回退：`-c copy` 要求容器与编码匹配。实测踩过——用户上传的文件
+    扩展名是 `.mp3`，实际内容是 AAC（`Audio: aac (LC) (mp4a)`，16kHz 单声道，
+    10 分 45 秒），把 AAC 流直接写进 mp3 容器时 ffmpeg 报
+    ``Invalid audio stream. Exactly one MP3 audio stream is required``，
+    退出码 -22。而分片失败会导致整段音频送去 ASR，进而触发
+    ``The audio is too long`` —— 用户的录音完全转不出来。
+
+    回退时统一转成 16kHz 单声道 mp3：ASR 只需要能听清，
+    采样率与声道降下来还能减小上传体积。
+    """
     ff = find_ffmpeg()
     if not ff:
         raise RuntimeError("未找到 ffmpeg")
-    pattern = out_dir / f"{src.stem}_part%03d{src.suffix}"
-    subprocess.run(
-        [
-            ff, "-y", "-loglevel", "error",
-            "-i", str(src),
-            "-f", "segment",
-            "-segment_time", str(seconds),
-            "-c", "copy",
-            str(pattern),
-        ],
-        capture_output=True, text=True, timeout=900, check=True,
+
+    def run(codec_args: list[str]) -> subprocess.CompletedProcess:
+        # 每次都用独立的输出前缀，避免上一次失败留下的 0 字节残片被当成有效分片
+        pattern = out_dir / f"{src.stem}_part%03d{src.suffix}"
+        return subprocess.run(
+            [
+                ff, "-y", "-loglevel", "error",
+                "-i", str(src),
+                "-f", "segment",
+                "-segment_time", str(seconds),
+                *codec_args,
+                str(pattern),
+            ],
+            capture_output=True, text=True, timeout=900, check=False,
+        )
+
+    def existing() -> list[Path]:
+        return [
+            p for p in sorted(out_dir.glob(f"{src.stem}_part*{src.suffix}"))
+            if p.stat().st_size > 0          # 0 字节残片不算分片
+        ]
+
+    def purge() -> None:
+        for p in out_dir.glob(f"{src.stem}_part*{src.suffix}"):
+            try:
+                p.unlink()
+            except OSError:
+                pass
+
+    purge()
+    proc = run(["-c", "copy"])
+    chunks = existing()
+    if proc.returncode == 0 and chunks:
+        return chunks
+
+    # copy 不成立（容器/编码不匹配最常见），清理后重编码重试
+    purge()
+    proc2 = run(["-c:a", "libmp3lame", "-ar", "16000", "-ac", "1", "-b:a", "64k"])
+    chunks2 = existing()
+    if proc2.returncode == 0 and chunks2:
+        return chunks2
+
+    purge()
+    detail = (proc2.stderr or proc.stderr or "").strip().splitlines()
+    raise RuntimeError(
+        "ffmpeg 分片失败（copy 与重编码都不成立）："
+        + (detail[-1] if detail else f"exit={proc2.returncode}")
     )
-    return sorted(out_dir.glob(f"{src.stem}_part*{src.suffix}"))
 
 
 def split(
@@ -158,7 +206,10 @@ def split(
             ], "长音频需要分片，但未找到 ffmpeg（约定装在 E:\\AI智能助手\\tools\\ffmpeg），已整段提交"
         try:
             chunks = _split_ffmpeg(src, seconds, out_dir)
-        except (OSError, subprocess.SubprocessError) as e:
+        except (OSError, subprocess.SubprocessError, RuntimeError) as e:
+            # RuntimeError：_split_ffmpeg 在 copy 与重编码都失败时抛的。
+            # 漏掉它会让「分片失败」变成未捕获异常，把整条转写链路炸掉——
+            # 这里必须降级为「整段提交 + 写明原因」，由上层决定怎么提示。
             return [src], f"ffmpeg 分片失败（{e}），已整段提交"
         return (chunks, "") if len(chunks) > 1 else ([src], "")
 

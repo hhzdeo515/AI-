@@ -44,7 +44,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
 from . import config, nodes
-from .nodes import IMAGE_EXT
+from .nodes import AUDIO_EXT, IMAGE_EXT
 from .state import AssistantState
 
 #: 不需要场景执行的指令类动作
@@ -59,10 +59,13 @@ def dispatch(state: AssistantState) -> str:
     1. 指令类动作（停止播报/切场景）不产生内容
     2. **带图片的解题请求**走本地视觉链——Dify 侧 ``start`` 只收文本，
        转发会丢掉「终审重新看原图」这条关键设计
-    3. 其余带附件的请求留在本地——需先经本地 ASR 预处理
-    4. 粘性会话（会议进行中 / 训练进行中）是本地状态机，Dify 侧没有这些状态
-    5. 配置指定 dify 时转发（Dify 失败由图内回退到 local_llm）
-    6. 其余走本地
+    3. **带音频的请求**走本地 ASR 链——同样是 Dify 侧做不到的预处理；
+       此前这条路径缺失，带录音的请求落到 ``local_llm`` 只会回一句
+       「请发送会议转写文本」，把用户已经用音频给过的内容再要一遍
+    4. 其余带附件的请求留在本地
+    5. 粘性会话（会议进行中 / 训练进行中）是本地状态机，Dify 侧没有这些状态
+    6. 配置指定 dify 时转发（Dify 失败由图内回退到 local_llm）
+    7. 其余走本地
     """
     action = (state.get("routing") or {}).get("action") or ""
     if action in META_ACTIONS:
@@ -70,9 +73,16 @@ def dispatch(state: AssistantState) -> str:
 
     files = state.get("files") or []
     if files:
-        has_image = any(Path(f).suffix.lower() in IMAGE_EXT for f in files)
-        if has_image and (state.get("routing") or {}).get("scene") == "exam":
+        exts = {Path(f).suffix.lower() for f in files}
+        scene = (state.get("routing") or {}).get("scene")
+        if exts & IMAGE_EXT and scene == "exam":
             return "vision"
+        if exts & AUDIO_EXT:
+            # 音频一律先转写：**不按场景收窄**。
+            # 「场景」是由文字关键词猜出来的，而用户上传录音时那句文字往往很短
+            # （「会议纪要整理」甚至为空），靠它判断内容类型并不可靠。
+            # 转写本身与场景无关，整理成什么由节点内部按场景选提示词决定。
+            return "audio"
         return "local"
 
     if (state.get("event") or {}).get("_sticky"):
@@ -98,6 +108,7 @@ def build_graph(checkpointer: Any = None, *, with_telemetry: bool = True):
     g.add_node("meta_command", nodes.meta_command)
     g.add_node("calc_quick", nodes.calc_quick)
     g.add_node("exam_vision", nodes.exam_vision)
+    g.add_node("meeting_audio", nodes.meeting_audio)
     g.add_node("dify_scene", nodes.dify_scene)
     g.add_node("local_llm", nodes.local_llm)
     g.add_node("postprocess", nodes.postprocess)
@@ -105,34 +116,25 @@ def build_graph(checkpointer: Any = None, *, with_telemetry: bool = True):
     g.add_edge(START, "device_gate")
     g.add_edge("device_gate", "route")
 
+    _routes = {
+        "meta": "meta_command",
+        "vision": "exam_vision",
+        "audio": "meeting_audio",
+        "dify": "dify_scene",
+        "local": "calc_quick",
+    }
+
     # 遥测是旁路节点：只写库，不改变状态语义
     if with_telemetry:
         g.add_edge("route", "telemetry")
-        g.add_conditional_edges(
-            "telemetry",
-            dispatch,
-            {
-                "meta": "meta_command",
-                "vision": "exam_vision",
-                "dify": "dify_scene",
-                "local": "calc_quick",
-            },
-        )
+        g.add_conditional_edges("telemetry", dispatch, _routes)
     else:
-        g.add_conditional_edges(
-            "route",
-            dispatch,
-            {
-                "meta": "meta_command",
-                "vision": "exam_vision",
-                "dify": "dify_scene",
-                "local": "calc_quick",
-            },
-        )
+        g.add_conditional_edges("route", dispatch, _routes)
 
     # 场景执行
     g.add_edge("meta_command", "postprocess")
     g.add_edge("exam_vision", "postprocess")
+    g.add_edge("meeting_audio", "postprocess")
     g.add_edge("dify_scene", "postprocess")
 
     # 本地路径：先试零 token 的算术快路径，未命中再落到模型。

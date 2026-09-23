@@ -587,6 +587,79 @@ def test_postprocess_speech_is_plain_text() -> None:
     assert "#" not in out["speech"]
 
 
+# --------------------------------------------------------------------------- #
+# 训练状态：Web 层 WORKOUT 卡片读 /api/state 的 fitness.workout
+# 迁移到状态图后该字段一度没有来源，卡片恒显示 IDLE。
+# --------------------------------------------------------------------------- #
+
+def test_workout_start_sets_active_with_exercise_name() -> None:
+    """开始训练后卡片要能看到动作名，而不是恒为 IDLE。"""
+    out = nodes.postprocess({
+        "text": "开始训练，做深蹲",
+        "routing": {"scene": "fitness", "action": "start_exercise"},
+    })
+    w = out["fitness"]["workout"]
+    assert w["status"] == "active"
+    assert w["current"] == "深蹲"
+    assert w["total_sets"] == 0
+
+
+def test_workout_set_done_counts_only_while_active() -> None:
+    """训练中「做完一组」+1；没开始训练时不能凭空冒出组数。"""
+    out = nodes.postprocess({
+        "text": "这组做完了",
+        "routing": {"scene": "fitness", "action": "set_done"},
+        "fitness": {"workout": {"status": "active", "current": "深蹲", "total_sets": 2}},
+    })
+    assert out["fitness"]["workout"]["total_sets"] == 3
+
+    idle = nodes.postprocess({
+        "text": "这组做完了",
+        "routing": {"scene": "fitness", "action": "set_done"},
+    })
+    assert idle["fitness"]["workout"]["total_sets"] == 0
+
+
+def test_workout_pain_pauses_without_losing_sets() -> None:
+    """不适暂停保留已完成组数——安全相关状态不该被清掉。"""
+    out = nodes.postprocess({
+        "text": "膝盖有点疼",
+        "routing": {"scene": "fitness", "action": "pain_report"},
+        "fitness": {"workout": {"status": "active", "current": "深蹲", "total_sets": 3}},
+    })
+    assert out["fitness"]["workout"]["status"] == "paused"
+    assert out["fitness"]["workout"]["total_sets"] == 3
+
+
+def test_workout_end_resets_status() -> None:
+    out = nodes.postprocess({
+        "text": "结束训练",
+        "routing": {"scene": "fitness", "action": "end_workout"},
+        "fitness": {"workout": {"status": "paused", "current": "深蹲", "total_sets": 3}},
+    })
+    assert out["fitness"]["workout"]["status"] == "idle"
+
+
+def test_workout_untouched_for_other_scenes() -> None:
+    """非锻炼场景不得写 fitness，避免污染卡片状态。"""
+    out = nodes.postprocess({
+        "text": "你好",
+        "routing": {"scene": "general", "action": "answer"},
+    })
+    assert "fitness" not in out
+
+
+def test_fitness_action_inference_puts_safety_first() -> None:
+    """关键词路由只给场景，动作靠推断；不适必须优先于开始。"""
+    assert routing.infer_fitness_action("开始训练，做深蹲") == "start_exercise"
+    assert routing.infer_fitness_action("这组做完了，下一组") == "set_done"
+    assert routing.infer_fitness_action("膝盖有点疼") == "pain_report"
+    assert routing.infer_fitness_action("结束训练") == "end_workout"
+    # 同时含「疼」与「练」：安全优先，绝不能启动训练
+    assert routing.infer_fitness_action("膝盖疼，今天不练了") == "pain_report"
+    assert routing.infer_fitness_action("今天天气不错") == ""
+
+
 def test_same_thread_second_request_does_not_reuse_first_result() -> None:
     """回归：检查点里的旧状态污染了下一条请求。
 
@@ -701,10 +774,13 @@ def test_dispatch_routes_image_exam_to_vision() -> None:
         graph.dispatch({"files": ["a.png"], "routing": {"scene": "meeting"}, "event": {}})
         == "local"
     )
-    # 音频附件 → 留本地（需先做 ASR）
+    # 音频附件 → 转写节点（**不是** local）。
+    # 这条断言原本写的是 "local"，那是音频节点还不存在时的行为：
+    # 录音落到 local_llm 只会回一句「请发送会议转写文本」。
+    # 现在音频一律先转写，整理成什么由节点按场景决定。
     assert (
         graph.dispatch({"files": ["a.wav"], "routing": {"scene": "exam"}, "event": {}})
-        == "local"
+        == "audio"
     )
 
 
@@ -778,6 +854,164 @@ def test_vision_failure_is_reported_not_swallowed() -> None:
         vision.observe = original
     assert "图片识别失败" in out["result"]["text"]
     assert out["result"]["note"]
+
+
+# --------------------------------------------------------------------------- #
+# 音频链路（会议录音转写）—— 此前完全缺失
+# --------------------------------------------------------------------------- #
+def test_dispatch_routes_audio_to_meeting_audio() -> None:
+    """回归：音频曾经没有任何节点接手。
+
+    带录音的请求会直接落到 ``local_llm``，那里只拿得到用户那句「会议纪要整理」，
+    于是模型回「请发送会议转写文本」——把用户已经用音频给过的内容再要一遍。
+    实测：上传 1.9MB 录音，4 秒返回一句要文本的提示。
+    """
+    for ext in (".mp3", ".wav", ".m4a", ".flac"):
+        assert graph.dispatch(
+            {"files": [f"a{ext}"], "routing": {"scene": "meeting"}, "event": {}}
+        ) == "audio", ext
+    # 图片走视觉链，不受影响
+    assert graph.dispatch(
+        {"files": ["a.png"], "routing": {"scene": "exam"}, "event": {}}
+    ) == "vision"
+    # 无附件的会议请求仍走本地 LLM
+    assert graph.dispatch(
+        {"files": [], "routing": {"scene": "meeting"}, "event": {}}
+    ) == "local"
+
+
+def test_audio_node_transcribes_then_summarises() -> None:
+    """链路必须真的调用 ASR，并把转写交给 LLM 整理。"""
+    tmp = _fresh()
+    src = tmp / "meeting.mp3"
+    src.write_bytes(b"fake-audio")
+
+    from lg_assistant import llm
+    from lg_assistant.tools import audio as audio_tool
+
+    calls = {"asr": 0, "chat": 0}
+    orig_asr, orig_chat, orig_split = llm.asr, llm.chat, audio_tool.split
+
+    def fake_asr(p, **kw):
+        calls["asr"] += 1
+        return "王浩：数据获取范式要转型。"
+
+    def fake_chat(messages, **kw):
+        calls["chat"] += 1
+        # 转写必须真的被送进模型，否则等于白转
+        assert "数据获取范式要转型" in str(messages), "转写未进入整理提示词"
+        return "**会议主题** 具身智能卡点\n**明确决策** 未明确"
+
+    llm.asr = fake_asr
+    llm.chat = fake_chat
+    audio_tool.split = lambda p, **kw: ([Path(p)], "")
+
+    try:
+        out = nodes.meeting_audio({"files": [str(src)], "routing": {"scene": "meeting"}})
+    finally:
+        llm.asr, llm.chat, audio_tool.split = orig_asr, orig_chat, orig_split
+
+    assert calls["asr"] == 1, "必须调用 ASR"
+    assert calls["chat"] == 1, "转写后必须调用模型整理"
+    assert "会议主题" in out["result"]["text"]
+    assert out["result"]["artifacts"][0]["kind"] == "audio"
+
+
+def test_audio_node_reports_empty_transcript_instead_of_pretending() -> None:
+    """转写不出内容时要如实说，并把原因带出来，不能编一份纪要。"""
+    tmp = _fresh()
+    src = tmp / "silent.mp3"
+    src.write_bytes(b"x")
+
+    from lg_assistant import llm
+    from lg_assistant.tools import audio as audio_tool
+
+    orig_asr, orig_split = llm.asr, audio_tool.split
+    llm.asr = lambda p, **kw: ""
+    audio_tool.split = lambda p, **kw: ([Path(p)], "未找到 ffmpeg")
+
+    try:
+        out = nodes.meeting_audio({"files": [str(src)], "routing": {"scene": "meeting"}})
+    finally:
+        llm.asr, audio_tool.split = orig_asr, orig_split
+
+    text = out["result"]["text"]
+    assert "没能从音频里识别到语音" in text
+    assert "未找到 ffmpeg" in text, "分片降级原因必须带出来"
+    assert out["result"]["note"] == "ASR 未产出文本"
+
+
+def test_audio_node_without_audio_answers_clearly() -> None:
+    out = nodes.meeting_audio({"files": ["a.png"], "routing": {"scene": "meeting"}})
+    assert "没有找到可转写的音频" in out["result"]["text"]
+
+
+def test_split_ffmpeg_falls_back_to_reencode() -> None:
+    """回归：`-c copy` 在容器与编码不匹配时会失败。
+
+    实测：用户上传的文件扩展名是 .mp3，实际内容是 AAC（16kHz 单声道，10分45秒）。
+    把 AAC 流直接写进 mp3 容器时 ffmpeg 报
+    "Exactly one MP3 audio stream is required"，退出码 -22。
+    分片失败 → 整段送 ASR → "The audio is too long"，用户的录音完全转不出来。
+
+    这里不依赖真实 ffmpeg：检查失败后会**再次尝试**（带重编码参数），
+    而不是直接放弃并留下 0 字节残片。
+    """
+    tmp = Path(tempfile.mkdtemp(prefix="lgaud-"))
+    src = tmp / "a.mp3"
+    src.write_bytes(b"x")
+
+    from lg_assistant.tools import audio as audio_tool
+
+    attempts: list[list[str]] = []
+    orig_run, orig_find = audio_tool.subprocess.run, audio_tool.find_ffmpeg
+
+    class R:
+        returncode = 1
+        stderr = "Invalid audio stream. Exactly one MP3 audio stream is required."
+
+    audio_tool.find_ffmpeg = lambda: "ffmpeg"
+    audio_tool.subprocess.run = lambda cmd, **kw: (attempts.append(list(cmd)), R())[1]
+
+    try:
+        try:
+            audio_tool._split_ffmpeg(src, 240, tmp)
+        except RuntimeError as e:
+            assert "分片失败" in str(e)
+        else:
+            raise AssertionError("两次都失败时应抛 RuntimeError")
+    finally:
+        audio_tool.subprocess.run, audio_tool.find_ffmpeg = orig_run, orig_find
+
+    assert len(attempts) == 2, f"应尝试 copy 与重编码两次，实际 {len(attempts)}"
+    assert "copy" in attempts[0]
+    assert "libmp3lame" in " ".join(attempts[1]), "第二次必须重编码"
+
+
+def test_split_ffmpeg_purges_zero_byte_leftovers() -> None:
+    """失败留下的 0 字节分片不能被当成有效分片返回。"""
+    tmp = Path(tempfile.mkdtemp(prefix="lgpurge-"))
+    src = tmp / "a.mp3"
+    src.write_bytes(b"x")
+    leftover = tmp / "a_part000.mp3"
+    leftover.write_bytes(b"")     # 伪造上一次失败留下的残片
+
+    from lg_assistant.tools import audio as audio_tool
+
+    orig_run, orig_find = audio_tool.subprocess.run, audio_tool.find_ffmpeg
+    audio_tool.find_ffmpeg = lambda: "ffmpeg"
+    audio_tool.subprocess.run = lambda cmd, **kw: type(
+        "R", (), {"returncode": 1, "stderr": "boom"}
+    )()
+    try:
+        try:
+            audio_tool._split_ffmpeg(src, 240, tmp)
+        except RuntimeError:
+            pass
+    finally:
+        audio_tool.subprocess.run, audio_tool.find_ffmpeg = orig_run, orig_find
+
+    assert not leftover.exists(), "0 字节残片必须被清理，否则会被当成有效分片"
 
 
 # --------------------------------------------------------------------------- #

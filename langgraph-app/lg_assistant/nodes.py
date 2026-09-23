@@ -28,11 +28,20 @@ from typing import Any
 from . import config, dify_backend, llm, store, vision
 from .ported import calc as calc_tool
 from .ported import speech as speech_tool
-from .routing import device_context, infer_meeting_action, route as route_decision
+from .routing import (
+    device_context,
+    infer_fitness_action,
+    infer_meeting_action,
+    route as route_decision,
+)
 from .state import AssistantState
+from .tools import audio as audio_tool
 
 #: 可送视觉模型的图片扩展名
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
+
+#: 可送 ASR 的音频扩展名（与 tools/audio.py 的处理范围一致）
+AUDIO_EXT = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".amr", ".wma", ".mp4"}
 
 try:  # LangGraph >= 0.2.30
     from langgraph.types import Command
@@ -116,10 +125,15 @@ def route_node(state: AssistantState) -> dict[str, Any]:
         llm_router=router,
     )
 
-    # 会议场景补一个动作推断（路由只决定场景）
-    if decision["scene"] == "meeting" and not decision["action"]:
+    # 场景内的动作推断：路由只决定场景，动作要在这里补
+    if not decision["action"] and decision["scene"] in ("meeting", "fitness"):
         decision = dict(decision)
-        decision["action"] = infer_meeting_action(state.get("text") or "")
+        text = state.get("text") or ""
+        decision["action"] = (
+            infer_meeting_action(text)
+            if decision["scene"] == "meeting"
+            else infer_fitness_action(text)
+        )
 
     return {"routing": decision}
 
@@ -327,6 +341,132 @@ def exam_vision(state: AssistantState) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------- #
+# 6c. 会议录音：本地 ASR 转写（此前完全缺失）
+# --------------------------------------------------------------------------- #
+def meeting_audio(state: AssistantState) -> dict[str, Any]:
+    """把上传的录音转写后再整理成纪要。
+
+    **为什么需要这个节点**：图片有 `exam_vision` 专门处理，音频却没有任何节点接手——
+    带音频的请求会直接落到 `local_llm`，而那里只拿得到用户那句「会议纪要整理」，
+    于是模型只能回「请发送会议转写文本」，把用户明明已经用音频给过的内容再要一遍。
+    这条缺口实测复现：上传 1.9MB 录音，4 秒返回一句要文本的提示。
+
+    长音频必须分片：ASR 单次调用有时长上限（`config.ASR_CHUNK_SECONDS`，默认 240s）。
+    分片用 `tools/audio.py`，wav 走标准库、其余走 ffmpeg。
+    """
+    files = state.get("files") or []
+    audios = [f for f in files if Path(f).suffix.lower() in AUDIO_EXT]
+    if not audios:
+        return {
+            "result": {
+                "text": "没有找到可转写的音频。请上传录音文件（mp3/wav/m4a 等）。",
+                "backend": "local",
+                "note": "附件里没有音频",
+            }
+        }
+
+    warnings: list[str] = []
+    parts: list[str] = []
+    for f in audios:
+        p = Path(f)
+        try:
+            chunks, note = audio_tool.split(str(p))
+        except Exception as e:  # noqa: BLE001 - 分片失败不应中断整条链路
+            chunks, note = [p], f"分片失败（{type(e).__name__}: {e}），已整段提交"
+        if note:
+            warnings.append(f"{p.name}：{note}")
+
+        try:
+            for chunk in chunks:
+                text = llm.asr(chunk)
+                if text.strip():
+                    parts.append(text.strip())
+                else:
+                    warnings.append(f"{p.name}：这一片没有识别到语音")
+        except llm.LLMError as e:
+            warnings.append(f"{p.name} 转写失败：{e}")
+        finally:
+            # 分片是临时文件，转写完就删；原文件保留（不是我们上传的，不该动）
+            try:
+                audio_tool.cleanup(chunks, p)
+            except Exception:  # noqa: BLE001
+                pass
+
+    transcript = "\n".join(parts).strip()
+    if not transcript:
+        detail = ("\n\n未处理的部分：\n" + "\n".join(f"· {w}" for w in warnings)) if warnings else ""
+        return {
+            "result": {
+                "text": f"没能从音频里识别到语音内容。{detail}",
+                "backend": "local",
+                "note": "ASR 未产出文本",
+            }
+        }
+
+    # 转写拿到了，按**场景**决定整理成什么。
+    #
+    # 为什么不写死成会议纪要：dispatch 对音频一律放行（场景是靠文字关键词猜的，
+    # 用户上传录音时那句文字常常很短，判断不可靠）。所以这里必须按场景分流，
+    # 否则一段「口述的数学题」录音会被硬套成会议纪要格式。
+    scene = (state.get("routing") or {}).get("scene") or "meeting"
+    if scene == "meeting":
+        system = SCENE_PROMPTS["meeting"]
+        instruction = "以下是会议录音的转写文本，请据此整理纪要："
+    elif scene == "exam":
+        system = (
+            "你在处理一段口述题目的录音转写。请先忠实还原题面与条件，"
+            "再作答并说明依据。转写可能有错别字或漏字，不确定处明确说明，不要臆测。"
+        )
+        instruction = "以下是录音转写，内容是口述的题目："
+    else:
+        system = (
+            "你在处理一段录音转写。请忠实整理成可读文本（分段、补标点、"
+            "保留发言人与关键信息）。**不要编造转写里没有的内容**；"
+            "听不清或缺失的地方标注出来。"
+        )
+        instruction = "以下是录音转写："
+
+    user = f"{instruction}\n\n{transcript}"
+    try:
+        body_raw = llm.chat(
+            [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            temperature=0.3,
+        )
+    except llm.LLMError as e:
+        # 转写成功但整理失败：把转写交出去，别让用户的录音白转一遍
+        return {
+            "result": {
+                "text": f"录音已转写，但整理纪要失败：{e}\n\n**转写原文**\n{transcript}",
+                "backend": "local",
+                "note": "转写成功、整理失败",
+            }
+        }
+
+    body, spoken = speech_tool.resolve(body_raw)
+    if warnings:
+        body += "\n\n未处理的部分：\n" + "\n".join(f"· {w}" for w in warnings)
+
+    return {
+        "result": {
+            "text": body,
+            "speech": spoken,
+            "backend": "local",
+            "artifacts": [
+                {
+                    "kind": "audio",
+                    "files": [Path(f).name for f in audios],
+                    "transcript_chars": len(transcript),
+                    "chunks": len(parts),
+                }
+            ],
+        }
+    }
+
+
+# --------------------------------------------------------------------------- #
 # 7. 本地场景回复
 # --------------------------------------------------------------------------- #
 def local_llm(state: AssistantState) -> dict[str, Any]:
@@ -364,6 +504,63 @@ def local_llm(state: AssistantState) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # 8. 后处理：播报语 + 归档
 # --------------------------------------------------------------------------- #
+#: 训练动作词表。从「做深蹲」这类口语里取出动作名，供卡片显示。
+_EXERCISES = (
+    "深蹲", "卧推", "硬拉", "引体向上", "引体", "俯卧撑", "平板支撑", "弓步",
+    "划船", "推举", "弯举", "卷腹", "臀桥", "跑步", "骑行", "游泳", "跳绳",
+)
+
+
+def _exercise_name(text: str) -> str:
+    for e in _EXERCISES:
+        if e in (text or ""):
+            return e
+    return "—"
+
+
+def next_workout(state: AssistantState) -> dict[str, Any] | None:
+    """按本轮路由动作推进训练状态；非锻炼场景返回 None（不动状态）。
+
+    背景：Web 层复用基线的 UI，WORKOUT 卡片读 ``/api/state`` 的
+    ``fitness.workout``。迁移到状态图后这个字段没有来源，卡片恒显示 IDLE，
+    用户看不出训练到底有没有开始。这里补一个最小状态机，动作取自
+    ``routing.ACTION_MAP`` 里 fitness 的四个：
+    start_exercise / set_done / pain_report / end_workout。
+
+    纯函数、不依赖模型，可直接单测。
+    """
+    routing = state.get("routing") or {}
+    if routing.get("scene") != "fitness":
+        return None
+
+    action = str(routing.get("action") or "")
+    cur = dict((state.get("fitness") or {}).get("workout") or {})
+    status = cur.get("status") or "idle"
+    sets = int(cur.get("total_sets") or 0)
+
+    if action == "start_exercise":
+        return {
+            "status": "active",
+            "current": _exercise_name(state.get("text") or ""),
+            "total_sets": 0,
+        }
+    if action == "set_done":
+        # 没开始训练时的「做完一组」不计入，避免凭空冒出组数
+        if status == "active":
+            cur["total_sets"] = sets + 1
+        else:
+            cur.setdefault("status", "idle")
+            cur.setdefault("total_sets", sets)
+        return cur
+    if action == "pain_report":
+        cur["status"] = "paused"
+        return cur
+    if action == "end_workout":
+        cur["status"] = "idle"
+        return cur
+    return cur or {"status": "idle"}
+
+
 def postprocess(state: AssistantState) -> dict[str, Any]:
     """补齐播报语（不额外调模型）并按场景归档。"""
     res = dict(state.get("result") or {})
@@ -374,6 +571,11 @@ def postprocess(state: AssistantState) -> dict[str, Any]:
         res["speech"] = speech_tool.truncate(speech_tool.to_plain(text))
     out["result"] = res
     out["speech"] = res["speech"]
+
+    # 推进训练状态：前端 WORKOUT 卡片读 /api/state 的 fitness.workout
+    workout = next_workout(state)
+    if workout is not None:
+        out["fitness"] = {"workout": workout}
 
     scene = (state.get("routing") or {}).get("scene") or "general"
     if text and scene in ("meeting", "exam", "fitness"):
