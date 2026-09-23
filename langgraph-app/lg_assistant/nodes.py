@@ -101,34 +101,65 @@ def device_gate(state: AssistantState) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # 2. 权威路由
 # --------------------------------------------------------------------------- #
+def sticky_flags(state: AssistantState) -> dict[str, bool]:
+    """从**真实会话状态**推导「进行中的多轮流程」。
+
+    为什么必须在这里推导：原来读的是 ``event["_sticky"]``，而那个键
+    **没有任何地方写入过**——route_node 读它、dispatch 读它，两条路径
+    都是死代码。后果实测过：用户说「继续」想从暂停恢复训练，
+    因为命不中关键词、粘性又失效，被路由到 general，训练卡在暂停态出不来。
+
+    来源是 checkpointer 里的 state（会话状态），不是 event（单次请求的输入）。
+    """
+    fitness = state.get("fitness") or {}
+    workout = fitness.get("workout") or {}
+    return {
+        "meeting": bool((state.get("meeting") or {}).get("status") == "collecting"),
+        "fitness": bool(
+            fitness.get("awaiting")
+            or workout.get("status") in ("active", "paused")
+        ),
+    }
+
+
 def route_node(state: AssistantState) -> dict[str, Any]:
     """五级路由。传入 ``llm_router=None`` 时纯规则，永不发起模型调用。
 
     模型兜底通过 ``ROUTER`` 环境开关控制，默认开启但在测试里注入桩函数。
     """
-    ev = state.get("event") or {}
     device = state.get("device") or {}
+    text = state.get("text") or ""
 
-    # 粘性流程来自图自身的会话状态（由 checkpointer 提供）
-    sticky = ev.get("_sticky") or {}
-    sticky_flags = {
-        "meeting": bool(sticky.get("meeting")),
-        "fitness": bool(sticky.get("fitness")),
-    }
+    # 训练进行中要**跳过模型兜底**：这时候用户说的每句话几乎都是训练事件
+    # （「做完一组」「歇好了」「膝盖疼」），而它们大多不含关键词——
+    # 交给模型兜底既慢（每次多一次调用）又不可靠（可能被判到 general）。
+    # 先做确定性动作推断，判得出动作就说明该留在 fitness。
+    workout_status = ((state.get("fitness") or {}).get("workout") or {}).get("status")
+    workout_action = ""
+    if workout_status in ("active", "paused"):
+        workout_action = infer_fitness_action(text)
+        if not workout_action:
+            # 判不出动作时**不粘**：避免「帮我算个数」在训练中被吞掉
+            # （这正是基线踩过的坑，路由顺序才定成关键词优先于粘性）。
+            workout_status = None
 
-    router = _router_callable()
+    sticky_flags_now = sticky_flags(state)
+    if workout_action:
+        sticky_flags_now["fitness"] = True
+
+    ev = state.get("event") or {}
+    router = _router_callable() if not workout_action else None
     decision = route_decision(
-        text=state.get("text") or "",
+        text=text,
         event=ev,
         scene_hint=state.get("scene_hint"),
-        sticky=sticky_flags,
+        sticky=sticky_flags_now,
         llm_router=router,
     )
 
     # 场景内的动作推断：路由只决定场景，动作要在这里补
     if not decision["action"] and decision["scene"] in ("meeting", "fitness"):
         decision = dict(decision)
-        text = state.get("text") or ""
         decision["action"] = (
             infer_meeting_action(text)
             if decision["scene"] == "meeting"
@@ -418,11 +449,20 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
     # --- 首选：paraformer-v2，带说话人分离 ---
     # **整段提交而不是分片**：分片各自 diarize 会让 speaker_id 每片重新从 0 开始，
     # 同一人在第 2 片可能变成 0 号，拼起来等于把一个人拆成多个。
+    #
+    # 同时挂上定制热词：领域词（具身智能、ChatGPT…）听错是解码器缺先验，
+    # 热词表正好补这一块。热词表建失败不影响转写，只记一条 warning。
+    vocabulary_id = ""
+    try:
+        vocabulary_id = transcribe.ensure_vocabulary()
+    except Exception as e:  # noqa: BLE001
+        warnings.append(f"热词表未生效（{e}），领域词可能被听错")
+
     diar_ok = False
     for f in audios:
         p = Path(f)
         try:
-            data = transcribe.transcribe_with_speakers(p)
+            data = transcribe.transcribe_with_speakers(p, vocabulary_id=vocabulary_id or None)
         except Exception as e:  # noqa: BLE001 - 分离失败要能降级，不能炸链路
             warnings.append(f"{p.name}：说话人分离失败（{e}），已降级为纯文本转写")
             continue
@@ -434,12 +474,10 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
 
     if diar_ok:
         transcript = transcribe.format_transcript(utterances)
-        stats = transcribe.speaker_stats(utterances)
-        body_extra = (
-            f"（共识别出 {len(stats)} 位发言人；"
-            + "、".join(f"{s['label']} {s['turns']} 段" for s in stats)
-            + "）"
-        )
+        # 分离质量如实报告：人数、每人段数、哪些片段归属存疑。
+        # 不替服务改判（改判=可能把别人的话安在别人头上），只说清楚哪里不确定。
+        report = transcribe.diarization_report(utterances)
+        body_extra = transcribe.describe_diarization(report)
     else:
         # --- 降级：qwen3-asr-flash，长音频分片 ---
         parts: list[str] = []
@@ -489,6 +527,9 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
         instruction = (
             "以下是会议录音的转写，每行以 [时间] 发言人N：开头。"
             "请依据它整理纪要；引用观点时指明是哪位发言人。"
+            "标注了「短促片段·归属存疑」的行，说话人归属不可靠，"
+            "不要把它的内容算成某位发言人的观点；转写用词可能有同音错字，"
+            "拿不准的用词照原样保留，不要替它改成另一个说法。"
         )
     elif scene == "exam":
         system = (
@@ -559,6 +600,63 @@ def local_llm(state: AssistantState) -> dict[str, Any]:
     scene = rt.get("scene") or "general"
     system = SCENE_PROMPTS.get(scene, SCENE_PROMPTS["general"])
     question = (state.get("text") or "").strip()
+
+    # ---- 安全闸：训练因不适暂停后，不再让模型自由发挥 ----
+    #
+    # 实测事故：报告「膝盖有点疼」后（状态机已置 paused），用户接着说
+    # 「做完一组」，回答仍是「好，休息30秒，准备下一组」——**在鼓励用户
+    # 带着疼痛继续练**。状态机拒绝了计数，但回答是模型生成的，它看不到
+    # 训练状态，所以照常给出鼓励性回复。
+    #
+    # 这类安全回复不能交给模型即兴发挥：改成确定性文案，并且明确说明
+    # 「为什么没记这一组」以及「怎样才算可以继续」。
+    workout = ((state.get("fitness") or {}).get("workout") or {})
+    if workout.get("status") == "paused":
+        action = str(rt.get("action") or "")
+        where = workout.get("current") or "当前动作"
+        done = int(workout.get("total_sets") or 0)
+        # 「结束训练」必须放行——否则用户拿不到训练总结，被卡在暂停态出不来。
+        # 「继续」也要给恢复确认，而不是复述暂停提示——状态这一轮已经切回
+        # active 了，再回一句「当前处于暂停状态」会自相矛盾（实测发现）。
+        if action == "resume_workout":
+            text = (
+                f"好，已恢复记录「{where}」，本次累计 {done} 组。\n\n"
+                "如果再次出现不适，立刻停下并告诉我，不要硬撑。"
+            )
+            body, spoken = speech_tool.resolve(text)
+            return {
+                "result": {
+                    "text": body,
+                    "speech": spoken or "已恢复记录，有不舒服立刻停下。",
+                    "backend": "local",
+                    "note": "从暂停恢复",
+                }
+            }
+        if action != "end_workout":
+            if action == "set_done":
+                text = (
+                    f"**这一组没有记录。** 你刚才报告了不适，训练已暂停在「{where}」，"
+                    f"本次累计 {done} 组。\n\n"
+                    "请先确认：疼痛是否已经缓解？如果还疼，不要继续这个动作——"
+                    "带痛训练会让损伤加重，恢复期更长。\n\n"
+                    "确认没问题后再继续，可以直接说「继续」，我会恢复记录；"
+                    "要结束就说「结束训练」。"
+                )
+            else:
+                text = (
+                    f"训练当前处于暂停状态（不适待确认），停在「{where}」，"
+                    f"本次累计 {done} 组。\n\n"
+                    "确认身体没有不适就说「继续」；要结束就说「结束训练」。"
+                )
+            body, spoken = speech_tool.resolve(text)
+            return {
+                "result": {
+                    "text": body,
+                    "speech": spoken or "训练已暂停，请先确认身体状况。",
+                    "backend": "local",
+                    "note": "训练暂停中，已拦截继续训练类回复",
+                }
+            }
 
     # 时效性问题必须先联网：模型的知识有截止时间，问「某会是否召开」
     # 它会给过期结论（实测三次把三中全会答成「尚未召开」）。
@@ -699,6 +797,12 @@ def next_workout(state: AssistantState) -> dict[str, Any] | None:
         return cur
     if action == "pain_report":
         cur["status"] = "paused"
+        return cur
+    if action == "resume_workout":
+        # 只从「暂停」恢复；idle 时什么都不做，
+        # 否则一句「继续」会凭空开出一场训练、组数从 0 重新算
+        if status == "paused":
+            cur["status"] = "active"
         return cur
     if action == "end_workout":
         cur["status"] = "idle"

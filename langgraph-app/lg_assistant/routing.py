@@ -31,6 +31,7 @@ ACTION_MAP: dict[str, tuple[str | None, str]] = {
     "set_done": ("fitness", "set_done"),
     "pain_report": ("fitness", "pain_report"),
     "end_workout": ("fitness", "end_workout"),
+    "resume_workout": ("fitness", "resume_workout"),
     "export_resource": ("resource", "export"),
     "list_resources": ("resource", "list"),
     "stop_playback": (None, "stop_playback"),
@@ -208,6 +209,68 @@ def infer_meeting_action(text: str) -> str:
     if any(w in t for w in STICKY_START_WORDS):
         return "start"
     return "append"
+
+
+#: 训练动作词表。下面的判定顺序即优先级，理由见 ``infer_fitness_action``。
+FITNESS_PAIN_WORDS = ("疼", "痛", "不舒服", "不适", "拉伤", "扭到", "练不下去", "练不动", "受伤")
+FITNESS_END_WORDS = ("结束训练", "结束锻炼", "不练了", "练完了", "收工", "今天就到这")
+FITNESS_SET_DONE_WORDS = ("做完一组", "做完了", "这组完", "一组做完", "下一组", "完成了", "再来一组")
+
+#: 「开始训练」的显式说法。
+#:
+#: **不能放裸动词「做」「练」**——实测踩过：「做完一组」命中「做」被当成
+#: start_exercise，而「开始深蹲」命不中任何词返回空，两者判定完全对调，
+#: 导致状态机永远停在 idle、组数一条也记不上。
+FITNESS_START_WORDS = (
+    "开始训练", "开始锻炼", "开始练", "开练", "来一组", "第一组",
+    "开始", "带我练", "练一下", "今天练",
+)
+
+#: 具体动作名。用户说的是「开始深蹲」而不是「开始训练」，
+#: 光靠上面的通用说法接不住——这是实测漏掉的主要输入形式。
+#:
+#: 取自 assistant-lite 的器械知识库（15 项）外加常见自由重量动作。
+FITNESS_EXERCISES = (
+    "深蹲", "卧推", "硬拉", "推举", "划船", "引体向上", "高位下拉", "腿举",
+    "弯举", "臂屈伸", "飞鸟", "侧平举", "耸肩", "提踵", "卷腹", "平板支撑",
+    "臀桥", "箭步蹲", "弓步", "俯卧撑", "开合跳", "波比跳", "跳绳",
+    "史密斯机", "卧推架", "深蹲架", "腿举机", "坐姿划船", "哑铃", "杠铃",
+    "龙门架", "跑步机", "椭圆机", "壶铃", "弹力带", "引体向上架", "健腹轮",
+)
+
+
+#: 从暂停恢复。训练因不适暂停后，用户要能明确地说「继续」才恢复记录。
+#: 这条是安全闸的配套：闸门给出「说继续即可恢复」的指引，
+#: 就必须真的存在这个动作，否则用户被卡死在暂停态。
+FITNESS_RESUME_WORDS = ("继续", "接着练", "恢复训练", "没事了", "好了", "可以继续", "不疼了")
+
+
+def infer_fitness_action(text: str) -> str:
+    """训练动作推断。关键词路由只给场景，动作要在这里补。
+
+    **顺序不可换：不适与结束排在开始之前。**
+    「膝盖疼，今天不练了」同时含「疼」和「练」，若先判开始，用户报告不适
+    反而会启动一次训练——安全相关的判定必须排在最前面。
+
+    做组（set_done）也必须排在开始之前：实测踩过「做完一组」因为词表里有
+    裸动词「做」而被判成 start_exercise，于是状态机不断被重置、组数一条都
+    记不上。词表已去掉裸动词，但顺序仍要保证。
+    """
+    t = text or ""
+    if any(w in t for w in FITNESS_PAIN_WORDS):
+        return "pain_report"
+    if any(w in t for w in FITNESS_END_WORDS):
+        return "end_workout"
+    if any(w in t for w in FITNESS_SET_DONE_WORDS):
+        return "set_done"
+    if any(w in t for w in FITNESS_RESUME_WORDS):
+        return "resume_workout"
+    # 具体动作名（「开始深蹲」「卧推4组10次」）也算开始训练
+    if any(w in t for w in FITNESS_EXERCISES):
+        return "start_exercise"
+    if any(w in t for w in FITNESS_START_WORDS):
+        return "start_exercise"
+    return ""
 
 
 ROUTER_PROMPT = """你是智能助手总控，只输出一个 JSON 对象，不要代码围栏。

@@ -85,11 +85,26 @@ def dispatch(state: AssistantState) -> str:
             return "audio"
         return "local"
 
-    if (state.get("event") or {}).get("_sticky"):
+    # 进行中的多轮流程（会议收集中 / 训练进行中）必须留在本地——
+    # Dify 侧没有这些会话状态。
+    #
+    # 状态从**会话状态**读，不是从 event 读：原来读的 `event["_sticky"]`
+    # 没有任何地方写入过，这条守卫一直是死代码（实测发现）。
+    if _in_sticky_flow(state):
         return "local"
     if config.EXEC_BACKEND == "dify":
         return "dify"
     return "local"
+
+
+def _in_sticky_flow(state: AssistantState) -> bool:
+    """是否处于进行中的多轮流程。与会话状态一致，不看单次请求的 event。"""
+    fitness = state.get("fitness") or {}
+    return bool(
+        (state.get("meeting") or {}).get("status") == "collecting"
+        or fitness.get("awaiting")
+        or (fitness.get("workout") or {}).get("status") in ("active", "paused")
+    )
 
 
 def build_graph(checkpointer: Any = None, *, with_telemetry: bool = True):

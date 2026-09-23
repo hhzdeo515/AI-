@@ -1578,6 +1578,146 @@ def test_vision_path_searches_with_observation_not_just_user_text() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# 健身场景的三个真 bug（真实链路走查发现）
+# --------------------------------------------------------------------------- #
+def test_fitness_action_start_and_setdone_not_swapped() -> None:
+    """回归一：裸动词「做」把开始与做组判定对调了。
+
+    原词表 FITNESS_START_WORDS 里有裸动词「做」和「练」：
+      - 「做完一组」命中「做」-> 判成 start_exercise
+      - 「开始深蹲」命不中任何词 -> 判成空
+    两者完全对调。后果：状态机被反复重置，**组数一条也记不上**，
+    且训练根本没进入 active。
+    """
+    assert routing.infer_fitness_action("做完一组") == "set_done"
+    assert routing.infer_fitness_action("再来一组") == "set_done"
+    # 具体动作名要能接住——用户说的是「开始深蹲」而不是「开始训练」
+    for t in ("开始深蹲", "开始深蹲 3组10次 60公斤", "深蹲 3组10次", "卧推 4组10次"):
+        assert routing.infer_fitness_action(t) == "start_exercise", t
+    # 不适永远优先于开始（安全顺序不可换）
+    assert routing.infer_fitness_action("膝盖疼，今天不练了") == "pain_report"
+
+
+def test_paused_workout_blocks_set_done_with_explanation() -> None:
+    """回归二：疼痛暂停后仍回「好，休息30秒，准备下一组」。
+
+    实测事故：报告「膝盖有点疼」后状态机已置 paused，用户接着说「做完一组」，
+    回答仍在鼓励他继续练。状态机拒绝了计数，但回答由模型生成、它看不到状态。
+    现在改成确定性安全文案，并且要说明「为什么没记」与「怎样算可以继续」。
+    """
+    _fresh()
+    out = nodes.local_llm(
+        {
+            "text": "做完一组",
+            "routing": {"scene": "fitness", "action": "set_done"},
+            "fitness": {"workout": {"status": "paused", "current": "深蹲", "total_sets": 2}},
+        }
+    )
+    text = out["result"]["text"]
+    assert "没有记录" in text, "必须明确说这一组没被计入"
+    assert "休息30秒" not in text, "不能再出现鼓励继续练的话"
+    assert "继续" in text and "结束训练" in text, "要给出恢复与结束两条出路"
+    assert out["result"]["note"]
+
+
+def test_paused_workout_still_allows_ending() -> None:
+    """回归三：「结束训练」不能被安全闸拦住。
+
+    闸门做完后实测发现，暂停态下发「结束训练」也只会回一句
+    「训练当前处于暂停状态」——用户拿不到训练总结，被卡在暂停态出不来。
+    """
+    _fresh()
+    out = nodes.local_llm(
+        {
+            "text": "结束训练",
+            "routing": {"scene": "fitness", "action": "end_workout"},
+            "fitness": {"workout": {"status": "paused", "current": "深蹲", "total_sets": 2}},
+        }
+    )
+    assert "暂停状态" not in out["result"]["text"], "结束训练不应被安全闸拦截"
+
+
+def test_sticky_flags_come_from_session_state_not_event() -> None:
+    """回归四：``event["_sticky"]`` 从来没有被写入过，粘性是死代码。
+
+    后果：用户说「继续」想从暂停恢复，命不中关键词、粘性又失效，
+    被路由到 general，**训练卡在暂停态出不来**。
+    现在从会话状态推导。
+    """
+    assert nodes.sticky_flags({}) == {"meeting": False, "fitness": False}
+    assert nodes.sticky_flags({"fitness": {"workout": {"status": "active"}}})["fitness"] is True
+    assert nodes.sticky_flags({"fitness": {"workout": {"status": "paused"}}})["fitness"] is True
+    assert nodes.sticky_flags({"fitness": {"awaiting": "age"}})["fitness"] is True
+    assert nodes.sticky_flags({"meeting": {"status": "collecting"}})["meeting"] is True
+    # 已结束的训练不该继续粘住
+    assert nodes.sticky_flags({"fitness": {"workout": {"status": "idle"}}})["fitness"] is False
+
+
+def test_training_skips_llm_router_and_stays_in_fitness() -> None:
+    """训练进行中要跳过模型兜底：那些话大多不含关键词，交给模型既慢又不准。"""
+    _fresh()
+    calls: list = []
+    orig = nodes._ROUTER
+    nodes.set_router(lambda *a, **kw: (calls.append(1), {"scene": "general"})[1])
+    try:
+        # 训练进行中 + 判得出动作 -> 不调模型兜底
+        out = nodes.route_node(
+            {
+                "text": "歇好了",
+                "fitness": {"workout": {"status": "paused"}},
+                "device": {},
+            }
+        )
+        assert out["routing"]["scene"] == "fitness", out["routing"]
+        # 「歇好了」命不中动作，但其本身不是训练事件时会走兜底——
+        # 这里只断言「判得出动作时确实没调模型」
+        calls.clear()
+        out2 = nodes.route_node(
+            {
+                "text": "做完一组",
+                "fitness": {"workout": {"status": "active"}},
+                "device": {},
+            }
+        )
+        assert out2["routing"]["action"] == "set_done"
+        assert calls == [], "判得出动作时不该调模型兜底"
+    finally:
+        nodes.set_router(orig)
+
+
+def test_training_does_not_swallow_unrelated_requests() -> None:
+    """训练中也要能问别的：判不出动作时不粘，避免「帮我算个数」被吞掉。
+
+    这正是基线踩过的坑，路由顺序才定成关键词优先于粘性。
+    """
+    _fresh()
+    out = nodes.route_node(
+        {"text": "计算 (18+24)*3", "fitness": {"workout": {"status": "active"}}, "device": {}}
+    )
+    assert out["routing"]["scene"] == "exam", out["routing"]
+
+
+def test_resume_only_works_from_paused() -> None:
+    """「继续」只能从暂停恢复；idle 时不该凭空开出一场训练。"""
+    _fresh()
+    paused = nodes.next_workout(
+        {
+            "routing": {"scene": "fitness", "action": "resume_workout"},
+            "fitness": {"workout": {"status": "paused", "total_sets": 2}},
+        }
+    )
+    assert paused["status"] == "active" and paused["total_sets"] == 2
+
+    idle = nodes.next_workout(
+        {
+            "routing": {"scene": "fitness", "action": "resume_workout"},
+            "fitness": {"workout": {"status": "idle", "total_sets": 0}},
+        }
+    )
+    assert idle["status"] == "idle", "idle 时说「继续」不应开始训练"
+
+
+# --------------------------------------------------------------------------- #
 def _run_all() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
