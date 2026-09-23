@@ -18,9 +18,14 @@ __pycache__/
 
 # ---- 外部工具（安装物不入库，体积大） ----
 # 约定：ffmpeg、独立 Python 包等都装在这里，代码通过 config.TOOLS_DIR 引用
-tools/
-.venv/
-venv/
+#
+# 注意前导斜杠：`tools/` 不带斜杠会匹配**任意层级**的同名目录，
+# 把 langgraph-app/lg_assistant/tools/（源码包）一起吞掉——实测三个文件
+# 因此没能入库，别人 clone 后一跑就 ModuleNotFoundError。
+# 加 `/` 锚定到仓库根，只忽略真正的安装物目录。
+/tools/
+/.venv/
+/venv/
 *.sqlite3
 *.sqlite3-wal
 *.sqlite3-shm
