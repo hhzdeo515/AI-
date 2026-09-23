@@ -72,35 +72,36 @@ START → device_gate → route → telemetry → dispatch
 .\start.ps1                 # 起 Web 页（默认 8802，自动开浏览器）
 .\start.ps1 -Check          # 只做自检（配置 + 模型连通）
 .\start.ps1 -Port 9000      # 换端口
+.\start.ps1 -NoBrowser      # 不自动开浏览器
 ```
 
-> ⚠️ **本机的 `python` 命令是坏的**，不要照抄 `python run.py ...`。
-> PATH 里第一个 `F:\Scripts\python.exe` 是个残缺 shim，任何调用都报
-> `No pyvenv.cfg file`。可用解释器是 **`F:\python.exe`**。
-> `start.ps1` 会自动探测（跳过残缺 shim），所以优先用它。
-
-手动跑（把 `python` 换成 `F:\python.exe`）：
+或者直接用 `python`：
 
 ```powershell
-F:\python.exe run.py check                # 配置自检 + 模型连通
-F:\python.exe run.py graph                # 打印图结构（需 grandalf）
-F:\python.exe run.py ask "计算 (18+24)*3"  # 零 token 算术快路径
-F:\python.exe run.py ask "hello" --session s1
-F:\python.exe run.py ask "解这道题" -f q.png
-F:\python.exe run.py ask "我膝盖疼" -e '{"device":{"intent":"solve","confidence":0.95}}'
-F:\python.exe run.py stats                 # 端侧判对率
-F:\python.exe run.py resume <owner> <session>   # 从检查点续跑（断连恢复）
-F:\python.exe run.py web --port 8802
+python run.py check                       # 配置自检 + 模型连通
+python run.py graph                       # 打印图结构（需 grandalf）
+python run.py ask "计算 (18+24)*3"         # 零 token 算术快路径
+python run.py ask "hello" --session s1     # 走模型
+python run.py ask "解这道题" -f q.png       # 拍照解题（本地视觉链）
+python run.py ask "我膝盖疼" -e '{"device":{"intent":"solve","confidence":0.95}}'
+python run.py stats                        # 端侧判对率
+python run.py resume <owner> <session>      # 从检查点续跑（断连恢复）
+python run.py web --port 8802
 
-F:\python.exe tests\test_graph.py          # 47 项，不需要 Dify / API Key / 联网
-F:\python.exe tests\test_web.py            # 27 项
-F:\python.exe tests\test_tools.py          # 13 项
+python tests\test_graph.py                 # 47 项，不需要 Dify / API Key / 联网
+python tests\test_web.py                   # 27 项
+python tests\test_tools.py                 # 13 项
 ```
+
+> `start.ps1` 与直接调 `python` 等价，只是多做了三件事：探测可用解释器（跳过残缺
+> shim）、检查 `.env` 是否存在、自动打开浏览器。它按 UTF-8 with BOM 保存——
+> **PowerShell 5.1 在无 BOM 时按 GBK 解析**，用编辑器重存时别把 BOM 弄丢，
+> 否则中文注释会破坏语法。
 
 ### 首次部署
 
 ```powershell
-F:\python.exe -m pip install -r requirements.txt
+python -m pip install -r requirements.txt
 Copy-Item .env.example .env      # 填入 DASHSCOPE_API_KEY（百炼）
 .\start.ps1 -Check               # 应当看到「模型连通 : OK」
 ```
