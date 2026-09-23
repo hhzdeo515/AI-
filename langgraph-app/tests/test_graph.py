@@ -881,40 +881,151 @@ def test_dispatch_routes_audio_to_meeting_audio() -> None:
 
 
 def test_audio_node_transcribes_then_summarises() -> None:
-    """链路必须真的调用 ASR，并把转写交给 LLM 整理。"""
+    """链路必须真的转写，并把转写交给 LLM 整理，且正文含文字记录。"""
     tmp = _fresh()
     src = tmp / "meeting.mp3"
     src.write_bytes(b"fake-audio")
 
-    from lg_assistant import llm
-    from lg_assistant.tools import audio as audio_tool
+    from lg_assistant import llm, transcribe
 
-    calls = {"asr": 0, "chat": 0}
-    orig_asr, orig_chat, orig_split = llm.asr, llm.chat, audio_tool.split
+    calls = {"diar": 0, "chat": 0}
+    orig_diar, orig_chat = transcribe.transcribe_with_speakers, llm.chat
 
-    def fake_asr(p, **kw):
-        calls["asr"] += 1
-        return "王浩：数据获取范式要转型。"
+    def fake_diar(path, **kw):
+        calls["diar"] += 1
+        return {
+            "utterances": [
+                {"speaker": 0, "begin_ms": 1000, "end_ms": 3000, "text": "数据获取范式要转型。"},
+                {"speaker": 1, "begin_ms": 3000, "end_ms": 5000, "text": "我同意这个判断。"},
+            ],
+            "speakers": [0, 1],
+            "sentences": [],
+            "duration_ms": 5000,
+            "text": "x",
+        }
 
     def fake_chat(messages, **kw):
         calls["chat"] += 1
-        # 转写必须真的被送进模型，否则等于白转
         assert "数据获取范式要转型" in str(messages), "转写未进入整理提示词"
         return "**会议主题** 具身智能卡点\n**明确决策** 未明确"
 
-    llm.asr = fake_asr
+    transcribe.transcribe_with_speakers = fake_diar
     llm.chat = fake_chat
+    try:
+        out = nodes.meeting_audio({"files": [str(src)], "routing": {"scene": "meeting"}})
+    finally:
+        transcribe.transcribe_with_speakers, llm.chat = orig_diar, orig_chat
+
+    text = out["result"]["text"]
+    assert calls["diar"] == 1, "必须调用带说话人分离的转写"
+    assert calls["chat"] == 1, "转写后必须调用模型整理"
+    assert "会议主题" in text
+    # 纪要 + 文字记录都要在，用户要的是两样
+    assert "会议文字记录" in text, "正文必须包含完整文字记录"
+    assert "发言人1" in text and "发言人2" in text, "文字记录要区分发言人"
+
+
+def test_audio_node_falls_back_to_plain_asr() -> None:
+    """分离失败要降级到纯文本转写，不能炸链路，也不能丢掉录音。"""
+    tmp = _fresh()
+    src = tmp / "m.mp3"
+    src.write_bytes(b"x")
+
+    from lg_assistant import llm, transcribe
+    from lg_assistant.tools import audio as audio_tool
+
+    orig = (transcribe.transcribe_with_speakers, llm.asr, llm.chat, audio_tool.split)
+
+    def boom(path, **kw):
+        raise transcribe.TranscriptionError("模拟分离失败")
+
+    transcribe.transcribe_with_speakers = boom
+    llm.asr = lambda p, **kw: "降级后的纯文本转写。"
+    llm.chat = lambda messages, **kw: "**会议主题** 降级"
     audio_tool.split = lambda p, **kw: ([Path(p)], "")
 
     try:
         out = nodes.meeting_audio({"files": [str(src)], "routing": {"scene": "meeting"}})
     finally:
-        llm.asr, llm.chat, audio_tool.split = orig_asr, orig_chat, orig_split
+        (transcribe.transcribe_with_speakers, llm.asr, llm.chat, audio_tool.split) = orig
 
-    assert calls["asr"] == 1, "必须调用 ASR"
-    assert calls["chat"] == 1, "转写后必须调用模型整理"
-    assert "会议主题" in out["result"]["text"]
-    assert out["result"]["artifacts"][0]["kind"] == "audio"
+    text = out["result"]["text"]
+    assert "降级" in text
+    assert "降级后的纯文本转写" in text, "降级后转写内容仍要交出来"
+    assert "说话人分离失败" in text, "降级原因必须写明"
+    assert "未能区分发言人" in text
+
+
+def test_transcribe_parse_groups_consecutive_same_speaker() -> None:
+    """同一说话人的连续句子要合并成一段发言——逐句罗列读起来太碎。"""
+    from lg_assistant import transcribe
+
+    data = {
+        "properties": {"original_duration_in_milliseconds": 10000},
+        "transcripts": [
+            {
+                "sentences": [
+                    {"speaker_id": 0, "begin_time": 0, "end_time": 1000, "text": "第一句。"},
+                    {"speaker_id": 0, "begin_time": 1000, "end_time": 2000, "text": "第二句。"},
+                    {"speaker_id": 1, "begin_time": 2000, "end_time": 3000, "text": "换人。"},
+                    {"speaker_id": 0, "begin_time": 3000, "end_time": 4000, "text": "又回来。"},
+                ]
+            }
+        ],
+    }
+    r = transcribe.parse_result(data)
+    assert len(r["sentences"]) == 4
+    assert len(r["utterances"]) == 3, r["utterances"]
+    assert r["utterances"][0]["text"] == "第一句。第二句。"
+    assert r["utterances"][0]["end_ms"] == 2000
+    assert r["speakers"] == [0, 1]
+
+
+def test_transcribe_parse_skips_empty_and_sorts_by_time() -> None:
+    from lg_assistant import transcribe
+
+    data = {
+        "properties": {},
+        "transcripts": [
+            {
+                "sentences": [
+                    {"speaker_id": 1, "begin_time": 5000, "end_time": 6000, "text": "后说的"},
+                    {"speaker_id": 0, "begin_time": 1000, "end_time": 2000, "text": "   "},
+                    {"speaker_id": 0, "begin_time": 2000, "end_time": 3000, "text": "先说的"},
+                ]
+            }
+        ],
+    }
+    r = transcribe.parse_result(data)
+    assert [s["text"] for s in r["sentences"]] == ["先说的", "后说的"], "要按时间排序且丢掉空句"
+
+
+def test_speaker_label_never_invents_names() -> None:
+    """声纹只能区分「是不是同一个人」，不知道他是谁。
+
+    从内容猜姓名再冠上去，猜错就是把别人的话安在别人头上——
+    会议纪要里这是严重错误。所以只输出「发言人N」。
+    """
+    from lg_assistant import transcribe
+
+    assert transcribe.speaker_label(0) == "发言人1"
+    assert transcribe.speaker_label(5) == "发言人6"
+    assert transcribe.speaker_label(None) == "发言人"
+
+
+def test_speaker_stats_counts_turns_and_duration() -> None:
+    from lg_assistant import transcribe
+
+    utts = [
+        {"speaker": 0, "begin_ms": 0, "end_ms": 1000, "text": "a"},
+        {"speaker": 1, "begin_ms": 1000, "end_ms": 4000, "text": "b"},
+        {"speaker": 0, "begin_ms": 4000, "end_ms": 5000, "text": "c"},
+    ]
+    stats = transcribe.speaker_stats(utts)
+    assert stats[0]["label"] == "发言人2", "按时长降序，说话多的排前面"
+    assert stats[0]["turns"] == 1 and stats[0]["seconds"] == 3.0
+    by = {s["speaker"]: s for s in stats}
+    assert by[0]["turns"] == 2 and by[0]["seconds"] == 2.0
 
 
 def test_audio_node_reports_empty_transcript_instead_of_pretending() -> None:
@@ -923,22 +1034,118 @@ def test_audio_node_reports_empty_transcript_instead_of_pretending() -> None:
     src = tmp / "silent.mp3"
     src.write_bytes(b"x")
 
-    from lg_assistant import llm
+    from lg_assistant import llm, transcribe
     from lg_assistant.tools import audio as audio_tool
 
-    orig_asr, orig_split = llm.asr, audio_tool.split
+    orig = (transcribe.transcribe_with_speakers, llm.asr, audio_tool.split)
+
+    def boom(path, **kw):
+        raise transcribe.TranscriptionError("分离不可用")
+
+    transcribe.transcribe_with_speakers = boom
     llm.asr = lambda p, **kw: ""
     audio_tool.split = lambda p, **kw: ([Path(p)], "未找到 ffmpeg")
 
     try:
         out = nodes.meeting_audio({"files": [str(src)], "routing": {"scene": "meeting"}})
     finally:
-        llm.asr, audio_tool.split = orig_asr, orig_split
+        (transcribe.transcribe_with_speakers, llm.asr, audio_tool.split) = orig
 
     text = out["result"]["text"]
     assert "没能从音频里识别到语音" in text
     assert "未找到 ffmpeg" in text, "分片降级原因必须带出来"
     assert out["result"]["note"] == "ASR 未产出文本"
+
+
+def test_transcribe_upload_uses_get_for_policy() -> None:
+    """回归：取上传凭证必须用 GET + 查询参数，用 POST 会 405。
+
+    这条踩过：文档示例是 `requests.get(..., params={"action":"getPolicy", ...})`，
+    我先写成 POST 直接 405，白排查一轮。
+    """
+    from lg_assistant import transcribe
+
+    seen: dict = {}
+
+    class FakeResp:
+        status_code = 200
+        text = "{}"
+
+        def json(self):
+            return {
+                "data": {
+                    "upload_host": "https://oss.example/up",
+                    "upload_dir": "d",
+                    "oss_access_key_id": "k",
+                    "policy": "p",
+                    "signature": "s",
+                }
+            }
+
+    class FakeRequests:
+        @staticmethod
+        def get(url, **kw):
+            seen["method"] = "GET"
+            seen["params"] = kw.get("params")
+            return FakeResp()
+
+        @staticmethod
+        def post(url, **kw):
+            seen["post_url"] = url
+            return FakeResp()
+
+    orig_req, orig_key = transcribe._requests, config.DASHSCOPE_API_KEY
+    transcribe._requests = lambda: FakeRequests
+    config.DASHSCOPE_API_KEY = "sk-test"
+
+    tmp = Path(tempfile.mkdtemp(prefix="lgup-"))
+    f = tmp / "a.mp3"
+    f.write_bytes(b"x")
+    try:
+        url = transcribe.upload_for_temp_url(f)
+    finally:
+        transcribe._requests, config.DASHSCOPE_API_KEY = orig_req, orig_key
+
+    assert seen["method"] == "GET", "取凭证必须 GET"
+    assert seen["params"]["action"] == "getPolicy"
+    assert seen["params"]["model"] == transcribe.MODEL_DIAR, "文件与模型绑定，模型名必须带上"
+    assert url.startswith("oss://"), url
+
+
+def test_transcribe_resolves_oss_url_with_required_header() -> None:
+    """用 oss:// 临时 URL 调模型必须带 X-DashScope-OssResourceResolve: enable。
+
+    缺这个头服务端解析不了 oss:// 链接，会失败——文档明确警告过，
+    这里锁住，避免以后重构时把请求头弄丢。
+    """
+    from lg_assistant import transcribe
+
+    seen: dict = {}
+
+    class FakeResp:
+        status_code = 200
+        text = "{}"
+
+        def json(self):
+            return {"output": {"task_id": "t1"}}
+
+    class FakeRequests:
+        @staticmethod
+        def post(url, **kw):
+            seen["headers"] = kw.get("headers") or {}
+            return FakeResp()
+
+    orig_req, orig_key = transcribe._requests, config.DASHSCOPE_API_KEY
+    transcribe._requests = lambda: FakeRequests
+    config.DASHSCOPE_API_KEY = "sk-test"
+    try:
+        task = transcribe.submit("oss://bucket/x.mp3", speaker_count=3)
+    finally:
+        transcribe._requests, config.DASHSCOPE_API_KEY = orig_req, orig_key
+
+    assert task == "t1"
+    assert seen["headers"].get("X-DashScope-OssResourceResolve") == "enable"
+    assert seen["headers"].get("X-DashScope-Async") == "enable"
 
 
 def test_audio_node_without_audio_answers_clearly() -> None:

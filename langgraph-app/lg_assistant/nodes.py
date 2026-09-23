@@ -25,7 +25,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from . import config, dify_backend, llm, store, vision
+from . import config, dify_backend, llm, store, transcribe, vision
 from .ported import calc as calc_tool
 from .ported import speech as speech_tool
 from .routing import (
@@ -341,18 +341,28 @@ def exam_vision(state: AssistantState) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------- #
-# 6c. 会议录音：本地 ASR 转写（此前完全缺失）
+# 6c. 会议录音：转写 + 说话人分离 + 纪要
 # --------------------------------------------------------------------------- #
 def meeting_audio(state: AssistantState) -> dict[str, Any]:
-    """把上传的录音转写后再整理成纪要。
+    """把上传的录音转成「带发言人的文字记录」并整理成纪要。
 
     **为什么需要这个节点**：图片有 `exam_vision` 专门处理，音频却没有任何节点接手——
     带音频的请求会直接落到 `local_llm`，而那里只拿得到用户那句「会议纪要整理」，
     于是模型只能回「请发送会议转写文本」，把用户明明已经用音频给过的内容再要一遍。
     这条缺口实测复现：上传 1.9MB 录音，4 秒返回一句要文本的提示。
 
-    长音频必须分片：ASR 单次调用有时长上限（`config.ASR_CHUNK_SECONDS`，默认 240s）。
-    分片用 `tools/audio.py`，wav 走标准库、其余走 ffmpeg。
+    **两条转写通路，按需选择**：
+
+    ==================  ==========================  ============================
+    通路                 能力                        代价
+    ==================  ==========================  ============================
+    paraformer-v2       说话人分离 + 句级时间戳      需上传到百炼临时存储换取 URL
+    qwen3-asr-flash     纯文本                       本地文件直接送，快
+    ==================  ==========================  ============================
+
+    首选前者：用户明确要「区分不同声线的参会人」，而 qwen3-asr-flash **不支持**——
+    实测传 diarization_enabled 返回逐字节相同的结果，参数被静默忽略。
+    前者失败时降级到后者，转写内容仍然拿得到，只是没有发言人区分。
     """
     files = state.get("files") or []
     audios = [f for f in files if Path(f).suffix.lower() in AUDIO_EXT]
@@ -366,33 +376,62 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
         }
 
     warnings: list[str] = []
-    parts: list[str] = []
+    utterances: list[dict] = []
+    transcript = ""
+
+    # --- 首选：paraformer-v2，带说话人分离 ---
+    # **整段提交而不是分片**：分片各自 diarize 会让 speaker_id 每片重新从 0 开始，
+    # 同一人在第 2 片可能变成 0 号，拼起来等于把一个人拆成多个。
+    diar_ok = False
     for f in audios:
         p = Path(f)
         try:
-            chunks, note = audio_tool.split(str(p))
-        except Exception as e:  # noqa: BLE001 - 分片失败不应中断整条链路
-            chunks, note = [p], f"分片失败（{type(e).__name__}: {e}），已整段提交"
-        if note:
-            warnings.append(f"{p.name}：{note}")
+            data = transcribe.transcribe_with_speakers(p)
+        except Exception as e:  # noqa: BLE001 - 分离失败要能降级，不能炸链路
+            warnings.append(f"{p.name}：说话人分离失败（{e}），已降级为纯文本转写")
+            continue
+        if not data["utterances"]:
+            warnings.append(f"{p.name}：未识别到语音内容")
+            continue
+        utterances.extend(data["utterances"])
+        diar_ok = True
 
-        try:
-            for chunk in chunks:
-                text = llm.asr(chunk)
-                if text.strip():
-                    parts.append(text.strip())
-                else:
-                    warnings.append(f"{p.name}：这一片没有识别到语音")
-        except llm.LLMError as e:
-            warnings.append(f"{p.name} 转写失败：{e}")
-        finally:
-            # 分片是临时文件，转写完就删；原文件保留（不是我们上传的，不该动）
+    if diar_ok:
+        transcript = transcribe.format_transcript(utterances)
+        stats = transcribe.speaker_stats(utterances)
+        body_extra = (
+            f"（共识别出 {len(stats)} 位发言人；"
+            + "、".join(f"{s['label']} {s['turns']} 段" for s in stats)
+            + "）"
+        )
+    else:
+        # --- 降级：qwen3-asr-flash，长音频分片 ---
+        parts: list[str] = []
+        for f in audios:
+            p = Path(f)
             try:
-                audio_tool.cleanup(chunks, p)
-            except Exception:  # noqa: BLE001
-                pass
+                chunks, note = audio_tool.split(str(p))
+            except Exception as e:  # noqa: BLE001
+                chunks, note = [p], f"分片失败（{type(e).__name__}: {e}），已整段提交"
+            if note:
+                warnings.append(f"{p.name}：{note}")
+            try:
+                for chunk in chunks:
+                    text = llm.asr(chunk)
+                    if text.strip():
+                        parts.append(text.strip())
+                    else:
+                        warnings.append(f"{p.name}：这一片没有识别到语音")
+            except llm.LLMError as e:
+                warnings.append(f"{p.name} 转写失败：{e}")
+            finally:
+                try:
+                    audio_tool.cleanup(chunks, p)
+                except Exception:  # noqa: BLE001
+                    pass
+        transcript = "\n".join(parts).strip()
+        body_extra = "（未能区分发言人，以下为纯文本转写）"
 
-    transcript = "\n".join(parts).strip()
     if not transcript:
         detail = ("\n\n未处理的部分：\n" + "\n".join(f"· {w}" for w in warnings)) if warnings else ""
         return {
@@ -411,7 +450,10 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
     scene = (state.get("routing") or {}).get("scene") or "meeting"
     if scene == "meeting":
         system = SCENE_PROMPTS["meeting"]
-        instruction = "以下是会议录音的转写文本，请据此整理纪要："
+        instruction = (
+            "以下是会议录音的转写，每行以 [时间] 发言人N：开头。"
+            "请依据它整理纪要；引用观点时指明是哪位发言人。"
+        )
     elif scene == "exam":
         system = (
             "你在处理一段口述题目的录音转写。请先忠实还原题面与条件，"
@@ -426,12 +468,11 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
         )
         instruction = "以下是录音转写："
 
-    user = f"{instruction}\n\n{transcript}"
     try:
         body_raw = llm.chat(
             [
                 {"role": "system", "content": system},
-                {"role": "user", "content": user},
+                {"role": "user", "content": f"{instruction}\n\n{transcript}"},
             ],
             temperature=0.3,
         )
@@ -446,22 +487,29 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
         }
 
     body, spoken = speech_tool.resolve(body_raw)
+    # 正文 = 纪要 + 完整文字记录。用户要的就是这两样，一次都给全。
+    body = f"{body}\n\n---\n\n## 会议文字记录 {body_extra}\n\n{transcript}"
     if warnings:
         body += "\n\n未处理的部分：\n" + "\n".join(f"· {w}" for w in warnings)
+
+    artifacts = [
+        {
+            "kind": "transcript",
+            "files": [Path(f).name for f in audios],
+            "chars": len(transcript),
+            "speakers": len(transcribe.speaker_stats(utterances)) if diar_ok else 0,
+            "diarized": diar_ok,
+        }
+    ]
+    if diar_ok:
+        artifacts.append({"kind": "speaker_stats", "stats": transcribe.speaker_stats(utterances)})
 
     return {
         "result": {
             "text": body,
             "speech": spoken,
             "backend": "local",
-            "artifacts": [
-                {
-                    "kind": "audio",
-                    "files": [Path(f).name for f in audios],
-                    "transcript_chars": len(transcript),
-                    "chunks": len(parts),
-                }
-            ],
+            "artifacts": artifacts,
         }
     }
 
