@@ -22,6 +22,13 @@ sys.path.insert(0, str(ROOT))
 
 from lg_assistant import config, store, transcribe  # noqa: E402
 
+#: 假 Key。**本文件承诺「不需要 API Key」**，但 ``submit()`` 会先过
+#: ``_headers()`` 取 ``config.DASHSCOPE_API_KEY``，没配就抛
+#: ``TranscriptionError``。于是这两条「只验证提交参数」的用例在**干净克隆里
+#: 必红**——开发机上因为 ``.env`` 里有 Key 才一直是绿的（.env 被 gitignore，
+#: 谁克隆都不会有）。这里给个占位值，让承诺和实际一致。
+config.DASHSCOPE_API_KEY = config.DASHSCOPE_API_KEY or "test-key-not-used"
+
 #: 真实录音的分离结果（段/秒/说话人编号都来自实测）
 _REAL_UTTERANCES = [
     {"speaker": 0, "begin_ms": 2600, "end_ms": 9600, "text": "你好，那我先正式开个场…我是智源模型。"},
