@@ -69,15 +69,34 @@ START → device_gate → route → telemetry → dispatch
 ## 用法
 
 ```powershell
-.\start.ps1                     # 起 Web 页（127.0.0.1:8802，本机免口令）
+.\serve.ps1                     # 后台启动（关掉终端也继续跑）★ 推荐
+.\serve.ps1 -Status             # 看状态与健康检查
+.\serve.ps1 -Stop               # 停止
+.\start.ps1                     # 前台启动（Ctrl+C 即停，适合临时用一会儿）
 .\start.ps1 -Check              # 只做自检（配置 + 模型连通）
 .\start.ps1 -LAN                # 允许局域网访问（需已设 ACCESS_TOKEN）
 .\start.ps1 -LAN -AllowNoAuth   # 局域网访问且不要口令（需明确确认风险）
-.\start.ps1 -Port 9000          # 换端口
-.\start.ps1 -NoBrowser          # 不自动开浏览器
 ```
 
 启动后浏览器打开 **<http://127.0.0.1:8802>** 即可，本机模式**不需要口令**。
+
+**`serve.ps1` 与 `start.ps1` 的区别**：前者用 `Start-Process` 让服务脱离当前会话，
+关掉终端仍然存活——已实测跨命令存活；后者前台运行，Ctrl+C 就停。
+想一直开着就用 `serve.ps1`。
+
+### 开机自启
+
+已装好：启动文件夹里的 `AI智能助手.vbs`（`Win+R` 输入 `shell:startup` 可打开）。
+它隐藏窗口调用同目录的 `autostart.ps1`，若 8802 已在监听就不重复启动。
+
+> ⚠️ **两种脚本要求两种编码，很容易记混：**
+>
+> | 文件 | 编码 | 原因 |
+> |---|---|---|
+> | `.ps1` | **UTF-8 with BOM** | PowerShell 5.1 在无 BOM 时按 GBK 解析，中文注释会破坏语法（报 `Unexpected token '}'`） |
+> | `.vbs` | **GBK / ANSI** | `cscript.exe` 按系统 ANSI 代码页读脚本，UTF-8 会被解成乱码，中文路径导致 `FolderExists` 为假、脚本静默退出 |
+>
+> 两个坑都实测踩过。用编辑器重存这些文件时注意别改掉编码。
 
 > **口令策略**：本机监听（`127.0.0.1`）默认免口令——只有这台机器能连，摩擦最低。
 > 局域网监听（`0.0.0.0`）默认要求口令，因为同网络任何人都能用你的 API Key
