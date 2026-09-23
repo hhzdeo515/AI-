@@ -69,11 +69,16 @@ START → device_gate → route → telemetry → dispatch
 ## 用法
 
 ```powershell
-.\start.ps1                 # 起 Web 页（默认 8802，自动开浏览器）
+.\start.ps1                 # 起 Web 页（127.0.0.1:8802，仅本机）
+.\start.ps1 -LAN            # 允许局域网访问（手机/平板同一 WiFi 可开）
 .\start.ps1 -Check          # 只做自检（配置 + 模型连通）
 .\start.ps1 -Port 9000      # 换端口
 .\start.ps1 -NoBrowser      # 不自动开浏览器
 ```
+
+> `-LAN` 会监听 `0.0.0.0` 并打印局域网地址。**没有设 `ACCESS_TOKEN` 时它会直接
+> 拒绝启动**——因为暴露出去等于把你的 API Key 和 `data/` 目录对同网络所有人开放。
+> 这不是过度谨慎：应用本身**没有任何鉴权**，口令是唯一的门。
 
 或者直接用 `python`：
 
@@ -86,17 +91,39 @@ python run.py ask "解这道题" -f q.png       # 拍照解题（本地视觉链
 python run.py ask "我膝盖疼" -e '{"device":{"intent":"solve","confidence":0.95}}'
 python run.py stats                        # 端侧判对率
 python run.py resume <owner> <session>      # 从检查点续跑（断连恢复）
-python run.py web --port 8802
+python run.py web --host 0.0.0.0 --port 8802
 
 python tests\test_graph.py                 # 47 项，不需要 Dify / API Key / 联网
 python tests\test_web.py                   # 27 项
 python tests\test_tools.py                 # 13 项
+python tests\test_auth.py                  # 15 项鉴权
 ```
 
-> `start.ps1` 与直接调 `python` 等价，只是多做了三件事：探测可用解释器（跳过残缺
-> shim）、检查 `.env` 是否存在、自动打开浏览器。它按 UTF-8 with BOM 保存——
-> **PowerShell 5.1 在无 BOM 时按 GBK 解析**，用编辑器重存时别把 BOM 弄丢，
-> 否则中文注释会破坏语法。
+## 局域网访问与访问口令
+
+想用手机或平板打开，两步：
+
+```powershell
+# 1) 生成并写入访问口令
+python -c "import secrets,pathlib;p=pathlib.Path('.env');s=p.read_text(encoding='utf-8') if p.exists() else '';p.write_text(s.replace('ACCESS_TOKEN=','ACCESS_TOKEN='+secrets.token_urlsafe(12)),encoding='utf-8')"
+
+# 2) 以局域网模式启动（会打印手机可打开的地址）
+.\start.ps1 -LAN
+```
+
+浏览器打开后输一次口令，之后靠 cookie 记住（30 天）。设计上的取舍：
+
+| 行为 | 原因 |
+|---|---|
+| 口令留空 = 不鉴权 | 保持本机单机使用的零摩擦 |
+| 未通过时 API 返回 **JSON 401**，页面才跳登录页 | 返回 HTML 登录页会让前端拿不到可读错误 |
+| 放行面只有 `/login` `/health` `/static/*` | 登录页自己得能打开，否则重定向死循环 |
+| 口令用 `secrets.compare_digest` 比较 | 避免时序侧信道 |
+| `/health` 只报 `auth_enabled`，不回显口令 | 别让健康检查变成泄露点 |
+| 脚本用 `Authorization: Bearer <token>` 也可 | 设备端/自动化调用比 cookie 方便 |
+
+> ⚠️ 这是**单一口令**，不是账号体系：没有用户表、没有找回密码、没有会话吊销。
+> 换口令后旧 cookie 自动失效。仅适合个人或极小范围使用。
 
 ### 首次部署
 
@@ -106,7 +133,7 @@ Copy-Item .env.example .env      # 填入 DASHSCOPE_API_KEY（百炼）
 .\start.ps1 -Check               # 应当看到「模型连通 : OK」
 ```
 
-不填 Key 也能跑：87 项测试与零 token 算术路径都不需要 Key，
+不填 Key 也能跑：102 项测试与零 token 算术路径都不需要 Key，
 只有涉及模型的场景会失败（会显式报错，不会静默）。
 
 切 Dify 执行后端（`.env`）：

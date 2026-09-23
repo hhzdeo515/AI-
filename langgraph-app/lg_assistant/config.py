@@ -36,6 +36,14 @@ UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(DATA_DIR / "uploads")))
 #: Web 层静态资源与模板目录
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
+# ---------- 访问口令 ----------
+#: 设置后 Web 层启用口令鉴权（局域网/公网暴露时必须设）。
+#: 留空 = 不鉴权，仅适合本机单机使用。
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN", "").strip()
+#: 监听地址。127.0.0.1 只允许本机；0.0.0.0 允许局域网访问。
+WEB_HOST = os.getenv("WEB_HOST", "127.0.0.1").strip()
+WEB_PORT = int(os.getenv("WEB_PORT", "8802"))
+
 # ---------- 外部工具 ----------
 #: 外部安装物统一放 E 盘（沿用 assistant-lite 的约定）
 TOOLS_DIR = Path(os.getenv("TOOLS_DIR", r"E:\AI智能助手\tools"))

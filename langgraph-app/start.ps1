@@ -1,17 +1,18 @@
 ﻿# 启动 AI 智能助手（LangGraph 版）
 #
-# 为什么需要这个脚本：本机 PATH 上的 `python` 是一个残缺的 shim
-# （F:\Scripts\python.exe，报 "No pyvenv.cfg file"），照抄 README 里的
-# `python run.py check` 会直接失败。这里按顺序探测可用的解释器。
-#
 # 用法：
-#   .\start.ps1              起 Web 页（默认端口 8802，自动打开浏览器）
+#   .\start.ps1              起 Web 页（默认 127.0.0.1:8802，仅本机可访问）
+#   .\start.ps1 -LAN         允许局域网访问（手机/平板连同一 WiFi 可开）
 #   .\start.ps1 -Check       只做自检（配置 + 模型连通）
 #   .\start.ps1 -Port 9000   换端口
 #   .\start.ps1 -NoBrowser   不自动开浏览器
+#
+# 注意：-LAN 会把服务暴露给同一网络。**务必先在 .env 里设 ACCESS_TOKEN**，
+# 否则任何能连上该地址的人都可用你的 API Key，并读写本机 data/ 目录。
 
 param(
     [switch]$Check,
+    [switch]$LAN,
     [int]$Port = 8802,
     [switch]$NoBrowser
 )
@@ -21,8 +22,7 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $here
 
 # ---------------------------------------------------------------- 找解释器
-# 逐个试候选解释器：能报出 Python 3 版本、且能导入项目依赖，才算可用。
-# 残缺 shim（F:\Scripts\python.exe）会在任一步失败并被跳过。
+# 逐个试候选解释器：能导入项目依赖才算可用（跳过残缺 shim）。
 function Test-PythonCandidate {
     param([string]$Exe)
     try {
@@ -35,7 +35,7 @@ function Test-PythonCandidate {
 }
 
 function Find-Python {
-    $candidates = @("F:\python.exe", "python.exe", "python3.exe")
+    $candidates = @("python.exe", "python3.exe", "F:\python.exe")
     foreach ($c in $candidates) {
         if (Test-PythonCandidate -Exe $c) { return $c }
     }
@@ -46,19 +46,22 @@ $py = Find-Python
 if (-not $py) {
     Write-Host "[错误] 找不到可用的 Python 解释器（需要 3.9+ 且已装依赖）。" -ForegroundColor Red
     Write-Host ""
-    Write-Host "请先安装依赖。本机可用的解释器是 F:\python.exe："
-    Write-Host "  F:\python.exe -m pip install -r requirements.txt"
-    Write-Host ""
-    Write-Host "如果 python 命令报 'No pyvenv.cfg file'，说明 PATH 里第一个 python 是残缺 shim。"
+    Write-Host "请先安装依赖："
+    Write-Host "  python -m pip install -r requirements.txt"
     exit 1
 }
 Write-Host "解释器: $py" -ForegroundColor DarkGray
 
 # ---------------------------------------------------------------- .env 检查
-if (-not (Test-Path ".env")) {
+$accessToken = ""
+if (Test-Path ".env") {
+    $line = Select-String -Path ".env" -Pattern '^\s*ACCESS_TOKEN=(.*)$' -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+    if ($line) { $accessToken = $line.Matches[0].Groups[1].Value.Trim() }
+} else {
     Write-Host "[提示] 未找到 .env。复制模板并填入百炼 Key：" -ForegroundColor Yellow
     Write-Host "  Copy-Item .env.example .env"
-    Write-Host "  （不填也能跑：290 项测试与零 token 算术路径都不需要 Key）"
+    Write-Host "  （不填也能跑：全部测试与零 token 算术路径都不需要 Key）"
     Write-Host ""
 }
 
@@ -68,14 +71,59 @@ if ($Check) {
     exit $LASTEXITCODE
 }
 
-# ---------------------------------------------------------------- 起服务
-if (-not $NoBrowser) {
-    Start-Job -ScriptBlock {
-        param($p)
-        Start-Sleep -Seconds 4
-        Start-Process "http://127.0.0.1:$p"
-    } -ArgumentList $Port | Out-Null
+# ---------------------------------------------------------------- 安全检查
+$bindHost = "127.0.0.1"
+if ($LAN) { $bindHost = "0.0.0.0" }
+
+if ($LAN -and -not $accessToken) {
+    Write-Host ""
+    Write-Host "  " + ("!" * 60) -ForegroundColor Red
+    Write-Host "  [已阻止] -LAN 会把服务暴露给同一网络，但 .env 里没有 ACCESS_TOKEN。" -ForegroundColor Red
+    Write-Host "           任何能连上的人都可用你的 API Key（消耗额度），" -ForegroundColor Red
+    Write-Host "           并读写本机 data/ 目录下的资料与上传文件。" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  请先生成并写入一个口令，再重试：" -ForegroundColor Yellow
+    Write-Host "    python -c ""import secrets,pathlib; p=pathlib.Path('.env'); s=p.read_text(encoding='utf-8') if p.exists() else ''; s=s.replace('ACCESS_TOKEN=','ACCESS_TOKEN='+secrets.token_urlsafe(12)); p.write_text(s,encoding='utf-8'); print('done')""" -ForegroundColor Yellow
+    Write-Host "  " + ("!" * 60) -ForegroundColor Red
+    Write-Host ""
+    exit 1
 }
 
-Write-Host "启动中…… 访问 http://127.0.0.1:$Port   （Ctrl+C 停止）" -ForegroundColor Green
-& $py run.py web --port $Port
+# ---------------------------------------------------------------- 起服务
+$visit = "http://127.0.0.1:$Port"
+if ($LAN) {
+    $lanIp = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+              Where-Object { $_.IPAddress -notmatch '^(127\.|169\.254\.)' -and $_.PrefixOrigin -ne 'WellKnown' } |
+              Select-Object -First 1 -ExpandProperty IPAddress)
+}
+
+if (-not $NoBrowser) {
+    Start-Job -ScriptBlock {
+        param($url)
+        Start-Sleep -Seconds 4
+        Start-Process $url
+    } -ArgumentList $visit | Out-Null
+}
+
+Write-Host ""
+if ($LAN) {
+    Write-Host "本机访问  : $visit" -ForegroundColor Green
+    if ($lanIp) {
+        Write-Host "局域网访问: http://${lanIp}:$Port   （手机连同一 WiFi 打开）" -ForegroundColor Green
+    }
+    Write-Host "访问口令  : 已启用（打开页面后输入 .env 里 ACCESS_TOKEN 的值）" -ForegroundColor Green
+} else {
+    Write-Host "本机访问  : $visit   （Ctrl+C 停止）" -ForegroundColor Green
+    if ($accessToken) {
+        Write-Host "访问口令  : 已启用" -ForegroundColor DarkGray
+    } else {
+        Write-Host "访问口令  : 未启用（仅本机监听，风险可控）" -ForegroundColor DarkGray
+    }
+}
+Write-Host ""
+
+if ($LAN) {
+    & $py run.py web --host $bindHost --port $Port
+} else {
+    & $py run.py web --port $Port
+}

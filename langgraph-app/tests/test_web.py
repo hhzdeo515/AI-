@@ -34,19 +34,35 @@ def _fresh() -> Path:
     return tmp
 
 
+_ORIGINAL_TOKEN: str | None = None
+
+
 def _client(tmp: Path | None = None):
     """每个测试一套独立的库与图。
 
+    **显式关闭鉴权**：本文件测的是业务接口，不是鉴权（那是 test_auth.py 的事）。
+    `.env` 里设了 ACCESS_TOKEN 时，不关就会所有请求都被重定向到登录页，
+    表现为大面积莫名其妙的失败（实测：27 项里只剩 2 项通过）。
+
     **必须带 checkpointer**：``/api/state`` 与 ``/api/resume`` 依赖它，
     无检查点的图调 ``get_state`` 会直接抛 ``No checkpointer set``。
-    每个测试用各自的 tmp 目录，因此检查点不会互相污染。
     """
+    global _ORIGINAL_TOKEN
     from lg_assistant.web.app import create_app
+
+    _ORIGINAL_TOKEN = config.ACCESS_TOKEN
+    config.ACCESS_TOKEN = ""
 
     cp = graph.open_checkpointer((tmp or config.DATA_DIR) / "ck.sqlite3")
     app = create_app(graph.build_graph(cp))
     app.config["TESTING"] = True
     return app.test_client()
+
+
+def _restore_token() -> None:
+    global _ORIGINAL_TOKEN
+    if _ORIGINAL_TOKEN is not None:
+        config.ACCESS_TOKEN = _ORIGINAL_TOKEN
 
 
 def _stub_llm(text: str = "桩回复"):
@@ -388,6 +404,8 @@ def _run_all() -> int:
         except Exception as e:  # noqa: BLE001
             failed += 1
             print(f"  ERROR {fn.__name__}: {type(e).__name__}: {e}")
+        finally:
+            _restore_token()
     print(f"\n{len(tests) - failed}/{len(tests)} 通过")
     return 1 if failed else 0
 

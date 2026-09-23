@@ -32,6 +32,7 @@ from flask import Flask, jsonify, make_response, render_template, request, send_
 from .. import config, llm, store
 from ..graph import build_graph, open_checkpointer, run_config, thread_id
 from ..tools import export
+from . import auth
 
 SPEECH_MAX_CHARS = config.SPEECH_MAX_CHARS
 
@@ -195,6 +196,9 @@ def create_app(app: Any = None) -> Flask:
     # 本地工具：静态资源每次回源校验，否则改了 app.js 浏览器还拿旧的
     flask_app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
+    # 访问口令：设了 ACCESS_TOKEN 才启用，留空则保持本地零摩擦
+    auth.install(flask_app, config.ACCESS_TOKEN)
+
     compiled = app if app is not None else build_graph(open_checkpointer())
 
     def _run_chat(p: dict) -> dict:
@@ -260,6 +264,8 @@ def create_app(app: Any = None) -> Flask:
                 "model_text": config.MODEL_TEXT,
                 "model_vision": config.MODEL_VISION,
                 "api_key_configured": bool(config.DASHSCOPE_API_KEY),
+                # 不泄露口令本身，只说明是否启用了鉴权
+                "auth_enabled": auth.is_enabled(config.ACCESS_TOKEN),
                 "data_dir": str(config.DATA_DIR),
             }
         )
@@ -414,9 +420,42 @@ def create_app(app: Any = None) -> Flask:
     return flask_app
 
 
-def run(host: str = "127.0.0.1", port: int = 8802) -> None:
+def run(host: str | None = None, port: int | None = None) -> None:
+    host = host or config.WEB_HOST
+    port = int(port or config.WEB_PORT)
     app = create_app()
+
+    lan = host not in ("127.0.0.1", "localhost")
     print(f"langgraph-app Web 已启动： http://{host}:{port}")
+    if host == "0.0.0.0":
+        for ip in _lan_ips():
+            print(f"  局域网可访问： http://{ip}:{port}")
+
     if not config.DASHSCOPE_API_KEY:
         print("  [警告] 未配置 DASHSCOPE_API_KEY，需要模型的场景会失败。")
+
+    # 对外暴露却没设口令，是这次改动最想拦住的一种配置
+    if lan and not auth.is_enabled(config.ACCESS_TOKEN):
+        print("  " + "!" * 62)
+        print("  [危险] 正在对局域网/公网监听，但没有设置 ACCESS_TOKEN。")
+        print("         任何能访问该地址的人都可以使用你的 API Key（消耗额度）")
+        print("         并读写本机 data/ 目录下的资料与上传文件。")
+        print("         请在 .env 里设置 ACCESS_TOKEN=<一段足够长的随机字符串> 后重启。")
+        print("  " + "!" * 62)
+
     app.run(host=host, port=port, threaded=True)
+
+
+def _lan_ips() -> list[str]:
+    """列出本机局域网 IPv4，供启动时直接给出可访问地址。"""
+    import socket
+
+    ips: list[str] = []
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ip = info[4][0]
+            if ip not in ips and not ip.startswith("127."):
+                ips.append(ip)
+    except OSError:
+        pass
+    return ips
