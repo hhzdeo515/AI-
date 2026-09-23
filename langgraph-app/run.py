@@ -63,6 +63,22 @@ def cmd_check(_args) -> int:
     config.ensure_dirs()
     store.init()
     print("  目录/存储 : OK")
+
+    # 模型连通性：上线前最该验的一项，不验就只能等第一次真实请求才发现 Key 失效
+    if config.DASHSCOPE_API_KEY:
+        try:
+            from lg_assistant import llm as _llm
+
+            out = _llm.chat(
+                [{"role": "user", "content": "只回复两个字：就绪"}], max_tokens=16
+            )
+            print(f"  模型连通  : OK -> {out!r}")
+        except Exception as e:
+            print(f"  模型连通  : 失败 -> {type(e).__name__}: {e}")
+            return 1
+    else:
+        print("  模型连通  : 跳过（未配置 Key，只有零 token 路径可用）")
+
     return 0
 
 

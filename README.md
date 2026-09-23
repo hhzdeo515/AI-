@@ -59,22 +59,23 @@
 
 ## 快速开始
 
-```bash
-# 编排层（CLI + Web）
+```powershell
+# 编排层（主力项目）
 cd langgraph-app
-pip install -r requirements.txt
-cp .env.example .env          # 填入 DASHSCOPE_API_KEY
-python run.py check
-python run.py ask "计算 (18+24)*3"        # 零 token 算术快路径
-python run.py graph                       # 打印图结构
-python run.py web --port 8802             # 起 Web 页
-python tests/test_graph.py                # 47 项，无需 API Key
+F:\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env      # 填入 DASHSCOPE_API_KEY（百炼）
+.\start.ps1 -Check               # 自检：应看到「模型连通 : OK」
+.\start.ps1                      # 起 Web 页（默认 8802）
+```
 
-# 基线
-cd assistant-lite && python run.py check && python tests/test_meeting.py
+> ⚠️ **本机的 `python` 命令是坏的**（PATH 里第一个是残缺 shim，报 `No pyvenv.cfg file`）。
+> 用 `F:\python.exe`，或直接用会自动探测的 `start.ps1`。
 
-# Dify 场景层（需要本机 Dify 实例）
-cd dify-multiagent && python tests/test_dsl_contract.py   # 14 项契约测试
+```powershell
+# 测试（全部不需要 API Key / 不联网）
+cd langgraph-app;      F:\python.exe tests\test_graph.py    # 47 项
+cd assistant-lite;     F:\python.exe tests\test_meeting.py  # 基线
+cd dify-multiagent;    F:\python.exe tests\test_dsl_contract.py  # 14 项 Dify 契约
 ```
 
 ## 已知边界
