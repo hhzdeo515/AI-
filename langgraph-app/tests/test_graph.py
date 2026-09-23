@@ -660,6 +660,42 @@ def test_fitness_action_inference_puts_safety_first() -> None:
     assert routing.infer_fitness_action("今天天气不错") == ""
 
 
+def test_meeting_state_accumulates_transcript() -> None:
+    """会议卡片的 LISTENING 态与转写区读 /api/state 的 meeting 字段。"""
+    start = nodes.postprocess({
+        "text": "开始会议",
+        "routing": {"scene": "meeting", "action": "start"},
+    })
+    assert start["meeting"]["status"] == "collecting"
+    assert "开始会议" in start["meeting"]["transcript"]
+
+    more = nodes.postprocess({
+        "text": "张明说下周交付",
+        "routing": {"scene": "meeting", "action": "append"},
+        "meeting": start["meeting"],
+    })
+    assert more["meeting"]["status"] == "collecting"
+    assert "张明说下周交付" in more["meeting"]["transcript"]
+    assert "开始会议" in more["meeting"]["transcript"], "追加不能丢掉前面的转写"
+
+    ended = nodes.postprocess({
+        "text": "结束会议",
+        "routing": {"scene": "meeting", "action": "stop"},
+        "meeting": more["meeting"],
+    })
+    assert ended["meeting"]["status"] == "ended"
+    assert ended["meeting"]["transcript"] == more["meeting"]["transcript"]
+
+
+def test_meeting_untouched_for_other_scenes() -> None:
+    """非会议场景不得写 meeting，避免污染卡片状态。"""
+    out = nodes.postprocess({
+        "text": "你好",
+        "routing": {"scene": "general", "action": "answer"},
+    })
+    assert "meeting" not in out
+
+
 def test_same_thread_second_request_does_not_reuse_first_result() -> None:
     """回归：检查点里的旧状态污染了下一条请求。
 
@@ -1219,6 +1255,129 @@ def test_split_ffmpeg_purges_zero_byte_leftovers() -> None:
         audio_tool.subprocess.run, audio_tool.find_ffmpeg = orig_run, orig_find
 
     assert not leftover.exists(), "0 字节残片必须被清理，否则会被当成有效分片"
+
+
+# --------------------------------------------------------------------------- #
+# 播报语安全（时效性断言）
+# --------------------------------------------------------------------------- #
+def test_stale_claim_detector_blocks_time_assertions() -> None:
+    """回归：模型把「二十届三中全会尚未召开」放进了播报语。
+
+    真实事故：该会 2024 年 7 月已召开，模型用的是过期知识，
+    却用了确定语气，还被单独高亮成一条「播报」——等于把错误信息
+    说得很确定。语音是一次性、不可回看的，说错没有机会核对。
+
+    这里只拦「时效性断言」，正常的播报语必须照常放行，
+    否则会把所有播报都退化成无用的正文摘录。
+    """
+    import importlib
+
+    import lg_assistant.ported.speech as speech_mod
+
+    speech_mod = importlib.reload(speech_mod)
+
+    blocked = [
+        "答案是D，因为二十届三中全会尚未召开，相关文件不存在。",
+        "截至2024年6月，该文件未发布。",
+        "该会议还未召开，因此D项错误。",
+        "预计2028年出货量激增。",
+    ]
+    for s in blocked:
+        assert speech_mod.looks_like_stale_claim(s) is True, s
+
+    allowed = [
+        "答案是B，因为5乘7加3等于38，符合方程。",
+        "已暂停训练。膝盖不适已记录，请立即停止该动作。",
+        "这道题选C，解析见下。",
+        "共找到3份资料。",
+    ]
+    for s in allowed:
+        assert speech_mod.looks_like_stale_claim(s) is False, s
+
+
+def test_postprocess_replaces_unsafe_speech() -> None:
+    """含时效断言的播报语要被换掉，且换成正则压缩的结果。"""
+    _fresh()
+    out = nodes.postprocess(
+        {
+            "routing": {"scene": "general"},
+            "result": {
+                "text": "这道题选D。党的二十届三中全会尚未召开，相关文件不存在。",
+                "speech": "答案是D，因为二十届三中全会尚未召开。",
+            },
+            "owner": "u",
+        }
+    )
+    speech = out["result"]["speech"]
+    assert "尚未召开" not in speech, f"危险播报语未被替换：{speech!r}"
+    assert out["result"].get("speech_note"), "替换行为要留痕，便于排查"
+    assert speech, "替换后仍要有播报语"
+
+
+def test_postprocess_keeps_safe_speech_untouched() -> None:
+    """正常播报语不能被误伤——否则等于把播报功能废掉。"""
+    _fresh()
+    original = "答案是B，因为5乘7加3等于38。"
+    out = nodes.postprocess(
+        {
+            "routing": {"scene": "general"},
+            "result": {"text": "答案：B\n解析…", "speech": original},
+            "owner": "u",
+        }
+    )
+    assert out["result"]["speech"] == original
+    assert not out["result"].get("speech_note")
+
+
+def test_exam_prompt_has_time_anchor() -> None:
+    """提示词必须明确「知识有截止时间」，不能拿它当当下。
+
+    原来的提示词只说「不得凭记忆确认现行政策」，没有给任何时间锚点，
+    模型于是真心以为二十届三中全会还没开——它并不知道自己过时了。
+    """
+    from lg_assistant import vision_prompts
+
+    assert "时间锚点" in vision_prompts.METHODS
+    assert "知识存在截止时间" in vision_prompts.METHODS
+    # 反例要写进去，光说「注意时效」模型抓不住
+    assert "二十届三中全会" in vision_prompts.METHODS
+    assert "尚未召开" in vision_prompts.METHODS
+
+
+def test_postprocess_appends_stale_warning_to_text() -> None:
+    """含时效性断言时，警告要直接拼进正文。
+
+    为什么不交给前端渲染：一是前端当时正被另一处改动大改，不宜并发编辑；
+    二是拼进正文后无论前端怎么改版都必然可见——这条提示不能因为 UI 改版而丢。
+    """
+    _fresh()
+    out = nodes.postprocess(
+        {
+            "routing": {"scene": "general"},
+            "result": {"text": "截至2024年6月，党的二十届三中全会尚未召开。"},
+            "owner": "u",
+        }
+    )
+    text = out["result"]["text"]
+    assert "请以官方最新发布为准" in text, "警告必须出现在正文里"
+    assert "可能已过时" in text
+    assert out["result"].get("stale_warning")
+    assert any("时效性" in n for n in (out.get("notes") or []))
+
+
+def test_postprocess_does_not_warn_on_ordinary_answers() -> None:
+    """普通回答不能被误标——否则警告会变成噪声，用户就不再看了。"""
+    _fresh()
+    for text in (
+        "答案是B，因为5乘7加3等于38。",
+        "已暂停训练，膝盖不适已记录。",
+        "共找到3份资料。",
+    ):
+        out = nodes.postprocess(
+            {"routing": {"scene": "general"}, "result": {"text": text}, "owner": "u"}
+        )
+        assert "请以官方最新发布为准" not in out["result"]["text"], text
+        assert not out["result"].get("stale_warning"), text
 
 
 # --------------------------------------------------------------------------- #

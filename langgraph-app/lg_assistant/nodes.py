@@ -609,21 +609,83 @@ def next_workout(state: AssistantState) -> dict[str, Any] | None:
     return cur or {"status": "idle"}
 
 
+def next_meeting(state: AssistantState) -> dict[str, Any] | None:
+    """按本轮路由动作推进会议状态；非会议场景返回 None。
+
+    同 ``next_workout``：Web 层复用基线的 UI，MEETING 卡片按
+    ``status == "collecting"`` 显示 LISTENING 与转写区，读的是
+    ``/api/state`` 的 ``meeting`` 字段，迁移到图之后同样没有来源。
+    """
+    routing = state.get("routing") or {}
+    if routing.get("scene") != "meeting":
+        return None
+
+    action = str(routing.get("action") or "")
+    cur = dict(state.get("meeting") or {})
+    transcript = cur.get("transcript") or ""
+    text = (state.get("text") or "").strip()
+
+    if action == "start":
+        # 本轮这句就是会议的第一段转写
+        return {"status": "collecting", "transcript": text}
+    if action == "append":
+        joined = f"{transcript}\n{text}".strip() if transcript else text
+        return {"status": "collecting", "transcript": joined}
+    if action in ("summarize", "stop"):
+        cur["status"] = "ended"
+        return cur
+    return cur or {"status": "idle"}
+
+
 def postprocess(state: AssistantState) -> dict[str, Any]:
-    """补齐播报语（不额外调模型）并按场景归档。"""
+    """补齐播报语（不额外调模型）、给时效性内容打标、按场景归档。"""
     res = dict(state.get("result") or {})
     text = res.get("text") or ""
     out: dict[str, Any] = {}
 
-    if not res.get("speech"):
-        res["speech"] = speech_tool.truncate(speech_tool.to_plain(text))
+    speech = res.get("speech") or ""
+    # 播报语含时效性断言（年份、「尚未召开」这类）时**不能直接采用**。
+    # 语音是一次性、不可回看的：说错一个年份，听的人没有机会核对。
+    # 实测踩过：模型把「党的二十届三中全会尚未召开」放进了播报语，
+    # 而该会 2024 年 7 月就已召开（它用的是过期知识）。
+    #
+    # 注意：不能只退回去压缩正文——正文里往往含同一句断言，
+    # 那样等于没拦（第一版就是这样，被测试抓出来了）。
+    # 必须逐句剔除含时效断言的句子。
+    if speech and speech_tool.looks_like_stale_claim(speech):
+        speech = speech_tool.strip_stale_claims(text)
+        res["speech_note"] = "播报语含时效性断言，已剔除相关语句"
+    if not speech:
+        speech = speech_tool.truncate(speech_tool.to_plain(text))
+    res["speech"] = speech
     out["result"] = res
-    out["speech"] = res["speech"]
+    out["speech"] = speech
 
-    # 推进训练状态：前端 WORKOUT 卡片读 /api/state 的 fitness.workout
+    # 时效性内容打标：**这是知识截止导致的硬限制，提示词治不好**。
+    # 实测把「知识可能已过时」写进提示词后，模型照样三次断言
+    # 「党的二十届三中全会尚未召开」（该会 2024 年 7 月已召开）。
+    # 原因是它的训练数据截止在 2024 年 6 月前后，它是**真心**那么认为的，
+    # 无法从内部判断自己过时。既然改不了它的判断，至少不能让结论显得确定。
+    #
+    # 直接把提示拼进正文，而不是交给前端渲染：这样无论前端怎么改版都必然可见，
+    # 也不需要在 app.js 里加分支（那份文件当时正被另一处改动大改，不宜并发编辑）。
+    if speech_tool.looks_like_stale_claim(text):
+        warning = (
+            "\n\n---\n\n⚠️ **这条回答含时效性判断**"
+            "（涉及某会议/文件/政策的当前状态）。"
+            "模型的知识存在截止时间，**该判断可能已过时，请以官方最新发布为准**。"
+        )
+        res["text"] = text + warning
+        res["stale_warning"] = warning.strip()
+        out["notes"] = list(out.get("notes") or []) + ["回答含时效性断言，已加提示"]
+
+    # 推进设备形态状态：前端卡片读 /api/state 的 fitness / meeting
     workout = next_workout(state)
     if workout is not None:
         out["fitness"] = {"workout": workout}
+    meeting = next_meeting(state)
+    if meeting is not None:
+        out["meeting"] = meeting
 
     scene = (state.get("routing") or {}).get("scene") or "general"
     if text and scene in ("meeting", "exam", "fitness"):

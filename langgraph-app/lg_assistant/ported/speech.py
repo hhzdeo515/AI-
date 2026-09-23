@@ -52,6 +52,70 @@ def to_plain(text: str) -> str:
     return s.strip()
 
 
+#: 播报语/正文里不该当作确定结论的「时间断言」。
+#: 语音是一次性、不可回看的——说错一个年份，听的人没有机会核对。
+#: 实测踩过：模型把「党的二十届三中全会尚未召开」放进了播报语，
+#: 而该会议 2024 年 7 月就已召开（模型用的是过期知识）。
+#
+# **必须收窄，否则误伤一片**（前两版都因此被测试抓出来）：
+#   - 见年份就拦 -> 「会议于2022年10月23日召开」是稳定史实，被误伤
+#   - 只匹配「第N届/次」 -> 「第一次」「第三组」全中招
+# 只认真正表达「当前进展到哪一步」的句式：明确的时效副词，
+# 或「第N届」与时效词同现。
+_TIME_ASSERTION = re.compile(
+    # 明确的时效副词——这些词本身就在陈述「现在还没发生」
+    r"尚未|还未|还没|未召开|未发布|未生效|未举行|未出台|未通过"
+    # 对未来的预测：同样不该在语音里说得像事实
+    # （实测语料里就有「预计2028年出货量激增」这类，念出来像已确定）
+    r"|预计\s*(?:(?:19|20)\d{2}\s*年|未来|明年|后年)"
+    r"|即将(?:召开|发布|生效|举行|出台)"
+    r"|截至\s*(?:(?:19|20)\d{2}\s*年|\d{1,2}\s*月|目前|现在|今)"
+    r"|截至目前|迄今为止|目前尚未|目前还未"
+    # 「第N届」必须与时效词同现，才是在判断最新进展
+    r"|第[一二三四五六七八九十]+届[^。；;\n]{0,30}(?:尚未|还未|还没|已经|已|未)"
+)
+
+
+def looks_like_stale_claim(text: str) -> bool:
+    """播报语是否含时效性断言（年份、「尚未召开」这类）。"""
+    return bool(_TIME_ASSERTION.search(text or ""))
+
+
+def strip_stale_claims(text: str, limit: int = MAX_CHARS) -> str:
+    """逐句剔除含时效性断言的句子，再压缩成播报语。
+
+    为什么不直接「退回去压缩正文」：正文里往往含同一句断言，
+    压缩等于没拦——第一版就是这么写的，被测试抓出来了。
+    这里的威胁模型是「不让听众听到过期断言」，所以必须在句子级别摘掉它。
+    """
+    plain = to_plain(text)
+    kept: list[str] = []
+    for chunk in re.split(r"(?<=[。！？!?；;\n])", plain):
+        s = chunk.strip()
+        if not s:
+            continue
+        if looks_like_stale_claim(s):
+            continue
+        kept.append(s)
+
+    if not kept:
+        # 整篇都是时效性内容：宁可只给一句保守提示，也不念过期判断
+        return "该回答涉及时效性信息，请以官方最新发布为准。"
+    return truncate("".join(kept), limit)
+
+
+def safe_speech(text: str, limit: int = MAX_CHARS) -> str:
+    """产出可安全朗读的播报语。
+
+    含时效性断言时不直接采用模型给的播报语，改为按规则压缩正文——
+    规则压缩只会摘取原句，不会新增判断，风险更低。
+    """
+    body, sp = resolve(text, limit)
+    if sp and looks_like_stale_claim(sp):
+        return truncate(body, limit)
+    return sp
+
+
 def truncate(text: str, limit: int = MAX_CHARS) -> str:
     """按句子边界截断到 limit 以内；实在没有句读就硬截。
 
