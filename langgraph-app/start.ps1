@@ -1,18 +1,22 @@
 ﻿# 启动 AI 智能助手（LangGraph 版）
 #
 # 用法：
-#   .\start.ps1              起 Web 页（默认 127.0.0.1:8802，仅本机可访问）
-#   .\start.ps1 -LAN         允许局域网访问（手机/平板连同一 WiFi 可开）
-#   .\start.ps1 -Check       只做自检（配置 + 模型连通）
-#   .\start.ps1 -Port 9000   换端口
-#   .\start.ps1 -NoBrowser   不自动开浏览器
+#   .\start.ps1                    起 Web 页（127.0.0.1:8802，本机免口令）
+#   .\start.ps1 -LAN               允许局域网访问（需已设 ACCESS_TOKEN）
+#   .\start.ps1 -LAN -AllowNoAuth  局域网访问且不要口令（需明确确认风险）
+#   .\start.ps1 -Check             只做自检（配置 + 模型连通）
+#   .\start.ps1 -Port 9000         换端口
+#   .\start.ps1 -NoBrowser         不自动开浏览器
 #
-# 注意：-LAN 会把服务暴露给同一网络。**务必先在 .env 里设 ACCESS_TOKEN**，
-# 否则任何能连上该地址的人都可用你的 API Key，并读写本机 data/ 目录。
+# 关于口令：
+#   本机监听（127.0.0.1）默认免口令——只有这台机器能连，摩擦最低。
+#   局域网监听（0.0.0.0）默认要求口令，因为同网络任何人都能用你的 API Key
+#   并读写本机 data/。确实不想要口令时必须显式加 -AllowNoAuth。
 
 param(
     [switch]$Check,
     [switch]$LAN,
+    [switch]$AllowNoAuth,
     [int]$Port = 8802,
     [switch]$NoBrowser
 )
@@ -75,18 +79,32 @@ if ($Check) {
 $bindHost = "127.0.0.1"
 if ($LAN) { $bindHost = "0.0.0.0" }
 
-if ($LAN -and -not $accessToken) {
+# 本机监听免口令；局域网监听必须有口令，除非显式 -AllowNoAuth。
+# 这道保护防的是"手滑把没口令的服务暴露到整个 WiFi"——不是不让你这么做，
+# 是要你明确说过。
+if ($LAN -and -not $accessToken -and -not $AllowNoAuth) {
     Write-Host ""
     Write-Host "  " + ("!" * 60) -ForegroundColor Red
     Write-Host "  [已阻止] -LAN 会把服务暴露给同一网络，但 .env 里没有 ACCESS_TOKEN。" -ForegroundColor Red
     Write-Host "           任何能连上的人都可用你的 API Key（消耗额度），" -ForegroundColor Red
     Write-Host "           并读写本机 data/ 目录下的资料与上传文件。" -ForegroundColor Red
     Write-Host ""
-    Write-Host "  请先生成并写入一个口令，再重试：" -ForegroundColor Yellow
-    Write-Host "    python -c ""import secrets,pathlib; p=pathlib.Path('.env'); s=p.read_text(encoding='utf-8') if p.exists() else ''; s=s.replace('ACCESS_TOKEN=','ACCESS_TOKEN='+secrets.token_urlsafe(12)); p.write_text(s,encoding='utf-8'); print('done')""" -ForegroundColor Yellow
+    Write-Host "  两个选择：" -ForegroundColor Yellow
+    Write-Host "    1) 本机用（推荐）：直接 .\start.ps1           —— 免口令，只有这台机器能连" -ForegroundColor Yellow
+    Write-Host "    2) 确实要在局域网免口令：.\start.ps1 -LAN -AllowNoAuth" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  想保留口令但换一个：" -ForegroundColor DarkGray
+    Write-Host "    python -c ""import secrets,pathlib;p=pathlib.Path('.env');s=p.read_text(encoding='utf-8');p.write_text(s.replace('ACCESS_TOKEN=','ACCESS_TOKEN='+secrets.token_urlsafe(12)),encoding='utf-8')""" -ForegroundColor DarkGray
     Write-Host "  " + ("!" * 60) -ForegroundColor Red
     Write-Host ""
     exit 1
+}
+
+if ($LAN -and -not $accessToken -and $AllowNoAuth) {
+    Write-Host ""
+    Write-Host "  [警告] 局域网免口令模式：同一网络下任何人都能使用本服务。" -ForegroundColor Yellow
+    Write-Host "         会消耗你的 DASHSCOPE 额度，并可读写本机 data/。" -ForegroundColor Yellow
+    Write-Host ""
 }
 
 # ---------------------------------------------------------------- 起服务
