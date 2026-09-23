@@ -29,12 +29,20 @@ from typing import Any
 
 from flask import Flask, jsonify, make_response, render_template, request, send_file
 
-from .. import config, llm, store
+from .. import config, llm, nodes, profile, progress, store, transcribe
 from ..graph import build_graph, open_checkpointer, run_config, thread_id
 from ..tools import export
 from . import auth
 
 SPEECH_MAX_CHARS = config.SPEECH_MAX_CHARS
+
+
+def _as_int(value: Any) -> Any:
+    """表单里的数字字段：能转就转，转不动原样返回（让纯函数去报错，别在这里猜）。"""
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return value
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
 AUDIO_EXT = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".amr", ".wma"}
@@ -42,61 +50,21 @@ ALLOWED_EXT = IMAGE_EXT | AUDIO_EXT
 MAX_UPLOAD_MB = 32
 
 # --------------------------------------------------------------------------- #
-# 请求级进度（移植自 assistant-lite 的 progress.py，用途相同）
+# 请求级进度
+#
+# 记录本体在 lg_assistant/progress.py：链路（vision.py）在执行线程里上报步骤，
+# Web 层在**另一个线程**里被轮询，两边靠 request_id 对齐。这里只做转发。
 # --------------------------------------------------------------------------- #
-_PROGRESS: dict[str, dict[str, Any]] = {}
-_PROGRESS_LOCK = threading.RLock()
-_PROGRESS_MAX = 200
-
-PIPELINES: dict[str, list[tuple[str, str]]] = {
-    "meeting": [
-        ("captured", "Audio captured"),
-        ("transcript", "Transcript ready"),
-        ("structuring", "Structuring meeting"),
-        ("summary", "Summary ready"),
-    ],
-    "exam": [
-        ("capture", "Capture"),
-        ("recognize", "Recognize"),
-        ("solve", "Solve"),
-        ("verify", "Verify"),
-    ],
-}
-
-
-def _progress_begin(rid: str, scene: str) -> None:
-    if not rid:
-        return
-    with _PROGRESS_LOCK:
-        _PROGRESS[rid] = {"scene": scene, "step": "", "finished": False, "error": False}
-        while len(_PROGRESS) > _PROGRESS_MAX:
-            _PROGRESS.pop(next(iter(_PROGRESS)))
+def _progress_begin(rid: str, scene: str = "", step: str = "") -> None:
+    progress.begin(rid, scene, step)
 
 
 def _progress_finish(rid: str, error: bool = False) -> None:
-    with _PROGRESS_LOCK:
-        rec = _PROGRESS.get(rid)
-        if rec:
-            rec["finished"] = True
-            rec["error"] = error
+    progress.finish(rid, error)
 
 
 def _progress_snapshot(rid: str) -> dict[str, Any] | None:
-    with _PROGRESS_LOCK:
-        rec = _PROGRESS.get(rid)
-        if not rec:
-            return None
-        rec = dict(rec)
-    pipeline = PIPELINES.get(rec["scene"], [])
-    if not pipeline:
-        return None
-    steps = [
-        {"id": sid, "label": label, "state": "active" if not rec["finished"] else "done"}
-        for sid, label in pipeline
-    ]
-    if rec["error"]:
-        steps = [dict(s, state="error" if s["state"] == "active" else s["state"]) for s in steps]
-    return {"scene": rec["scene"], "steps": steps, "finished": rec["finished"], "error": rec["error"]}
+    return progress.snapshot(rid)
 
 
 # --------------------------------------------------------------------------- #
@@ -222,11 +190,22 @@ def create_app(app: Any = None) -> Flask:
             out["rejected_files"] = p["rejected"]
             return out
 
-        _progress_begin(p["request_id"], "exam" if p["files"] else "meeting")
+        # 只有带图片的请求才走四步视觉链，进度条也只在这种情况下有意义。
+        # 图片在上传阶段就已落盘，所以 capture 一开始就算完成，从 recognize 开始上报。
+        has_image = any(Path(f).suffix.lower() in IMAGE_EXT for f in p["files"])
+        rid = p["request_id"]
+        _progress_begin(rid, "exam" if has_image else "", "recognize" if has_image else "")
+        # 把 request_id 绑到执行线程上，链路里的 progress.mark() 才能写回这条记录
+        progress.bind(rid)
         try:
             result = compiled.invoke(state, cfg)
+        except BaseException:
+            _progress_finish(rid, error=True)
+            raise
+        else:
+            _progress_finish(rid)
         finally:
-            _progress_finish(p["request_id"])
+            progress.unbind()
 
         rt = result.get("routing") or {}
         res = result.get("result") or {}
@@ -302,12 +281,17 @@ def create_app(app: Any = None) -> Flask:
         owner = (request.args.get("owner") or "local").strip() or "local"
         sid = (request.args.get("session_id") or "web").strip() or "web"
         snap = compiled.get_state(run_config(owner, sid))
+        vals = snap.values if snap else {}
         return jsonify(
             {
                 "thread_id": thread_id(owner, sid),
                 "next": list(snap.next) if snap else [],
                 "has_checkpoint": bool(snap and snap.values),
-                "values": snap.values if snap else {},
+                "values": vals,
+                # 兼容基线 UI：卡片直接读顶层字段，而不是从 values 里取。
+                # 前端是从 assistant-lite 原样复用的，那里这两个键在顶层。
+                "meeting": vals.get("meeting") or {},
+                "fitness": vals.get("fitness") or {},
             }
         )
 
@@ -344,7 +328,86 @@ def create_app(app: Any = None) -> Flask:
         row = store.get_resource(owner, rid) if rid else None
         if not row:
             return jsonify({"error": "找不到该资料"}), 404
+        # 会议产出带一份可改判的逐段转写；前端据此决定要不要画「发言人」面板
+        row["has_transcript"] = bool(rid and store.get_transcript(owner, rid))
         return jsonify(row)
+
+    # ------------------------------------------------------------------ #
+    # 转写人工改判
+    #
+    # 服务端的说话人聚类到此为止（实测 7 人聚成 6 类，指定人数也改不动），
+    # 「谁说的是谁」剩下的错只能人来定：拆分、合并、改名。这里只做落库与
+    # 重渲染，判定逻辑全是 transcribe 里的纯函数。
+    # ------------------------------------------------------------------ #
+    def _transcript_payload(rec: dict[str, Any]) -> dict[str, Any]:
+        utterances = rec.get("utterances") or []
+        report = transcribe.diarization_report(utterances)
+        names = rec.get("names") or {}
+        return {
+            "id": rec["id"],
+            "scene": rec.get("scene") or "",
+            "names": names,
+            "utterances": utterances,
+            "speakers": transcribe.record_speakers(rec),
+            "fragile": transcribe.fragile_flags(utterances),
+            "text": transcribe.format_record(rec),
+            "report": transcribe.describe_diarization(report),
+            "summary": rec.get("summary") or "",
+            "updated": rec.get("updated") or "",
+        }
+
+    def _persist_transcript(owner: str, rid: str, rec: dict[str, Any]) -> dict[str, Any]:
+        """存记录 + 按新归属重建归档正文（纪要 + 文字记录）。"""
+        payload = _transcript_payload(rec)
+        content = nodes.meeting_body(
+            rec.get("summary") or "", payload["report"], transcribe.format_record(rec)
+        )
+        store.save_transcript(owner, rid, scene=rec.get("scene") or "meeting", record=rec)
+        store.update_resource(owner, rid, content)
+        payload["content"] = content
+        return payload
+
+    @flask_app.get("/api/transcript")
+    def api_transcript():
+        owner = (request.args.get("owner") or "local").strip() or "local"
+        rid = (request.args.get("id") or "").strip()
+        rec = store.get_transcript(owner, rid) if rid else None
+        if not rec:
+            return jsonify({"error": "找不到该转写记录（可能不是会议产出）"}), 404
+        return jsonify(_transcript_payload(rec))
+
+    @flask_app.post("/api/transcript")
+    def api_transcript_edit():
+        owner = (request.form.get("owner") or "local").strip() or "local"
+        rid = (request.form.get("id") or "").strip()
+        action = (request.form.get("action") or "").strip()
+        rec = store.get_transcript(owner, rid) if rid else None
+        if not rec:
+            return jsonify({"error": "找不到该转写记录（可能不是会议产出）"}), 404
+
+        if action == "resummarize":
+            text = transcribe.format_record(rec)
+            try:
+                rec["summary"] = nodes.resummarize_meeting(text)
+            except llm.LLMError as e:
+                return jsonify({"error": f"重新生成纪要失败：{e}"}), 502
+            return jsonify(_persist_transcript(owner, rid, rec))
+
+        kw: dict[str, Any] = {}
+        for field in ("speaker", "source", "target"):
+            if request.form.get(field) not in (None, ""):
+                raw = str(request.form.get(field))
+                kw[field] = raw if field == "speaker" and raw == "new" else _as_int(raw)
+        if request.form.get("name") is not None:
+            kw["name"] = request.form.get("name")
+        if request.form.get("index") not in (None, ""):
+            kw["index"] = _as_int(request.form.get("index"))
+
+        try:
+            edited = transcribe.apply_edit(rec, action, **kw)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        return jsonify(_persist_transcript(owner, rid, edited))
 
     @flask_app.get("/api/export")
     def api_export():
@@ -403,19 +466,63 @@ def create_app(app: Any = None) -> Flask:
             return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
         return jsonify({"ok": True})
 
+    # ------------------------------------------------------------------ #
+    # 健康档案：**手机端写入，眼镜端只读**
+    #
+    # 建档问卷有 9 个字段，眼镜端只有麦克风、没有屏幕：用户既看不到还剩
+    # 几项，也改不了上一项填错的内容。所以主入口是手机（有屏幕、能改能确认），
+    # 眼镜端只读档案、把它带进训练建议。
+    #
+    # GET 返回的东西要够前端**直接渲染**：字段清单（fields）由服务端给，
+    # 前端不硬编码——否则加一个字段要改两处，迟早对不上。
+    # ------------------------------------------------------------------ #
+    def _profile_payload(owner: str) -> dict[str, Any]:
+        data = store.load_profile(owner)
+        return {
+            "profile": data,
+            "summary": profile.summarize(data),
+            "bmi": profile.bmi(data),
+            "risk": profile.risk_notes(data),
+            "fields": profile.field_spec(),
+            "complete": profile.is_complete(data),
+            "missing": profile.missing_keys(data),
+            "meta": store.profile_meta(owner),
+            "note": "" if data else "尚未建立健康档案。",
+        }
+
     @flask_app.get("/api/profile")
     def api_profile():
-        """本版未实现健康档案（基线有）。返回空结构而不是编造数据。"""
-        return jsonify(
-            {
-                "profile": {},
-                "summary": "",
-                "bmi": None,
-                "risk": [],
-                "fields": [],
-                "note": "LangGraph 版本尚未实现锻炼建档；此处返回空结构，不编造数据。",
-            }
-        )
+        owner = (request.args.get("owner") or "local").strip() or "local"
+        return jsonify(_profile_payload(owner))
+
+    @flask_app.post("/api/profile")
+    def api_profile_save():
+        """手机端提交整份档案。
+
+        ``partial=1`` 时允许缺字段（存草稿），默认要求 9 项齐全——
+        免得用户以为存上了、其实眼镜端读到的是一份半成品。
+        """
+        owner = (request.form.get("owner") or "local").strip() or "local"
+        raw = request.form.get("profile") or ""
+        try:
+            submitted = json.loads(raw) if raw else {}
+        except json.JSONDecodeError as e:
+            return jsonify({"error": f"档案不是合法 JSON：{e}"}), 400
+        if not isinstance(submitted, dict):
+            return jsonify({"error": "档案必须是一个对象"}), 400
+
+        partial = str(request.form.get("partial") or "") in ("1", "true", "yes")
+        data, errors = profile.validate(submitted, partial=partial)
+        if errors:
+            return jsonify({"error": "；".join(errors), "errors": errors}), 400
+
+        store.save_profile(owner, data, source="phone")
+        return jsonify(_profile_payload(owner))
+
+    @flask_app.delete("/api/profile")
+    def api_profile_delete():
+        owner = (request.args.get("owner") or "local").strip() or "local"
+        return jsonify({"ok": store.delete_profile(owner)})
 
     return flask_app
 

@@ -51,6 +51,11 @@ TOOLS_DIR = Path(os.getenv("TOOLS_DIR", r"E:\AI智能助手\tools"))
 FFMPEG_PATH = os.getenv("FFMPEG_PATH", "").strip()
 #: 长音频分片长度（秒）。ASR 单次调用有时长上限，长会议必须切。
 ASR_CHUNK_SECONDS = int(os.getenv("ASR_CHUNK_SECONDS", "240"))
+#: 定制热词词表文件（一行一个词，# 开头是注释）。不存在则用内置默认表。
+#: 热词只影响解码时的用词偏好，不会凭空造词——写错词最多是没效果。
+HOTWORDS_PATH = Path(os.getenv("HOTWORDS_PATH", str(DATA_DIR / "hotwords.txt")))
+#: 热词权重，取值 1–5（常用 4）。权重过大会干扰其他词的识别。
+HOTWORD_WEIGHT = int(os.getenv("HOTWORD_WEIGHT", "4"))
 #: 单次语音合成的文本上限（播报语本该很短）
 SPEECH_MAX_CHARS = int(os.getenv("SPEECH_MAX_CHARS", "300"))
 

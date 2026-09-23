@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import config
+from . import config, profile
 from .state import DeviceJudgement, Routing
 
 # --------------------------------------------------------------------------- #
@@ -66,6 +66,11 @@ KEYWORDS: dict[str, tuple[str, ...]] = {
         "锻炼", "健身", "运动", "器械", "器材", "深蹲", "卧推", "硬拉",
         "跑步", "训练", "增肌", "减脂", "热身", "拉伸", "有氧", "疼痛",
         "受伤", "拉伤",
+        # 建档归 fitness：档案是锻炼场景的输入，不是独立场景。
+        # 这两个词必须进关键词表——否则「建立健康档案」一个词都不命中，
+        # 掉到 LLM 兜底被判成 general，拿通用提示词即兴回答，
+        # 用户以为在填档案，其实什么都没记（实测踩过）。
+        "健康档案", "建档",
         # 以下是 Dify 阶段实测发现的路由空隙：「练不下去了」当时没能命中，
         # 只能靠 LLM 兜底才路由对；补上后成为零 token 确定性路由。
         "练不下去", "不练了", "练不动", "膝盖", "腰疼", "肩膀疼", "脚踝",
@@ -248,7 +253,14 @@ FITNESS_RESUME_WORDS = ("继续", "接着练", "恢复训练", "没事了", "好
 def infer_fitness_action(text: str) -> str:
     """训练动作推断。关键词路由只给场景，动作要在这里补。
 
-    **顺序不可换：不适与结束排在开始之前。**
+    **顺序不可换：建档排在最前，不适与结束排在开始之前。**
+
+    建档为什么必须最前：用户答问卷时说「算了，不填了」会同时命中
+    ``profile.CANCEL_WORDS`` 与结束词；说「我膝盖有伤」会命中
+    ``FITNESS_PAIN_WORDS`` 的「膝盖」。此时正在进行的是问卷，不是在训练——
+    若被不适/结束判走，一轮答案就被当成训练事件吞掉，而问卷还停在原地
+    等一个用户以为已经答过的字段。
+
     「膝盖疼，今天不练了」同时含「疼」和「练」，若先判开始，用户报告不适
     反而会启动一次训练——安全相关的判定必须排在最前面。
 
@@ -257,6 +269,8 @@ def infer_fitness_action(text: str) -> str:
     记不上。词表已去掉裸动词，但顺序仍要保证。
     """
     t = text or ""
+    if profile.wants_profile(t) or profile.wants_cancel(t):
+        return "profile"
     if any(w in t for w in FITNESS_PAIN_WORDS):
         return "pain_report"
     if any(w in t for w in FITNESS_END_WORDS):
@@ -279,9 +293,10 @@ scene 只能取 meeting / exam / fitness / resource / general：
 - 会议记录、会议纪要、会议转写、录音整理 -> meeting
 - 题目、解题、答案、讲解、计算、上传的题目图片 -> exam
 - 健身、锻炼、运动、器械、动作、几组、深蹲、卧推、跑步、身体不适 -> fitness
+- 建立/更新健康档案、建档问卷、填年龄身高体重伤病 -> fitness（action 填 profile）
 - 导出、下载、查找历史资料、我有哪些记录、把刚才的结果转成文件 -> resource
 - 其他日常问答 -> general
 action 只能取 start / append / summarize / stop / solve / start_exercise / set_done /
-pain_report / end_workout / export / list / answer。
+pain_report / end_workout / profile / export / list / answer。
 拿不准时 scene 填 general、action 填 answer。
 只输出 JSON，例如 {"scene":"meeting","action":"append","reason":"用户在提交会议转写"}"""

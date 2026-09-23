@@ -381,13 +381,134 @@ def test_progress_endpoint_without_record() -> None:
     assert body["finished"] is True
 
 
-def test_profile_endpoint_is_honest_about_not_implemented() -> None:
-    """未实现的档案不能返回编造数据。"""
+def test_profile_empty_is_honest_not_invented() -> None:
+    """没建档时返回空档案，但**字段清单要给全** —— 前端靠它画表单。"""
     _fresh()
     body = _client().get("/api/profile").get_json()
     assert body["profile"] == {}
-    assert body["fields"] == []
-    assert body["note"]
+    assert body["complete"] is False
+    assert body["note"], "没建档要说明"
+    # fields 是服务端下发的，前端不硬编码字段
+    keys = [f["key"] for f in body["fields"]]
+    assert keys == [
+        "age", "height_cm", "weight_kg", "goal", "level",
+        "injuries", "conditions", "days_per_week", "equipment",
+    ]
+    assert body["fields"][0]["label"] == "年龄"
+    assert body["fields"][3]["options"], "选项类字段要带选项"
+
+
+def test_profile_write_then_read_back() -> None:
+    """手机端提交 → 眼镜端读到同一份。这是「云端存档案」的完整往返。"""
+    _fresh()
+    client = _client()
+    payload = {
+        "age": 28, "height_cm": 178, "weight_kg": 70,
+        "goal": "减脂", "level": "偶尔运动",
+        "injuries": ["膝盖"], "conditions": ["无"],
+        "days_per_week": 3, "equipment": ["哑铃", "弹力带"],
+    }
+    body = client.post(
+        "/api/profile", data={"owner": "u", "profile": json.dumps(payload, ensure_ascii=False)}
+    ).get_json()
+    assert body["complete"] is True
+    assert body["missing"] == []
+    assert abs(body["bmi"] - 22.1) < 0.05
+    assert "膝盖" in body["risk"]
+    assert "无" not in body["risk"], "「无」不是风险，不该出现在注意里"
+    assert body["meta"]["source"] == "phone"
+
+    # 再读一次：真的落库了，不是只回显
+    again = client.get("/api/profile?owner=u").get_json()
+    assert again["profile"]["age"] == 28
+    assert again["profile"]["height_cm"] == 178.0
+
+
+def test_profile_write_rejects_bad_values() -> None:
+    """校验不通过要 400 并说清哪里错，**不能悄悄存下半成品**。"""
+    _fresh()
+    client = _client()
+
+    # 年龄超范围
+    r = client.post(
+        "/api/profile",
+        data={"owner": "u", "profile": json.dumps({"age": 999}, ensure_ascii=False)},
+    )
+    assert r.status_code == 400
+    assert "年龄" in r.get_json()["error"]
+
+    # 缺字段（默认要求齐全）
+    r = client.post(
+        "/api/profile",
+        data={"owner": "u", "profile": json.dumps({"age": 30}, ensure_ascii=False)},
+    )
+    assert r.status_code == 400
+    assert "还缺" in r.get_json()["error"]
+
+    # 非法 JSON
+    r = client.post("/api/profile", data={"owner": "u", "profile": "{不是json"})
+    assert r.status_code == 400
+
+    assert client.get("/api/profile?owner=u").get_json()["profile"] == {}
+
+
+def test_profile_partial_draft_allowed_when_asked() -> None:
+    """``partial=1`` 才允许存草稿 —— 默认严格，免得用户以为存上了。"""
+    _fresh()
+    client = _client()
+    r = client.post(
+        "/api/profile",
+        data={"owner": "u", "profile": json.dumps({"age": 30}), "partial": "1"},
+    )
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["profile"]["age"] == 30
+    assert body["complete"] is False
+    assert "height_cm" in body["missing"]
+
+
+def test_profile_delete() -> None:
+    """删档案要真的删掉，且删不存在的档案不报错。"""
+    _fresh()
+    client = _client()
+    client.post(
+        "/api/profile",
+        data={"owner": "u", "profile": json.dumps({"age": 30}), "partial": "1"},
+    )
+    assert client.delete("/api/profile?owner=u").get_json()["ok"] is True
+    assert client.get("/api/profile?owner=u").get_json()["profile"] == {}
+    assert client.delete("/api/profile?owner=u").get_json()["ok"] is False
+
+
+def test_profile_is_isolated_per_owner() -> None:
+    """档案按 owner 隔离：别人的档案一个字都不该看到。"""
+    _fresh()
+    client = _client()
+    client.post(
+        "/api/profile",
+        data={
+            "owner": "alice",
+            "profile": json.dumps({"age": 30, "height_cm": 165}, ensure_ascii=False),
+            "partial": "1",
+        },
+    )
+    assert client.get("/api/profile?owner=bob").get_json()["profile"] == {}
+    assert client.get("/api/profile?owner=alice").get_json()["profile"]["age"] == 30
+
+
+def test_state_exposes_meeting_and_fitness_on_top_level() -> None:
+    """/api/state 必须在顶层给出 meeting / fitness。
+
+    前端是从 assistant-lite 原样复用的，状态卡片直接读 ``st.fitness``；
+    数据只塞在 ``values`` 里的话卡片读不到，WORKOUT 会恒显示 IDLE。
+    """
+    _fresh()
+    body = _client().get("/api/state?owner=u&session_id=s").get_json()
+    assert "values" in body
+    assert "meeting" in body, "顶层缺 meeting，基线 UI 的卡片读不到"
+    assert "fitness" in body, "顶层缺 fitness，WORKOUT 卡片会恒为 IDLE"
+    assert isinstance(body["fitness"], dict)
+    assert isinstance(body["meeting"], dict)
 
 
 # --------------------------------------------------------------------------- #

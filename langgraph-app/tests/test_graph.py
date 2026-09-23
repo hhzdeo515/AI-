@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lg_assistant import config, graph, llm, nodes, routing, store  # noqa: E402
+from lg_assistant import config, graph, llm, nodes, profile as profile_module, routing, store  # noqa: E402
 from lg_assistant.ported import calc, grids, speech  # noqa: E402
 from lg_assistant.routing import device_context  # noqa: E402
 
@@ -1058,6 +1058,242 @@ def test_meeting_path_only_uses_transcribe_functions_that_exist() -> None:
     # 转写正文照旧
     assert "会议文字记录" in text
     assert "先看数据获取" in text and "那就这么定" in text, "正文丢了转写内容"
+
+
+# --------------------------------------------------------------------------- #
+# 健康档案（建档问卷）
+#
+# 为什么这些用例必须走**真 checkpointer 的多轮会话**：
+# 实测踩到的头号 bug 就是「粘性只恢复场景、不恢复动作」——第二轮用户答
+# 「28」，路由给出 scene=fitness/action=""，而 dispatch 判的是
+# action=="profile"，于是答题被送去 local_llm，问卷停在原地。
+# 单轮调用永远看不到这个 bug：它只在第二轮出现。
+# --------------------------------------------------------------------------- #
+def _session(owner: str = "u", session: str = "p"):
+    """开一个**带检查点**的会话，返回 (invoke, app, cfg)。"""
+    tmp = _fresh()
+    app = graph.build_graph(graph.open_checkpointer(config.CHECKPOINT_DB))
+    cfg = graph.run_config(owner, session)
+
+    def turn(text: str, **extra):
+        base = {
+            "text": text,
+            "owner": owner,
+            "session_id": session,
+            "request_id": "r",
+            "files": [],
+            "event": {},
+            "notes": [],
+        }
+        base.update(extra)
+        return app.invoke(base, cfg)
+
+    return turn, app, cfg
+
+
+def test_profile_trigger_routes_to_fitness_profile() -> None:
+    """「建立健康档案」必须零 token 命中 fitness/profile。
+
+    修复前它一个关键词都不命中（KEYWORDS["fitness"] 里没有「建档」「健康档案」），
+    掉到 LLM 兜底被判成 general，拿通用提示词即兴回答——用户以为在填档案，
+    其实什么都没记。
+    """
+    assert routing.keyword_scores("建立健康档案") == {"fitness": 0.8}
+    assert routing.infer_fitness_action("建立健康档案") == "profile"
+    assert routing.infer_fitness_action("建档") == "profile"
+    assert graph.dispatch({"routing": {"action": "profile"}}) == "profile"
+
+
+def test_profile_questionnaire_multiturn_without_model() -> None:
+    """九项问卷全程零 token 走完，且落库的是**正确的**数值。
+
+    这里钉住两个实测 bug：
+    1. 粘性不恢复动作 → 第二轮就掉出问卷（见上面注释）
+    2. 「我178厘米，70公斤」曾把身高体重都填成 178，BMI 算出 56.2
+    """
+    turn, _app, _cfg = _session()
+    restore, calls = _stub_llm("不该被调用")
+    try:
+        out = turn("建立健康档案")
+        assert out["routing"]["scene"] == "fitness"
+        assert out["routing"]["action"] == "profile"
+        assert out["fitness"]["awaiting"] == "age"
+        assert "年龄" in out["result"]["text"]
+
+        # 第二轮：裸数字必须被当作年龄答案 —— 这正是粘性 bug 的暴露点
+        out = turn("28")
+        assert out["routing"]["action"] == "profile", "第二轮掉出了建档问卷"
+        assert out["fitness"]["draft"]["age"] == 28
+
+        # 一句话答两项：按单位就近取数，**不能复用同一个数字**
+        out = turn("我178厘米，70公斤")
+        draft = out["fitness"]["draft"]
+        assert draft["height_cm"] == 178.0
+        assert draft["weight_kg"] == 70.0, f"体重被填错：{draft}"
+        assert draft["height_cm"] != draft["weight_kg"], "身高体重不该是同一个数"
+
+        # 别名要映射到标准选项
+        out = turn("减肥")
+        assert out["fitness"]["draft"]["goal"] == "减脂"
+
+        # 答得不合规 → 原地重问，不推进、不丢
+        out = turn("999")
+        assert out["fitness"]["awaiting"] == "level"
+        assert "没识别出" in out["result"]["text"]
+
+        turn("偶尔运动")
+        out = turn("膝盖、腰")
+        assert out["fitness"]["draft"]["injuries"] == ["膝盖", "腰部"]
+        turn("无")
+        turn("3")
+        out = turn("哑铃、弹力带")
+
+        # 填满 → 落库 + 回显
+        assert out["fitness"]["awaiting"] == ""
+        assert out["fitness"]["draft"] == {}
+        assert "健康档案已建立" in out["result"]["text"]
+    finally:
+        restore()
+
+    data = store.load_profile("u")
+    assert store.profile_meta("u")["source"] == "glasses"
+    assert data["age"] == 28
+    assert data["height_cm"] == 178.0 and data["weight_kg"] == 70.0
+    assert data["conditions"] == ["无"]
+    assert abs(profile_module.bmi(data) - 22.1) < 0.05, "BMI 必须按正确身高体重算"
+    assert calls == [], f"问卷不该调用模型，实际调用 {len(calls)} 次"
+
+
+def test_profile_repeat_trigger_restarts_instead_of_erroring() -> None:
+    """问卷进行中再说一次「建立健康档案」＝重新开始，不是把这句话当答案。
+
+    实测：问到年龄时它被拿去解析成年龄，回「年龄需要是数字，请重新填写」——
+    用户只是重复了最初的请求，完全看不懂这句错误。
+    """
+    turn, _app, _cfg = _session()
+    turn("建立健康档案")
+    out = turn("建立健康档案")
+    assert out["fitness"]["awaiting"] == "age"
+    assert "年龄" in out["result"]["text"]
+    assert "需要是数字" not in out["result"]["text"]
+
+
+def test_profile_cancel_removes_draft_but_keeps_saved_profile() -> None:
+    """「取消建档」＝这次不填了，**不是删除我的健康档案**。
+
+    这个区分很要紧：用户一句「算了」不该把已经建好的档案弄没。
+    """
+    turn, _app, _cfg = _session()
+    store.save_profile("u", {"age": 30, "height_cm": 175.0}, source="phone")
+
+    turn("建立健康档案")
+    out = turn("取消建档")
+    assert out["fitness"]["awaiting"] == ""
+    assert out["fitness"]["draft"] == {}
+    assert "已退出建档" in out["result"]["text"]
+    # 库里那份不能少
+    assert store.load_profile("u")["age"] == 30
+
+
+def test_profile_is_injected_into_fitness_prompt_only() -> None:
+    """档案的唯一用途：把建议落到用户身上。**只进健身场景。**
+
+    档案含伤病与慢性病，是敏感信息，没有理由出现在会议纪要或解题的提示词里。
+    """
+    store.save_profile(
+        "u",
+        {
+            "age": 28, "height_cm": 178.0, "weight_kg": 70.0,
+            "goal": "减脂", "level": "偶尔运动",
+            "injuries": ["膝盖"], "conditions": ["无"],
+            "days_per_week": 3, "equipment": ["哑铃"],
+        },
+        source="phone",
+    )
+
+    captured: dict[str, str] = {}
+
+    def spy(messages, **kw):
+        for m in messages:
+            if m.get("role") == "system":
+                captured["system"] = m.get("content", "")
+        return "桩回复"
+
+    original = llm.chat
+    llm.chat = spy
+    try:
+        # 健身场景 → 必须带上档案与风险提示
+        _run(text="我今天练什么", scene_hint="fitness")
+        sysmsg = captured.get("system", "")
+        assert "【用户健康档案】" in sysmsg, "健身建议没读档案"
+        assert "年龄：28" in sysmsg and "减脂" in sysmsg
+        assert "膝盖" in sysmsg, "伤病必须带进提示词——这正是安全相关的部分"
+        assert "先咨询医生" in sysmsg
+
+        # 其它场景 → 一点都不许出现
+        captured.clear()
+        _run(text="帮我整理这段会议内容", scene_hint="meeting")
+        assert "健康档案" not in captured.get("system", ""), "档案泄露到了非健身场景"
+    finally:
+        llm.chat = original
+
+
+def test_profile_absent_is_stated_not_invented() -> None:
+    """没建档时要明说「尚未建立」，**绝不假设默认值**。
+
+    「假设用户 30 岁、无伤病」会让建议看起来个性化，实际全是凭空来的，
+    而这恰恰是安全相关的字段。
+    """
+    captured: dict[str, str] = {}
+
+    def spy(messages, **kw):
+        for m in messages:
+            if m.get("role") == "system":
+                captured["system"] = m.get("content", "")
+        return "桩回复"
+
+    original = llm.chat
+    llm.chat = spy
+    try:
+        _run(text="我今天练什么", scene_hint="fitness")
+    finally:
+        llm.chat = original
+    sysmsg = captured.get("system", "")
+    assert "尚未建立" in sysmsg
+    assert "不要假设" in sysmsg
+
+
+def test_profile_save_failure_is_reported_not_swallowed() -> None:
+    """落库失败必须说出来。
+
+    用户以为建好了、眼镜端却读不到，这种「以为存上了」的静默失败最难查。
+    """
+    turn, _app, _cfg = _session()
+    turn("建立健康档案")
+    turn("28")
+    turn("我178厘米，70公斤")
+    turn("减脂")
+    turn("偶尔运动")
+    turn("无")
+    turn("无")
+    turn("3")
+
+    original = store.save_profile
+
+    def boom(*a, **kw):
+        raise OSError("磁盘满了")
+
+    store.save_profile = boom
+    try:
+        out = turn("哑铃")
+    finally:
+        store.save_profile = original
+
+    text = out["result"]["text"]
+    assert "保存" in text and "失败" in text, f"落库失败被吞掉了：{text}"
+    assert store.load_profile("u") == {}, "没存上就是没存上"
+    # 草稿要留着，用户重试时不用从头再答一遍
+    assert out["fitness"]["draft"]["age"] == 28
 
 
 def test_audio_node_falls_back_to_plain_asr() -> None:

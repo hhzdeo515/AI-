@@ -13,7 +13,9 @@
                     │  telemetry   │  端侧判对率落库
                     └──────┬───────┘
                            ▼
-                    ◇ dispatch ◇  ── meta ──▶ meta_command ─┐
+                    ◇ dispatch ◇  ── meta ──▶ meta_command ────┐
+                           │                                │
+                           ├── profile ▶ profile_flow ──────┤  建档问卷（零 token）
                            │                                │
                            ├── calc ──▶ calc_quick ──────────┤
                            │                                │
@@ -57,19 +59,29 @@ def dispatch(state: AssistantState) -> str:
     顺序即优先级，且每条判断都是**确定性规则**，不调模型：
 
     1. 指令类动作（停止播报/切场景）不产生内容
-    2. **带图片的解题请求**走本地视觉链——Dify 侧 ``start`` 只收文本，
+    2. **建档问卷**是零 token 确定性状态机，必须在一切之前——Dify 侧没有
+       问卷状态，交给模型则会把用户没说的信息补上
+    3. **带图片的解题请求**走本地视觉链——Dify 侧 ``start`` 只收文本，
        转发会丢掉「终审重新看原图」这条关键设计
-    3. **带音频的请求**走本地 ASR 链——同样是 Dify 侧做不到的预处理；
+    4. **带音频的请求**走本地 ASR 链——同样是 Dify 侧做不到的预处理；
        此前这条路径缺失，带录音的请求落到 ``local_llm`` 只会回一句
        「请发送会议转写文本」，把用户已经用音频给过的内容再要一遍
-    4. 其余带附件的请求留在本地
-    5. 粘性会话（会议进行中 / 训练进行中）是本地状态机，Dify 侧没有这些状态
-    6. 配置指定 dify 时转发（Dify 失败由图内回退到 local_llm）
-    7. 其余走本地
+    5. 其余带附件的请求留在本地
+    6. 粘性会话（会议进行中 / 训练进行中 / 建档中）是本地状态机，
+       Dify 侧没有这些状态
+    7. 配置指定 dify 时转发（Dify 失败由图内回退到 local_llm）
+    8. 其余走本地
     """
     action = (state.get("routing") or {}).get("action") or ""
     if action in META_ACTIONS:
         return "meta"
+
+    # 建档问卷是零 token 的确定性状态机，**必须先于一切**：
+    # 它不能走 Dify（Dify 侧没有问卷状态），也不能交给模型（模型会把用户
+    # 没说的信息补上，而档案最不能有的就是编造）。放在附件判断之前，
+    # 因为用户在答题中途可能顺手发了张器械照片——那也该先记完档案。
+    if action == "profile":
+        return "profile"
 
     files = state.get("files") or []
     if files:
@@ -122,6 +134,7 @@ def build_graph(checkpointer: Any = None, *, with_telemetry: bool = True):
 
     g.add_node("meta_command", nodes.meta_command)
     g.add_node("calc_quick", nodes.calc_quick)
+    g.add_node("profile_flow", nodes.profile_flow)
     g.add_node("exam_vision", nodes.exam_vision)
     g.add_node("meeting_audio", nodes.meeting_audio)
     g.add_node("dify_scene", nodes.dify_scene)
@@ -133,6 +146,7 @@ def build_graph(checkpointer: Any = None, *, with_telemetry: bool = True):
 
     _routes = {
         "meta": "meta_command",
+        "profile": "profile_flow",
         "vision": "exam_vision",
         "audio": "meeting_audio",
         "dify": "dify_scene",
@@ -148,6 +162,7 @@ def build_graph(checkpointer: Any = None, *, with_telemetry: bool = True):
 
     # 场景执行
     g.add_edge("meta_command", "postprocess")
+    g.add_edge("profile_flow", "postprocess")
     g.add_edge("exam_vision", "postprocess")
     g.add_edge("meeting_audio", "postprocess")
     g.add_edge("dify_scene", "postprocess")

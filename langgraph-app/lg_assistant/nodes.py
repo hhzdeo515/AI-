@@ -13,6 +13,7 @@
 ``telemetry``        落库端侧判对率
 ``meta_command``     stop_playback / switch_scene 这类不产生内容的指令
 ``calc_quick``       纯算术快路径（零 token 确定性工具）
+``profile_flow``     健康档案问卷（零 token 确定性状态机）
 ``dify_scene``       Dify 场景 Agent 执行（可选后端，失败回退 local_llm）
 ``local_llm``        本地场景回复
 ``postprocess``      播报语 + 归档
@@ -25,7 +26,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from . import config, dify_backend, llm, search, store, transcribe, vision
+from . import config, dify_backend, llm, profile, search, store, transcribe, vision
 from .ported import calc as calc_tool
 from .ported import speech as speech_tool
 from .routing import (
@@ -134,9 +135,17 @@ def route_node(state: AssistantState) -> dict[str, Any]:
     # （「做完一组」「歇好了」「膝盖疼」），而它们大多不含关键词——
     # 交给模型兜底既慢（每次多一次调用）又不可靠（可能被判到 general）。
     # 先做确定性动作推断，判得出动作就说明该留在 fitness。
-    workout_status = ((state.get("fitness") or {}).get("workout") or {}).get("status")
+    #
+    # 建档问卷同理，而且更严格：用户答的是「28」「减脂」「无」这类碎片，
+    # 一个关键词都不含。不粘住就会掉到 general 被当闲聊——而问卷还停在
+    # 原地等一个用户以为已经答过的字段。
+    fit_state = state.get("fitness") or {}
+    in_profile = bool(fit_state.get("awaiting")) or profile.wants_profile(text)
+    workout_status = (fit_state.get("workout") or {}).get("status")
     workout_action = ""
-    if workout_status in ("active", "paused"):
+    if in_profile:
+        workout_action = "profile"
+    elif workout_status in ("active", "paused"):
         workout_action = infer_fitness_action(text)
         if not workout_action:
             # 判不出动作时**不粘**：避免「帮我算个数」在训练中被吞掉
@@ -165,6 +174,23 @@ def route_node(state: AssistantState) -> dict[str, Any]:
             if decision["scene"] == "meeting"
             else infer_fitness_action(text)
         )
+
+    # 建档问卷：**动作必须显式写回结论**。
+    #
+    # 实测踩到的坑：粘性只恢复「场景」，不恢复「动作」。问卷第二轮用户答
+    # 「28」，五级路由给出 ``{scene: fitness, action: "", source: sticky}``，
+    # 而 `graph.dispatch` 判的是 ``action == "profile"`` —— 于是答题被送去
+    # local_llm，问卷停在原地，用户以为答过了。上面那段补动作的逻辑也救不了：
+    # 它只在 ``action`` 为空且场景是 meeting/fitness 时补，而 `infer_fitness_action`
+    # 对「28」判不出任何动作，仍然是空。
+    #
+    # 所以这里不看路由结论，只看「问卷是不是正在进行」。
+    if in_profile:
+        decision = {
+            "scene": "fitness",
+            "action": "profile",
+            "source": decision.get("source") or "sticky",
+        }
 
     return {"routing": decision}
 
@@ -410,6 +436,42 @@ def exam_vision(state: AssistantState) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # 6c. 会议录音：转写 + 说话人分离 + 纪要
 # --------------------------------------------------------------------------- #
+#: 会议转写的整理提示。纪要链路与「人工改判后重算」**共用这一份**——
+#: 两处各写一遍，改了一处忘了另一处，重算出来的纪要就会和第一次不一致。
+MEETING_INSTRUCTION = (
+    "以下是会议录音的转写，每行以 [时间] 发言人N：开头。"
+    "请依据它整理纪要；引用观点时指明是哪位发言人。"
+    "标注了「短促片段·归属存疑」的行，说话人归属不可靠，"
+    "不要把它的内容算成某位发言人的观点；转写用词可能有同音错字，"
+    "拿不准的用词照原样保留，不要替它改成另一个说法。"
+)
+
+
+def summarize_transcript(transcript: str, *, instruction: str, system: str) -> str:
+    """把转写整理成纪要/可读文本。失败时抛 ``llm.LLMError``，由调用方决定怎么降级。"""
+    return llm.chat(
+        [
+            {"role": "system", "content": system},
+            {"role": "user", "content": f"{instruction}\n\n{transcript}"},
+        ],
+        temperature=0.3,
+    )
+
+
+def meeting_body(summary: str, report_line: str, transcript: str) -> str:
+    """会议产出的版式：纪要 + 完整文字记录。会议链路与「改判后重算」共用。"""
+    return f"{summary}\n\n---\n\n## 会议文字记录 {report_line}\n\n{transcript}"
+
+
+def resummarize_meeting(transcript: str) -> str:
+    """人工改判后用**同一套提示词**重新生成纪要（否则两份纪要会漂移）。"""
+    raw = summarize_transcript(
+        transcript, instruction=MEETING_INSTRUCTION, system=SCENE_PROMPTS["meeting"]
+    )
+    body, _ = speech_tool.resolve(raw)
+    return body
+
+
 def meeting_audio(state: AssistantState) -> dict[str, Any]:
     """把上传的录音转成「带发言人的文字记录」并整理成纪要。
 
@@ -474,14 +536,11 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
 
     if diar_ok:
         transcript = transcribe.format_transcript(utterances)
-        # 分离质量如实报告：共几位、每人几段。
-        # 不替服务改判（改判=可能把别人的话安在别人头上），只说清楚它分出了什么。
-        stats = transcribe.speaker_stats(utterances)
-        body_extra = (
-            f"（共识别出 {len(stats)} 位发言人；"
-            + "、".join(f"{s['label']} {s['turns']} 段" for s in stats)
-            + "）"
-        )
+        # 分离质量如实报告：共几位、每人几段、哪些片段归属存疑。
+        # 不替服务改判（改判=可能把别人的话安在别人头上），只说清楚它分出了什么、
+        # 以及哪里不能全信。逐段结构另存一份供界面人工改判（见 postprocess）。
+        report = transcribe.diarization_report(utterances)
+        body_extra = transcribe.describe_diarization(report)
     else:
         # --- 降级：qwen3-asr-flash，长音频分片 ---
         parts: list[str] = []
@@ -528,13 +587,7 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
     scene = (state.get("routing") or {}).get("scene") or "meeting"
     if scene == "meeting":
         system = SCENE_PROMPTS["meeting"]
-        instruction = (
-            "以下是会议录音的转写，每行以 [时间] 发言人N：开头。"
-            "请依据它整理纪要；引用观点时指明是哪位发言人。"
-            "标注了「短促片段·归属存疑」的行，说话人归属不可靠，"
-            "不要把它的内容算成某位发言人的观点；转写用词可能有同音错字，"
-            "拿不准的用词照原样保留，不要替它改成另一个说法。"
-        )
+        instruction = MEETING_INSTRUCTION
     elif scene == "exam":
         system = (
             "你在处理一段口述题目的录音转写。请先忠实还原题面与条件，"
@@ -550,13 +603,7 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
         instruction = "以下是录音转写："
 
     try:
-        body_raw = llm.chat(
-            [
-                {"role": "system", "content": system},
-                {"role": "user", "content": f"{instruction}\n\n{transcript}"},
-            ],
-            temperature=0.3,
-        )
+        body_raw = summarize_transcript(transcript, instruction=instruction, system=system)
     except llm.LLMError as e:
         # 转写成功但整理失败：把转写交出去，别让用户的录音白转一遍
         return {
@@ -569,7 +616,7 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
 
     body, spoken = speech_tool.resolve(body_raw)
     # 正文 = 纪要 + 完整文字记录。用户要的就是这两样，一次都给全。
-    body = f"{body}\n\n---\n\n## 会议文字记录 {body_extra}\n\n{transcript}"
+    body = meeting_body(body, body_extra, transcript)
     if warnings:
         body += "\n\n未处理的部分：\n" + "\n".join(f"· {w}" for w in warnings)
 
@@ -580,6 +627,9 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
             "chars": len(transcript),
             "speakers": len(transcribe.speaker_stats(utterances)) if diar_ok else 0,
             "diarized": diar_ok,
+            # 逐段结构交给后处理落库（见 postprocess）：用户可以在界面上人工改判
+            # 「谁说的是谁」。渲染好的正文给不识字的人看，逐段结构给改判用。
+            "record": transcribe.new_record(utterances, summary=body) if diar_ok else None,
         }
     ]
     if diar_ok:
@@ -592,6 +642,196 @@ def meeting_audio(state: AssistantState) -> dict[str, Any]:
             "backend": "local",
             "artifacts": artifacts,
         }
+    }
+
+
+# --------------------------------------------------------------------------- #
+# 6. 建档问卷（零 token 确定性流程）
+# --------------------------------------------------------------------------- #
+#: 建档问卷里允许「顺手带上」的字段，按此顺序尝试推断。
+#:
+#: 只放**单位唯一**的字段：用户说「178」几乎必然是身高（厘米）。
+#: ``age`` 也在这里，但必须带「岁」——裸数字「28」既可能是年龄也可能是
+#: 每周天数，猜错就是把用户档案写错，而这种错误用户自己不会发现。
+#:
+#: 顺序即优先级：身高、体重在前，它们把句子里的数字「消费」掉，
+#: 后面的字段就不会拿同一个数字去填（见 :func:`_numbers_by_unit`）。
+_UNIT_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("height_cm", ("身高", "厘米", "cm")),
+    ("weight_kg", ("体重", "公斤", "kg", "千克")),
+    ("age", ("年龄",)),
+    ("days_per_week", ("每周", "一周", "天练", "练天")),
+)
+
+#: 「28岁」这种数字带单位的写法。`\d` 与单位之间允许几个字：
+#: 「178厘米」「178 厘米」「178的厘米」都要认。
+_NUM_UNIT = r"(\d+(?:\.\d+)?)\s*(?:的)?\s*"
+
+
+def _numbers_by_unit(text: str) -> dict[str, float]:
+    """按单位就近取数，**每个数字只能用一次**。
+
+    为什么不能对每个字段都拿整句去解析：``parse_field`` 里的 ``_as_float``
+    取的是「句子里第一个数字」。实测「我178厘米，70公斤」会把身高和体重
+    都填成 178，于是 BMI 算出 56.2 —— 用户看到一个荒谬的数字，却不知道
+    是系统记错了体重。**这正是档案最不能有的错误**：它会被后续所有
+    负荷建议继承。
+
+    做法：先按单位抓出「数字+单位」的配对（如 ``70公斤``→70），
+    返回 ``{单位词: 数值}``；取用后该数字从可用集合里划掉。
+    """
+    import re
+
+    found: dict[str, float] = {}
+    for _key, words in _UNIT_HINTS:
+        for w in words:
+            for m in re.finditer(_NUM_UNIT + re.escape(w), text):
+                found.setdefault(w, float(m.group(1)))
+            # 单位在前：「体重70」也常见
+            for m in re.finditer(
+                re.escape(w) + r"\s*(?:是|为|：|:)?\s*(\d+(?:\.\d+)?)", text
+            ):
+                found.setdefault(w, float(m.group(1)))
+    return found
+
+
+def _infer_extra(text: str, draft: dict[str, Any]) -> dict[str, Any]:
+    """从一句话里顺带认出还没填的字段。认不出的不猜。"""
+    out: dict[str, Any] = {}
+    by_unit = _numbers_by_unit(text)
+    used: set[float] = set()
+
+    for key, words in _UNIT_HINTS:
+        if key in draft or key in out:
+            continue
+        # 优先用带单位的数；同一个数不能被两个字段用掉
+        value = None
+        for w in words:
+            v = by_unit.get(w)
+            if v is not None and v not in used:
+                value = v
+                used.add(v)
+                break
+        if value is None:
+            continue
+        parsed, err = profile.parse_field(key, value)
+        if not err:
+            out[key] = parsed
+
+    # 选项类字段（目标/基础/伤病/慢性病/器械）也顺手认一下：
+    # 「我想增肌，膝盖有伤」一次能填两项。它们都有固定选项，误判风险低。
+    for key, _label, kind, _opts in profile.FIELDS:
+        if key in draft or key in out or kind not in ("choice", "list"):
+            continue
+        value, err = profile.parse_field(key, text)
+        if not err:
+            out[key] = value
+    return out
+
+
+def profile_flow(state: AssistantState) -> dict[str, Any]:
+    """健康档案问卷。**零 token 纯函数驱动，不调模型。**
+
+    为什么独立成节点而不是丢给 ``local_llm``：问卷的每一步都是确定性的
+    ——解析、校验、决定下一个问什么、什么时候落库。交给模型只会更慢、
+    更贵，而且它会「热心」地把用户没说的信息补上（那正是档案最不能有的东西）。
+
+    回合协议：
+
+    - 用户说「建立健康档案」→ 开场 + 第 1 问
+    - 用户答一句 → 解析进 ``draft``，问下一个；答得不合规就原地重问
+    - 填满 → ``store.save_profile`` 落库，回显档案 + BMI + 风险提示
+    - 任何时候说「取消建档」→ 清空草稿（**已存在库里的档案不动**）
+
+    未填完的草稿存在会话状态里（``fitness.draft``），由 checkpointer 落盘——
+    眼镜断连后重连还能接着答，这是迁移到 LangGraph 换来的。
+    """
+    text = (state.get("text") or "").strip()
+    fit = state.get("fitness") or {}
+    awaiting = str(fit.get("awaiting") or "")
+    draft = fit.get("draft") if isinstance(fit.get("draft"), dict) else {}
+
+    # 退出：连库里的档案一起清掉吗？**不清**。
+    # 「取消建档」的语义是「这次不填了」，不是「删除我的健康档案」——
+    # 后者必须是另一个明确的动作，否则用户一句「算了」就把档案弄没了。
+    if profile.wants_cancel(text):
+        return {
+            "fitness": {"awaiting": "", "draft": {}},
+            "result": {
+                "text": profile.cancelled_line(),
+                "backend": "local",
+                "note": "已退出建档",
+            },
+        }
+
+    # 起点：只有触发词、没有答案
+    if not awaiting:
+        if not profile.wants_profile(text):
+            # 走到了建档分支却既不是触发词也不是答案——不该发生，
+            # 但真发生时回一句「没听懂」比静默吞掉好。
+            return {
+                "result": {
+                    "text": "想建健康档案的话，直接说「建立健康档案」就行。",
+                    "backend": "local",
+                    "note": "建档分支未识别输入",
+                }
+            }
+        missing = profile.missing_keys(draft)
+        if not missing:
+            # 档案已完整（手机上填过了）：回显现状，不要重新问一遍
+            data = store.load_profile(state.get("owner") or "local")
+            return {
+                "fitness": {"awaiting": "", "draft": {}},
+                "result": {
+                    "text": "你的健康档案已经有了：\n\n" + profile.summarize(data),
+                    "backend": "local",
+                    "note": "档案已存在",
+                },
+            }
+        text = ""  # 让 answer() 走「首次提问」那条路
+
+    # 顺手推断：用户答身高时可能把体重也说了
+    extra = _infer_extra(text, draft) if text else {}
+    if extra:
+        draft = {**draft, **extra}
+
+    out = profile.answer(text, awaiting=awaiting, draft=draft)
+
+    if out["done"]:
+        data = out["draft"]
+        notes: list[str] = []
+        try:
+            store.save_profile(state.get("owner") or "local", data, source="glasses")
+        except Exception as e:  # noqa: BLE001
+            # 落库失败必须说出来：用户以为建好了、眼镜端却读不到，
+            # 这种「以为存上了」的静默失败最难查。
+            notes.append(f"档案保存失败：{type(e).__name__}: {e}")
+            return {
+                "fitness": {"awaiting": "", "draft": data},
+                "result": {
+                    "text": f"{out['message']}\n\n⚠️ 但保存到服务端失败：{e}\n"
+                    "草稿已留在本次会话里，请重试或改用手机端填写。",
+                    "backend": "local",
+                    "note": "档案落库失败",
+                },
+                "notes": notes,
+            }
+        return {
+            "fitness": {"awaiting": "", "draft": {}},
+            "result": {
+                "text": out["message"],
+                "backend": "local",
+                "note": "健康档案已保存",
+            },
+        }
+
+    return {
+        "fitness": {"awaiting": out["awaiting"], "draft": out["draft"]},
+        "result": {
+            "text": out["message"],
+            "backend": "local",
+            "note": f"建档问卷 {profile.progress(out['draft'])[0]}/{len(profile.FIELD_KEYS)}",
+        },
     }
 
 
@@ -721,6 +961,35 @@ def local_llm(state: AssistantState) -> dict[str, Any]:
                 ],
             }
         }
+
+    # ---- 健康档案注入：档案的**唯一用途**就是把建议落到用户身上 ----
+    #
+    # 只有健身场景注入。档案含伤病与慢性病，是敏感信息，没有理由出现在
+    # 会议纪要或解题的提示词里。
+    #
+    # 读不到档案就什么都不加——**不编造默认值**。「假设用户 30 岁、无伤病」
+    # 会让建议看起来个性化，实际全是凭空来的，而这恰恰是安全相关的字段。
+    profile_block = ""
+    if scene == "fitness":
+        prof = store.load_profile(state.get("owner") or "local")
+        if prof:
+            profile_block = (
+                "\n\n【用户健康档案】\n" + profile.summarize(prof)
+                + "\n以上是用户自己填的信息，请结合它调整动作与负荷；"
+                "档案里没写的不要假设。"
+            )
+            risk = profile.risk_notes(prof)
+            if risk:
+                profile_block += (
+                    f"\n⚠️ {risk}——避免安排冲击该部位或高强度的动作，"
+                    "并提示先咨询医生或线下教练。"
+                )
+        else:
+            profile_block = (
+                "\n\n【用户健康档案】尚未建立。只依据用户这次自述的信息给建议，"
+                "不要假设年龄、体重或伤病；可以提一句「说『建立健康档案』我能给得更准」。"
+            )
+        system = system + profile_block
 
     user = (
         f"用户输入：{question}\n"
@@ -903,7 +1172,19 @@ def postprocess(state: AssistantState) -> dict[str, Any]:
                 source=state.get("text") or "",
             )
             out["archived_id"] = rid
+            # 会议转写：逐段结构落库，供界面上人工改判说话人。
+            # 落库后把 record 从返回值里摘掉——前端要的是「能不能改」和 id，
+            # 整份逐段结构（可能上千段）没必要塞进每一条聊天响应里。
+            for art in res.get("artifacts") or []:
+                if art.get("kind") == "transcript" and art.get("record"):
+                    store.save_transcript(
+                        state.get("owner") or "local", rid, scene=scene, record=art["record"]
+                    )
+                    art.pop("record", None)
+                    art["id"] = rid
+                    art["editable"] = True
         except Exception as e:
             out["notes"] = [f"归档失败（已忽略）：{type(e).__name__}: {e}"]
+    out["result"] = res
 
     return out
