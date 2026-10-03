@@ -236,12 +236,13 @@ def test_async_chat_returns_task_and_result() -> None:
     import time
 
     for _ in range(100):
-        rec = c.get(f"/api/task?task_id={tid}").get_json()
+        rec = c.get(f"/api/task?task_id={tid}&owner=u").get_json()
         if rec["status"] in ("done", "error"):
             break
         time.sleep(0.05)
     assert rec["status"] == "done", rec
     assert "4" in rec["result"]["text"]
+    c.application.extensions["task_manager"].shutdown()
 
 
 def test_async_unknown_task_404() -> None:
@@ -249,27 +250,27 @@ def test_async_unknown_task_404() -> None:
     result = _client().get("/api/task?task_id=nope")
     assert result.status_code == 404
     message = result.get_json()["error"]
-    assert "服务可能已重启" in message
-    assert "本次处理已中断" in message
-    assert "如已上传照片，可重新提交" in message
+    assert "找不到该任务" in message
 
 
 def test_health_counts_only_pending_and_running_tasks() -> None:
     _fresh()
     client = _client()
-    records = {
-        "private-pending": {"status": "pending", "result": None},
-        "private-running": {"status": "running", "result": None},
-        "private-done": {"status": "done", "result": {"text": "private answer"}},
-        "private-error": {"status": "error", "error": "private error"},
-    }
-    with patch.dict("lg_assistant.web.app._TASKS", records, clear=True):
-        body = client.get("/health").get_json()
+    manager = client.application.extensions["task_manager"]
+    records = [manager.submit({"owner": "local", "session_id": "s", "request_id": status,
+                               "text": "private input"}) for status in ("pending", "running", "done", "error")]
+    import sqlite3
+    with sqlite3.connect(config.DB_PATH) as db:
+        for rec in records:
+            db.execute("UPDATE web_tasks SET status=?, result=? WHERE id=?",
+                       (rec["request_id"], '{"text":"private answer"}', rec["id"]))
+    body = client.get("/health").get_json()
     assert body["active_tasks"] == 2
-    assert not any(name in json.dumps(body) for name in records)
+    assert not any(rec["id"] in json.dumps(body) for rec in records)
     assert "private answer" not in json.dumps(body)
-    with patch.dict("lg_assistant.web.app._TASKS", {}, clear=True):
-        assert client.get("/health").get_json()["active_tasks"] == 0
+    with sqlite3.connect(config.DB_PATH) as db:
+        db.execute("UPDATE web_tasks SET status='done'")
+    assert client.get("/health").get_json()["active_tasks"] == 0
 
 
 def test_async_rejects_bad_input_like_sync() -> None:
@@ -380,18 +381,23 @@ def test_concurrent_identical_requests_share_execution() -> None:
 
 
 def test_pending_async_requests_share_task_id() -> None:
-    from lg_assistant.web.app import _task_submit
+    from lg_assistant.jobs import TaskManager
+    _fresh()
     entered, release = threading.Event(), threading.Event()
-    def pending():
+    def pending(payload):
         entered.set()
         release.wait(2)
         return {"text":"finished"}
+    manager = TaskManager(config.DB_PATH, pending)
+    data = {"owner": "local", "session_id": "s", "request_id": "async-duplicate-test"}
     try:
-        first = _task_submit(pending, "async-duplicate-test")
+        first = manager.submit(data)
+        manager.start()
         assert entered.wait(1)
-        assert _task_submit(pending, "async-duplicate-test") == first
+        assert manager.submit(data)["id"] == first["id"]
     finally:
         release.set()
+        manager.shutdown()
 
 
 def test_export_all_six_formats() -> None:

@@ -24,6 +24,14 @@ htmlcov/
 .venv/
 venv/
 node_modules/
+.next/
+out/
+*.tsbuildinfo
+.pytest-*/
+.superpowers/
+.vercel/
+playwright-report/
+test-results/
 *.log
 *.pid
 *.egg-info/

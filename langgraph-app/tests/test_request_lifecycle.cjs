@@ -104,7 +104,7 @@ async function checkRestartedTask() {
       if (path === '/api/chat/async') {
         return {ok:true,status:202,json:async()=>({task_id:'interrupted-task',request_id:'interrupted-request'})};
       }
-      assert.equal(path, '/api/task?task_id=interrupted-task');
+      assert.equal(path, '/api/task?task_id=interrupted-task&owner=local');
       polls++;
       return polls === 1
         ? {ok:true,status:200,json:async()=>({status:'running'})}

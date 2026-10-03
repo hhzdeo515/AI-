@@ -1,0 +1,30 @@
+# Import this Blueprint from the repository. A persistent disk is required.
+# This paid service is a template; creating it requires selecting a paid plan.
+services:
+  - type: web
+    name: ai-assistant
+    runtime: docker
+    plan: starter
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    numInstances: 1
+    disk:
+      name: assistant-data
+      mountPath: /var/lib/ai-assistant
+      sizeGB: 5
+    envVars:
+      - key: ACCESS_TOKEN
+        sync: false
+      - key: DASHSCOPE_API_KEY
+        sync: false
+      - key: TYPESAFE_API_KEY
+        sync: false
+      - key: PUBLIC_SCHEME
+        value: https
+      - key: DATA_DIR
+        value: /var/lib/ai-assistant
+      - key: TASK_WORKERS
+        value: "2"

@@ -155,17 +155,24 @@ class ModelSwitchTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_async_submission_retains_request_model(self):
-        captured = []
-        def submit(fn, request_key=""):
-            captured.append(fn())
-            return "task-test"
-        with patch("lg_assistant.web.app._task_submit", side_effect=submit):
+        import time
+        manager = self.client.application.extensions["task_manager"]
+        try:
             response = self.client.post("/api/chat/async", data={
                 "text": "按资料解题", "scene": "exam", "owner": "alice", "exam_backend": "jev",
                 "event": json.dumps(self.event), "files": (io.BytesIO(b"image stub"), "question.png")})
-        self.assertEqual(response.status_code, 202)
-        self.assertEqual(captured[0]["exam_backend"], "jev")
-        self.original_solve.assert_not_called()
+            self.assertEqual(response.status_code, 202)
+            task_id = response.get_json()["task_id"]
+            for _ in range(100):
+                task = manager.get(task_id, "alice")
+                if task["status"] in {"done", "error"}:
+                    break
+                time.sleep(.03)
+            self.assertEqual(task["status"], "done", task)
+            self.assertEqual(task["result"]["exam_backend"], "jev")
+            self.original_solve.assert_not_called()
+        finally:
+            manager.shutdown()
 
     def test_checkpoint_resume_retains_jev_node(self):
         cfg = graph.run_config("alice", "interrupted")

@@ -27,8 +27,8 @@ from flask import Request, Response, jsonify, make_response, redirect, request
 COOKIE_NAME = "lg_access"
 
 #: 不需要口令的路径。静态资源与登录页本身必须放行，否则登录页都打不开。
-EXEMPT_PATHS = frozenset({"/login", "/health", "/favicon.ico"})
-EXEMPT_PREFIXES = ("/static/",)
+EXEMPT_PATHS = frozenset({"/login", "/login/", "/health", "/favicon.ico", "/api/session", "/api/login"})
+EXEMPT_PREFIXES = ("/static/", "/_next/")
 
 
 def is_enabled(token: str) -> bool:
@@ -54,7 +54,11 @@ def token_ok(req: Request, token: str) -> bool:
     presented = _presented_token(req)
     if not presented:
         return False
-    return hmac.compare_digest(presented, token)
+    return _same_token(presented, token)
+
+
+def _same_token(presented: str, expected: str) -> bool:
+    return hmac.compare_digest(presented.encode("utf-8"), expected.encode("utf-8"))
 
 
 def wants_json(req: Request) -> bool:
@@ -94,8 +98,7 @@ LOGIN_PAGE = """<!doctype html>
          placeholder="访问口令" aria-label="访问口令">
   <button type="submit">进入</button>
   {error}
-  <div class="hint">口令在服务端的 <code>ACCESS_TOKEN</code> 环境变量里设置。
-    忘记时到服务端启动日志里看，或把 <code>.env</code> 里的值改掉。</div>
+  <div class="hint">使用管理员提供的访问口令。忘记口令时请联系管理员重置。</div>
 </form></body></html>
 """
 
@@ -135,7 +138,33 @@ def install(app: Any, token: str, *, secure_cookie: bool = False) -> None:
             return resp
         return redirect("/login")
 
-    @app.route("/login", methods=["GET", "POST"])
+    @app.get("/api/session")
+    def _session():
+        response = jsonify({"authenticated": not is_enabled(token) or token_ok(request, token),
+                            "auth_enabled": is_enabled(token)})
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.post("/api/login")
+    def _json_login():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get("token"), str):
+            return jsonify({"error": "请输入访问口令"}), 400
+        submitted = data["token"].strip()
+        if is_enabled(token) and (not submitted or not _same_token(submitted, token)):
+            return jsonify({"error": "口令不正确", "code": "unauthorized"}), 401
+        response = jsonify({"authenticated": True, "auth_enabled": is_enabled(token)})
+        if is_enabled(token):
+            _set_cookie(response, token, secure_cookie)
+        return response
+
+    @app.post("/api/logout")
+    def _json_logout():
+        response = jsonify({"ok": True})
+        response.delete_cookie(COOKIE_NAME, path="/", secure=secure_cookie, httponly=True, samesite="Lax")
+        return response
+
+    @app.route("/login", methods=["GET", "POST"], strict_slashes=False)
     def _login():  # type: ignore[unused-ignore]
         if not is_enabled(token):
             return redirect("/")
@@ -144,10 +173,14 @@ def install(app: Any, token: str, *, secure_cookie: bool = False) -> None:
             # 已登录就别停在登录页
             if token_ok(request, token):
                 return redirect("/")
+            from .frontend import page
+            exported = page("login")
+            if exported is not None:
+                return exported
             return login_page()
 
         submitted = (request.form.get("token") or "").strip()
-        if not submitted or not hmac.compare_digest(submitted, token):
+        if not submitted or not _same_token(submitted, token):
             return login_page("口令不正确"), 401
 
         resp = make_response(redirect("/"))

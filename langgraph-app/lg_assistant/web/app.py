@@ -32,8 +32,9 @@ from flask import Flask, jsonify, make_response, render_template, request, send_
 
 from .. import config, llm, nodes, progress, store, transcribe, exam_knowledge, public_knowledge
 from ..graph import build_graph, open_checkpointer, run_config, thread_id
+from ..jobs import TaskConflictError, TaskManager
 from ..tools import export
-from . import auth
+from . import auth, frontend, media
 from ..photo_practice import options as practice_options
 
 SPEECH_MAX_CHARS = config.SPEECH_MAX_CHARS
@@ -70,37 +71,9 @@ def _progress_snapshot(rid: str) -> dict[str, Any] | None:
 
 
 # --------------------------------------------------------------------------- #
-# 异步任务（线程池 + 内存表；与基线同样的取舍，进程重启即丢）
+# 请求锁用于跨会话的同 request_id 去重；会话锁由持久任务管理器持有。
 # --------------------------------------------------------------------------- #
-_TASKS: dict[str, dict[str, Any]] = {}
-_TASKS_LOCK = threading.RLock()
 _REQUEST_LOCKS = [threading.RLock() for _ in range(64)]
-
-
-def _task_submit(fn, request_key="") -> str:
-    tid = uuid.uuid4().hex[:12]
-    with _TASKS_LOCK:
-        if request_key:
-            for old in _TASKS.values():
-                if old.get("request_key") == request_key and old["status"] in ("pending", "running"):
-                    return old["id"]
-        _TASKS[tid] = {"id": tid, "status": "pending", "result": None, "error": "", "request_key": request_key}
-
-    def run() -> None:
-        with _TASKS_LOCK:
-            if tid in _TASKS:
-                _TASKS[tid]["status"] = "running"
-        try:
-            value = fn()
-        except Exception as e:  # 任务异常必须落到记录里
-            with _TASKS_LOCK:
-                _TASKS[tid].update(status="error", error=f"{type(e).__name__}: {e}")
-            return
-        with _TASKS_LOCK:
-            _TASKS[tid].update(status="done", result=value)
-
-    threading.Thread(target=run, daemon=True, name=f"lg-task-{tid}").start()
-    return tid
 
 
 # --------------------------------------------------------------------------- #
@@ -165,7 +138,8 @@ def _parse_chat_form():
     }, None
 
 
-def create_app(app: Any = None, *, secure_cookie: bool = False) -> Flask:
+def create_app(app: Any = None, *, secure_cookie: bool = False,
+               start_workers: bool = False, task_workers: int = 2) -> Flask:
     """``app`` 为已编译的图；测试可注入桩图。默认自行编译（带 checkpointer）。"""
     config.ensure_dirs()
     store.init()
@@ -183,13 +157,24 @@ def create_app(app: Any = None, *, secure_cookie: bool = False) -> Flask:
     flask_app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
     # 访问口令：设了 ACCESS_TOKEN 才启用，留空则保持本地零摩擦
+    frontend.install(flask_app)
     auth.install(flask_app, config.ACCESS_TOKEN, secure_cookie=secure_cookie)
 
     compiled = app if app is not None else build_graph(open_checkpointer())
 
+    def _failed_result(value: dict) -> bool:
+        return bool(value.get("error")) or value.get("status") in {"error", "failed"}
+
+    def _stale_checkpoint(p: dict) -> bool:
+        if not hasattr(compiled, "get_state"):
+            return False
+        snapshot = compiled.get_state(run_config(p["owner"], p["session_id"]))
+        return bool(snapshot and snapshot.values.get("request_id") not in (None, "", p["request_id"]))
+
     def _run_chat(p: dict) -> dict:
         key = hashlib.sha256(json.dumps([p["owner"], p["request_id"]]).encode()).hexdigest()
-        with _REQUEST_LOCKS[int(key[:8], 16) % len(_REQUEST_LOCKS)]:
+        with task_manager.session_lock(p["owner"], p["session_id"]), \
+             _REQUEST_LOCKS[int(key[:8], 16) % len(_REQUEST_LOCKS)]:
             return _execute_chat(p)
 
     def _execute_chat(p: dict) -> dict:
@@ -208,9 +193,9 @@ def create_app(app: Any = None, *, secure_cookie: bool = False) -> Flask:
 
         # 请求级幂等：同 request_id 直接回放上次结果（断连补传的地基）
         cached = store.receipt(p["owner"], p["request_id"], "handle")
-        if cached:
+        if cached and not (p.get("_retry") and _failed_result(cached)):
             out = dict(cached)
-            out["status"] = cached.get("status") if cached.get("status") in ("error", "needs_selection") else "duplicate"
+            out["status"] = cached.get("status") if cached.get("status") in ("error", "failed", "needs_selection") else "duplicate"
             out["rejected_files"] = p["rejected"]
             return out
 
@@ -218,13 +203,25 @@ def create_app(app: Any = None, *, secure_cookie: bool = False) -> Flask:
         # 图片在上传阶段就已落盘，所以 capture 一开始就算完成，从 recognize 开始上报。
         has_image = any(Path(f).suffix.lower() in IMAGE_EXT for f in p["files"])
         rid = p["request_id"]
-        _progress_begin(rid, "exam" if has_image else "", "recognize" if has_image else "")
+        progress.begin(rid, "exam" if has_image else "", "recognize" if has_image else "",
+                       sink=lambda value: task_manager.save_progress(p["owner"], rid, value))
         # 把 request_id 绑到执行线程上，链路里的 progress.mark() 才能写回这条记录
         progress.bind(rid)
         try:
             from ..call_metrics import capture
             with capture() as model_calls:
-                result = compiled.invoke(state, cfg)
+                snapshot = compiled.get_state(cfg) if p.get("_retry") and hasattr(compiled, "get_state") else None
+                if snapshot and snapshot.values.get("request_id") not in (None, "", rid):
+                    raise TaskConflictError()
+                if snapshot and snapshot.values.get("request_id") == rid and snapshot.next:
+                    result = compiled.invoke(None, cfg)
+                elif snapshot and snapshot.values.get("request_id") == rid and snapshot.values.get("result") \
+                        and not snapshot.values["result"].get("retryable") and not _failed_result(snapshot.values["result"]):
+                    # The graph may have completed before the HTTP receipt was saved.
+                    result = snapshot.values
+                else:
+                    # ASR jobs keep the same owner/request/files and durable submission receipt.
+                    result = compiled.invoke(state, cfg)
         except BaseException:
             _progress_finish(rid, error=True)
             raise
@@ -263,15 +260,38 @@ def create_app(app: Any = None, *, secure_cookie: bool = False) -> Flask:
             store.remember(p["owner"], p["request_id"], "handle", payload)
         return payload
 
+    def _run_task(p: dict) -> dict:
+        try:
+            return _run_chat(p)
+        finally:
+            # Worker lifetime is independent of Flask request teardown. Release
+            # its thread-local store connection before a shutdown/backup.
+            connection = getattr(store._local, "conn", None)
+            if connection is not None:
+                connection.close()
+                del store._local.conn
+
+    task_manager = TaskManager(config.DB_PATH, _run_task, max_workers=task_workers, is_stale=_stale_checkpoint)
+    flask_app.extensions["task_manager"] = task_manager
+    media.install(flask_app)
+    if start_workers:
+        task_manager.start()
+
     # ------------------------------------------------------------------ #
     @flask_app.get("/")
     def index():
+        exported = frontend.page("index")
+        if exported is not None:
+            return exported
+        return render_template("index.html", scenes=config.SCENES)
+
+    @flask_app.get("/legacy")
+    def legacy_index():
         return render_template("index.html", scenes=config.SCENES)
 
     @flask_app.get("/health")
     def health():
-        with _TASKS_LOCK:
-            active_tasks = sum(rec.get("status") in {"pending", "running"} for rec in _TASKS.values())
+        active_tasks = task_manager.active_count()
         return jsonify(
             {
                 "ok": True,
@@ -313,33 +333,72 @@ def create_app(app: Any = None, *, secure_cookie: bool = False) -> Flask:
         if err:
             return err
         try:
-            return jsonify(_run_chat(p))
+            with task_manager.activity():
+                return jsonify(_run_chat(p))
         except Exception as e:  # 兜底，不把栈回溯吐给前端
             return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
 
     @flask_app.post("/api/chat/async")
     def api_chat_async():
+        owner = (request.form.get("owner") or "local").strip() or "local"
+        rid = (request.form.get("request_id") or "").strip()
+        existing = task_manager.get_by_request(owner, rid) if rid else None
+        if existing:
+            task_manager.start()
+            return _submission_response(existing)
         p, err = _parse_chat_form()
         if err:
             return err
-        key = hashlib.sha256(json.dumps([p["owner"], p["request_id"]]).encode()).hexdigest()
-        tid = _task_submit(lambda: _run_chat(p), request_key=key)
-        return jsonify({"task_id": tid, "request_id": p["request_id"], "status": "pending"}), 202
+        task = task_manager.submit(p)
+        task_manager.start()
+        return _submission_response(task)
+
+    def _submission_response(task):
+        return jsonify({"task_id": task["id"], "request_id": task["request_id"], "status": task["status"]}), 202
 
     @flask_app.get("/api/task")
     def api_task():
         tid = (request.args.get("task_id") or "").strip()
-        with _TASKS_LOCK:
-            rec = _TASKS.get(tid)
+        owner = (request.args.get("owner") or "local").strip() or "local"
+        rec = task_manager.get(tid, owner)
         if not rec:
-            return jsonify({"error": "找不到该任务。服务可能已重启，本次处理已中断；如已上传照片，可重新提交。"}), 404
-        return jsonify(dict(rec))
+            return jsonify({"error": "找不到该任务，请检查任务编号及所属用户。"}), 404
+        rec["media"] = media.describe(tid, owner)
+        return jsonify(rec)
+
+    @flask_app.get("/api/tasks")
+    def api_tasks():
+        owner = (request.args.get("owner") or "local").strip() or "local"
+        return jsonify({"tasks": task_manager.list(owner)})
+
+    @flask_app.post("/api/task/retry")
+    def api_task_retry():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get("task_id"), str):
+            return jsonify({"error": "请提供 task_id"}), 400
+        owner = str(data.get("owner") or "local").strip() or "local"
+        task_manager.start()
+        tid = data["task_id"].strip()
+        task = task_manager.get(tid, owner)
+        if not task:
+            return jsonify({"error": "找不到该任务"}), 404
+        with task_manager.session_lock(owner, task["session_id"]):
+            cached = store.receipt(owner, task["request_id"], "handle")
+            if task["status"] in {"interrupted", "error"} and hasattr(compiled, "get_state") \
+                    and (not cached or _failed_result(cached)):
+                snap = compiled.get_state(run_config(owner, task["session_id"]))
+                if snap and snap.values.get("request_id") not in (None, "", task["request_id"]):
+                    task_manager.mark_conflict(tid, owner)
+                    return jsonify({"error": TaskConflictError.MESSAGE}), 409
+            task = task_manager.retry(tid, owner)
+        return _submission_response(task)
 
     @flask_app.get("/api/state")
     def api_state():
         owner = (request.args.get("owner") or "local").strip() or "local"
         sid = (request.args.get("session_id") or "web").strip() or "web"
-        snap = compiled.get_state(run_config(owner, sid))
+        with task_manager.session_lock(owner, sid):
+            snap = compiled.get_state(run_config(owner, sid))
         vals = snap.values if snap else {}
         return jsonify(
             {
@@ -359,14 +418,15 @@ def create_app(app: Any = None, *, secure_cookie: bool = False) -> Flask:
         owner = (request.args.get("owner") or "local").strip() or "local"
         sid = (request.args.get("session_id") or "web").strip() or "web"
         cfg = run_config(owner, sid)
-        snap = compiled.get_state(cfg)
-        if not snap or not snap.values:
-            return jsonify({"error": "该会话没有检查点"}), 404
-        if not snap.next:
-            res = snap.values.get("result") or {}
-            return jsonify({"resumed": False, "reason": "已执行完毕", "text": res.get("text", ""),
+        with task_manager.activity(), task_manager.session_lock(owner, sid):
+            snap = compiled.get_state(cfg)
+            if not snap or not snap.values:
+                return jsonify({"error": "该会话没有检查点"}), 404
+            if not snap.next:
+                res = snap.values.get("result") or {}
+                return jsonify({"resumed": False, "reason": "已执行完毕", "text": res.get("text", ""),
                             "exam_backend": res.get("exam_backend", "")})
-        result = compiled.invoke(None, cfg)
+            result = compiled.invoke(None, cfg)
         res = result.get("result") or {}
         return jsonify({"resumed": True, "text": res.get("text", ""), "speech": result.get("speech", ""),
                         "exam_backend": res.get("exam_backend", "")})
@@ -452,7 +512,8 @@ def create_app(app: Any = None, *, secure_cookie: bool = False) -> Flask:
             text = transcribe.format_record(rec)
             try:
                 from ..meeting_graph import summarize_text, render_summary
-                checked = summarize_text(text)
+                with task_manager.activity():
+                    checked = summarize_text(text)
                 if checked.get("error"):
                     raise llm.LLMError(checked["error"])
                 rec["summary"] = render_summary(checked["summary"], checked["issues"])
@@ -522,6 +583,11 @@ def create_app(app: Any = None, *, secure_cookie: bool = False) -> Flask:
     @flask_app.get("/api/progress")
     def api_progress():
         rid = (request.args.get("request_id") or "").strip()
+        owner = (request.args.get("owner") or "local").strip() or "local"
+        task = task_manager.get_by_request(owner, rid)
+        if task:
+            return jsonify(task.get("progress") or {"scene": "", "steps": [],
+                           "finished": task["status"] not in {"pending", "running"}})
         return jsonify(_progress_snapshot(rid) or {"scene": "", "steps": [], "finished": True})
 
     @flask_app.post("/api/reset")
@@ -530,7 +596,8 @@ def create_app(app: Any = None, *, secure_cookie: bool = False) -> Flask:
         owner = (request.form.get("owner") or "local").strip() or "local"
         sid = (request.form.get("session_id") or "web").strip() or "web"
         try:
-            compiled.checkpointer.delete_thread(thread_id(owner, sid))
+            with task_manager.session_lock(owner, sid):
+                compiled.checkpointer.delete_thread(thread_id(owner, sid))
         except Exception as e:
             return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
         return jsonify({"ok": True})
@@ -616,7 +683,7 @@ def create_app(app: Any = None, *, secure_cookie: bool = False) -> Flask:
 def run(host: str | None = None, port: int | None = None) -> None:
     host = host or config.WEB_HOST
     port = int(port or config.WEB_PORT)
-    app = create_app()
+    app = create_app(start_workers=True)
 
     lan = host not in ("127.0.0.1", "localhost")
     print(f"langgraph-app Web 已启动： http://{host}:{port}")
@@ -636,7 +703,10 @@ def run(host: str | None = None, port: int | None = None) -> None:
         print("         请在 .env 里设置 ACCESS_TOKEN=<一段足够长的随机字符串> 后重启。")
         print("  " + "!" * 62)
 
-    app.run(host=host, port=port, threaded=True)
+    try:
+        app.run(host=host, port=port, threaded=True)
+    finally:
+        app.extensions["task_manager"].shutdown(wait=True)
 
 
 def _lan_ips() -> list[str]:

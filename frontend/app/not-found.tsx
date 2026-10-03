@@ -1,0 +1,1 @@
+export default function NotFound() { return <main className="mx-auto max-w-xl px-6 py-24"><p className="eyebrow">页面未找到</p><h1 className="mt-4 text-2xl">这个页面暂不可用</h1><a className="button primary mt-6 inline-flex" href="/">返回眼镜视野</a></main>; }

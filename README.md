@@ -1,6 +1,6 @@
 # AI 眼镜智能助手
 
-基于 **LangGraph + Flask** 的 AI 智能眼镜演示项目，提供会议纪要、拍照解题，以及电脑端「眼镜 + 戒指」交互。当前应用位于 [langgraph-app/](langgraph-app/)。
+基于 **Next.js + Flask + LangGraph** 的 AI 智能眼镜助手，提供会议纪要、拍照解题，以及电脑端「眼镜 + 戒指」交互。React 前端位于 [frontend/](frontend/)，Python AI 后端位于 [langgraph-app/](langgraph-app/)。
 
 ## 当前功能
 
@@ -13,6 +13,8 @@
 眼镜、戒指与传输链路为浏览器模拟；摄像头、麦克风采集以及配置后的模型请求使用真实服务。真实设备接入尚未实现。
 
 ## 快速开始
+
+新前端开发与构建见[架构与开发](docs/架构与开发.md)。生产镜像自动构建 Next.js 并与 Python API 同源运行；下面命令单独启动后端，未配置 FRONTEND_DIR 时提供兼容界面。
 
 建议使用 Python 3.11。以下命令在仓库根目录执行：
 
@@ -33,6 +35,7 @@ python run.py web --port 8802
 ## 项目结构
 
 ```text
+frontend/             Next.js 页面、React 组件、媒体与任务状态、前端测试
 langgraph-app/
   lg_assistant/       LangGraph 编排、场景处理、Web 界面和工具
     knowledge/       内置知识摘要及来源清单
@@ -42,6 +45,7 @@ langgraph-app/
   .env.example       配置模板
   requirements.txt   运行依赖
 docs/                功能说明和指标设计
+deploy/              托管配置、线上验证、数据备份
 ```
 
 运行数据默认写入 `langgraph-app/data/`。密钥、上传文件、数据库、评测结果、模型文件、第三方安装包、个人资料及旧版原型均不纳入当前版本。
@@ -64,6 +68,7 @@ Get-ChildItem tests/test_*.cjs | ForEach-Object {
 ## 文档与边界
 
 - [应用配置与运行](langgraph-app/README.md)
+- [架构与前端开发](docs/架构与开发.md)
 - [完整应用部署](docs/部署.md)
 - [硬件协同演示](docs/硬件协同演示.md)
 - [拍照解题实现与使用](docs/拍照解题Agent_实现与使用.md)

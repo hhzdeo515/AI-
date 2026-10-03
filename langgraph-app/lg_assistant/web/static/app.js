@@ -236,7 +236,7 @@
       // while the server reports that it is pending/running; never resubmit it.
       while (true) {
         await sleep(600);
-        const rec = await apiJson("/api/task?task_id=" + encodeURIComponent(tid));
+        const rec = await apiJson("/api/task?task_id=" + encodeURIComponent(tid) + "&owner=" + encodeURIComponent(S.owner));
         if (rec.status === "done") return rec.result;
         if (rec.status === "error") throw new Error(rec.error || "任务失败");
         if (rec.status !== "pending" && rec.status !== "running") throw new Error("任务状态无法确认，请查看资料库中的结果或稍后重试");

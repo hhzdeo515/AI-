@@ -1,3 +1,11 @@
+FROM node:24-bookworm-slim AS frontend
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
 FROM python:3.11-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1 \
@@ -5,7 +13,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     DATA_DIR=/var/lib/ai-assistant \
     PORT=10000 \
-    PUBLIC_SCHEME=https
+    PUBLIC_SCHEME=https \
+    FRONTEND_DIR=/app/frontend
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
@@ -19,6 +28,7 @@ RUN python -m pip install --no-cache-dir -r requirements-production.txt
 
 COPY langgraph-app/lg_assistant/ ./lg_assistant/
 COPY langgraph-app/production.py ./
+COPY --from=frontend /frontend/out/ /app/frontend/
 RUN mkdir -p /var/lib/ai-assistant \
     && chown assistant:assistant /var/lib/ai-assistant
 

@@ -1,6 +1,6 @@
-# LangGraph 智能眼镜助手
+# Flask / LangGraph 智能眼镜助手后端
 
-本目录是当前可运行的主项目，包含会议纪要、拍照解题、策论与面试练习，以及眼镜和戒指交互演示。所需应用代码均在本目录，安装 `requirements.txt` 中的依赖即可运行，无需旧版原型目录。
+本目录提供会议纪要、拍照解题、策论与面试练习的 Python 后端。新版 Next.js 界面位于仓库根目录 `frontend/`；前后端开发和构建方法见[架构与开发](../docs/架构与开发.md)。本目录仍保留可独立运行的兼容界面，用于原有功能回归。
 
 ## 安装与启动
 
@@ -55,8 +55,8 @@ Windows 启动脚本：
 - `photo_practice.py`、`practice_agents.py`：题型分流、策论与面试练习。
 - `meeting_graph.py`、`meeting_jobs.py`、`transcribe.py`：会议转写、纪要和恢复任务。
 - `exam_knowledge.py`、`public_knowledge.py`、`knowledge/`：用户资料与内置知识检索。
-- `store.py`、`state.py`、`progress.py`：SQLite 存储、检查点状态与处理进度。
-- `web/`：Flask 接口、网页模板、镜片和戒指交互。
+- `store.py`、`state.py`、`progress.py`、`jobs.py`：SQLite 存储、检查点状态、持久任务与处理进度。
+- `web/`：Flask 接口、访问鉴权、Next.js 静态资源和兼容界面。
 - `tools/`、`ported/`：音频、导出、算术、图形及播报工具。
 
 以上路径相对于 `lg_assistant/`。运行数据库、上传素材、导出文件与日志均由应用在本地生成，不纳入版本管理。

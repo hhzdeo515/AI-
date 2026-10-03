@@ -1,6 +1,8 @@
 # Include only files needed to build the application image.
 **
 !Dockerfile
+!frontend/
+!frontend/**
 !langgraph-app/
 !langgraph-app/requirements.txt
 !langgraph-app/requirements-production.txt
@@ -12,3 +14,9 @@
 **/*.pyo
 **/.env
 **/.env.*
+**/node_modules/
+**/.next/
+**/out/
+**/*.tsbuildinfo
+**/test-results/
+**/playwright-report/

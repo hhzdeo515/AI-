@@ -103,7 +103,7 @@ assert.equal(scrollBox['min-height'],'0');assert.equal(scrollBox.flex,'1 1 0');a
 const polling = source.slice(source.indexOf('  async function sendAsync(opts)'), source.indexOf('  /* ── Toast'));
 async function runPoll(replies) {
   const calls=[];let polls=0,stopped=0;
-  const fixture={sleep:async()=>{},form:()=>({}),pollProgress:()=>()=>{stopped++;},
+  const fixture={S:{owner:"fixture-user"},sleep:async()=>{},form:()=>({}),pollProgress:()=>()=>{stopped++;},
     apiJson:async(path)=>{calls.push(path);if(path==='/api/chat/async')return {task_id:'same-task'};return replies(polls++);}};
   vm.runInNewContext(polling + '\nthis.request = sendAsync({request_id:"progress-id",onProgress:()=>{}});',fixture);
   try { return {result:await fixture.request,calls,polls,stopped}; }
@@ -114,7 +114,7 @@ async function runPoll(replies) {
   assert.deepEqual(long.result,{text:'all questions'});
   assert.equal(long.polls,1001,'a batch remains attached after the old 900-poll limit');
   assert.equal(long.calls.filter(p=>p==='/api/chat/async').length,1,'waiting never creates a duplicate task');
-  assert.ok(long.calls.slice(1).every(p=>p==='/api/task?task_id=same-task'));
+  assert.ok(long.calls.slice(1).every(p=>p==='/api/task?task_id=same-task&owner=fixture-user'));
   assert.equal(long.stopped,1,'progress polling stops after completion');
   const failed=await runPoll(()=>({status:'error',error:'failed-one'}));
   assert.match(failed.error.message,/failed-one/);assert.equal(failed.stopped,1);

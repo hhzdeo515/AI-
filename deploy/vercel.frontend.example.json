@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://YOUR-CLOUD-BACKEND.example/api/:path*" },
+    { "source": "/health", "destination": "https://YOUR-CLOUD-BACKEND.example/health" },
+    { "source": "/legacy", "destination": "https://YOUR-CLOUD-BACKEND.example/legacy" },
+    { "source": "/static/:path*", "destination": "https://YOUR-CLOUD-BACKEND.example/static/:path*" }
+  ]
+}

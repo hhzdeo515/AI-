@@ -24,26 +24,26 @@
 Files: lg_assistant/jobs.py, progress.py, web/app.py task routes, tests/test_jobs.py.
 Consumes: existing parsed chat payload, _run_chat, SQLite and graph checkpointer.
 Produces: existing /api/chat/async and /api/task contracts plus GET /api/tasks and POST /api/task/retry.
-- [ ] Write failing durability, deduplication, restart, session-serialization and retry tests.
-- [ ] Implement persisted task state, bounded execution and explicit recovery without exposing file paths.
-- [ ] Persist progress snapshots and retain old APIs.
-- [ ] Run targeted and existing Python tests.
+- [x] Write failing durability, deduplication, restart, session-serialization and retry tests.
+- [x] Implement persisted task state, bounded execution and explicit recovery without exposing file paths.
+- [x] Persist progress snapshots and retain old APIs.
+- [x] Run targeted and existing Python tests.
 
 ### Task 2: Next.js interface
 Files: frontend/package.json, lockfile, app/, components/, lib/, hooks/, tests/.
 Consumes: current Flask APIs and Task 1 endpoints; auth session returns authenticated/auth_enabled, login accepts JSON token.
 Produces: frontend/out static application and type-safe API/interaction components.
-- [ ] Create tests for API errors, request construction, resumable task polling and media lifecycle.
-- [ ] Build complete Chinese lens/ring interface, real uploads and recordings, practice controls, results/history/knowledge.
-- [ ] Add explicit loading, empty, error and interrupted states, accessible labels and responsive layout.
-- [ ] Run test, typecheck and production build.
+- [x] Create tests for API errors, request construction, resumable task polling and media lifecycle.
+- [x] Build complete Chinese lens/ring interface, real uploads and recordings, practice controls, results/history/knowledge.
+- [x] Add explicit loading, empty, error and interrupted states, accessible labels and responsive layout.
+- [x] Run test, typecheck and production build.
 
 ### Task 3: Integration and deployment
 Files: web/frontend.py, web/auth.py, production.py, Dockerfile, compose.yaml, deployment scripts, README and deployment docs.
 Consumes: frontend/out and persisted task service.
 Produces: same-origin production app with secure cookie auth, deploy checks and documented Vercel frontend alternative.
-- [ ] Add failing tests for frontend asset serving, auth JSON session and production behavior.
-- [ ] Mount Next.js export with legacy UI fallback; add JSON login/logout/session and no secret exposure.
-- [ ] Add multi-stage Docker build, persistent volume, backup and online smoke scripts.
-- [ ] Verify all tests, local browser, container and clean diff; obtain independent review.
+- [x] Add failing tests for frontend asset serving, auth JSON session and production behavior.
+- [x] Mount Next.js export with legacy UI fallback; add JSON login/logout/session and no secret exposure.
+- [x] Add multi-stage Docker build, persistent volume, backup and online smoke scripts.
+- [x] Verify all tests, local browser, container and clean diff; obtain independent review.
 - [ ] Commit and sync; deploy and verify cloud HTTPS when credentials/target exist, otherwise state exact missing connection.

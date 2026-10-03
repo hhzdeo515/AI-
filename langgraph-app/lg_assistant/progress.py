@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Any
+from typing import Any, Callable
 
 #: 保留多少条记录（超出按插入顺序淘汰，与 Web 层的 LRU 口径一致）
 MAX_RECORDS = 200
@@ -60,7 +60,8 @@ def current() -> str:
 # --------------------------------------------------------------------------- #
 # 记录：Web 层用
 # --------------------------------------------------------------------------- #
-def begin(request_id: str, scene: str = "", step: str = "") -> None:
+def begin(request_id: str, scene: str = "", step: str = "", *,
+          sink: Callable[[dict | None], None] | None = None) -> None:
     """开始记录。``scene`` 为空表示这次请求没有步骤链（前端只显示等待态）。
 
     ``step`` 允许调用方声明「已经有哪一步完成了」——例如图片在上传阶段就落盘，
@@ -83,9 +84,18 @@ def begin(request_id: str, scene: str = "", step: str = "") -> None:
             "t0": now,
             "t1": None,
             "marks": [(step, now)] if step else [],
+            "sink": sink,
         }
         while len(_records) > MAX_RECORDS:
             _records.pop(next(iter(_records)))
+        _publish(request_id)
+
+
+def _publish(request_id: str) -> None:
+    """Persist a public snapshot while holding the record lock, preserving order."""
+    rec = _records.get(request_id)
+    if rec and rec.get("sink"):
+        rec["sink"](snapshot(request_id))
 
 
 def mark(step: str, request_id: str = "") -> None:
@@ -98,6 +108,7 @@ def mark(step: str, request_id: str = "") -> None:
         if rec and not rec["finished"]:
             rec["step"] = step
             rec["marks"].append((step, time.monotonic()))
+            _publish(rid)
 
 
 def batch(total: int, done: int, request_id: str = "") -> None:
@@ -115,6 +126,7 @@ def batch(total: int, done: int, request_id: str = "") -> None:
         rec = _records.get(rid)
         if rec and not rec["finished"]:
             rec["batch"] = {"total": total, "done": done}
+            _publish(rid)
 
 
 def finish(request_id: str, error: bool = False) -> None:
@@ -125,6 +137,7 @@ def finish(request_id: str, error: bool = False) -> None:
             rec["finished"] = True
             rec["error"] = bool(error)
             rec["t1"] = time.monotonic()
+            _publish(request_id)
 
 
 def timings(request_id: str) -> dict[str, Any]:
