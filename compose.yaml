@@ -1,0 +1,19 @@
+services:
+  assistant:
+    build: .
+    init: true
+    restart: unless-stopped
+    env_file:
+      - ${ASSISTANT_ENV_FILE:-deploy.env}
+    environment:
+      DATA_DIR: /var/lib/ai-assistant
+      PORT: "10000"
+      PUBLIC_SCHEME: https
+    ports:
+      - "127.0.0.1:8804:10000"
+    volumes:
+      - assistant-data:/var/lib/ai-assistant
+    stop_grace_period: 60s
+
+volumes:
+  assistant-data:

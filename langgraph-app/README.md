@@ -64,7 +64,7 @@ Windows 启动脚本：
 ## 测试与可复跑脚本
 
 ```powershell
-python -m pip install pytest
+python -m pip install -r requirements-dev.txt
 python -m pytest tests -q
 Get-ChildItem tests/test_*.cjs | ForEach-Object {
     node $_.FullName

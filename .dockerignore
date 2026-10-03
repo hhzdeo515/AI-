@@ -1,0 +1,14 @@
+# Include only files needed to build the application image.
+**
+!Dockerfile
+!langgraph-app/
+!langgraph-app/requirements.txt
+!langgraph-app/requirements-production.txt
+!langgraph-app/production.py
+!langgraph-app/lg_assistant/
+!langgraph-app/lg_assistant/**
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.env
+**/.env.*

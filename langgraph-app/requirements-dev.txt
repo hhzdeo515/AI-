@@ -1,0 +1,5 @@
+# Development and regression tests; production uses requirements-production.txt.
+-r requirements.txt
+pytest>=8.0
+pytest-subtests>=0.14
+numpy>=1.26

@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+/deploy.env
+/deploy.env.*
+!/deploy.env.example
 *.pem
 *.key
 *.sqlite3
@@ -33,6 +36,7 @@ dist/
 /output/
 /outputs/
 /tmp/
+/.deploy-validation/
 /draft_*_folder/
 /.workbuddy-ai/
 **/.impeccable/

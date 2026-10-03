@@ -51,7 +51,7 @@ docs/                功能说明和指标设计
 在 `langgraph-app` 目录执行：
 
 ```powershell
-python -m pip install pytest
+python -m pip install -r requirements-dev.txt
 python -m pytest tests -q
 Get-ChildItem tests/test_*.cjs | ForEach-Object {
     node $_.FullName
@@ -64,6 +64,7 @@ Get-ChildItem tests/test_*.cjs | ForEach-Object {
 ## 文档与边界
 
 - [应用配置与运行](langgraph-app/README.md)
+- [完整应用部署](docs/部署.md)
 - [硬件协同演示](docs/硬件协同演示.md)
 - [拍照解题实现与使用](docs/拍照解题Agent_实现与使用.md)
 - [指标体系与埋点方案](docs/拍照解题指标体系与埋点方案.md)

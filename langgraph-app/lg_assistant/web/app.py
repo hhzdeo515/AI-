@@ -165,7 +165,7 @@ def _parse_chat_form():
     }, None
 
 
-def create_app(app: Any = None) -> Flask:
+def create_app(app: Any = None, *, secure_cookie: bool = False) -> Flask:
     """``app`` 为已编译的图；测试可注入桩图。默认自行编译（带 checkpointer）。"""
     config.ensure_dirs()
     store.init()
@@ -183,7 +183,7 @@ def create_app(app: Any = None) -> Flask:
     flask_app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
     # 访问口令：设了 ACCESS_TOKEN 才启用，留空则保持本地零摩擦
-    auth.install(flask_app, config.ACCESS_TOKEN)
+    auth.install(flask_app, config.ACCESS_TOKEN, secure_cookie=secure_cookie)
 
     compiled = app if app is not None else build_graph(open_checkpointer())
 
