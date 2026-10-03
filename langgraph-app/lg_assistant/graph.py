@@ -15,7 +15,6 @@
                            ▼
                     ◇ dispatch ◇  ── meta ──▶ meta_command ────┐
                            │                                │
-                           ├── profile ▶ profile_flow ──────┤  建档问卷（零 token）
                            │                                │
                            ├── calc ──▶ calc_quick ──────────┤
                            │                                │
@@ -46,6 +45,10 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
 from . import config, nodes
+from .exam_batch import ORIGINAL_BATCH_GRAPH as EXAM_GRAPH
+from .exam_batch import JEV_BATCH_GRAPH as JEV_EXAM_GRAPH
+from .photo_practice import PHOTO_GRAPH
+from .meeting_graph import MEETING_GRAPH
 from .nodes import AUDIO_EXT, IMAGE_EXT
 from .state import AssistantState
 
@@ -59,15 +62,13 @@ def dispatch(state: AssistantState) -> str:
     顺序即优先级，且每条判断都是**确定性规则**，不调模型：
 
     1. 指令类动作（停止播报/切场景）不产生内容
-    2. **建档问卷**是零 token 确定性状态机，必须在一切之前——Dify 侧没有
-       问卷状态，交给模型则会把用户没说的信息补上
     3. **带图片的解题请求**走本地视觉链——Dify 侧 ``start`` 只收文本，
        转发会丢掉「终审重新看原图」这条关键设计
     4. **带音频的请求**走本地 ASR 链——同样是 Dify 侧做不到的预处理；
        此前这条路径缺失，带录音的请求落到 ``local_llm`` 只会回一句
        「请发送会议转写文本」，把用户已经用音频给过的内容再要一遍
     5. 其余带附件的请求留在本地
-    6. 粘性会话（会议进行中 / 训练进行中 / 建档中）是本地状态机，
+    6. 粘性会话（会议进行中）是本地状态机，
        Dify 侧没有这些状态
     7. 配置指定 dify 时转发（Dify 失败由图内回退到 local_llm）
     8. 其余走本地
@@ -76,19 +77,30 @@ def dispatch(state: AssistantState) -> str:
     if action in META_ACTIONS:
         return "meta"
 
-    # 建档问卷是零 token 的确定性状态机，**必须先于一切**：
-    # 它不能走 Dify（Dify 侧没有问卷状态），也不能交给模型（模型会把用户
-    # 没说的信息补上，而档案最不能有的就是编造）。放在附件判断之前，
-    # 因为用户在答题中途可能顺手发了张器械照片——那也该先记完档案。
-    if action == "profile":
-        return "profile"
-
     files = state.get("files") or []
+    scene = (state.get("routing") or {}).get("scene")
+    exts = {Path(f).suffix.lower() for f in files}
+    event = state.get("event") or {}
+    practice = event.get("practice") if isinstance(event, dict) else None
+    previous = state.get("practice_state") or {}
+    requested = practice.get("agent", "auto") if isinstance(practice, dict) else "auto"
+    practice_action = practice.get("action", "run") if isinstance(practice, dict) else "run"
+    # Oral interview replies use ASR and critique, not the meeting audio graph.
+    if exts & AUDIO_EXT and isinstance(practice, dict) and practice_action == "answer" and (
+            requested == "interview" or requested == "auto" and previous.get("agent") == "interview"):
+        return "photo_practice"
+    if isinstance(practice, dict) and not files:
+        return "photo_practice"
+    if not files and previous.get("agent") in {"essay", "interview", "unknown"} and scene != "meeting" and not nodes.is_pure_arith(state.get("text") or ""):
+        return "photo_practice"
+    # 解题：本轮带图，**或**本轮一个附件都没带、但会话里还留着上一轮的题目图片。
+    #
+    # 后者是实测补的：用户贴图问「这个选什么」，接着追问「这个题目答案是什么」
+    # 时不会重新上传图片。以前这里只看本轮 files，请求于是落到 local_llm，
+    # 回一句「请提供具体题目内容，我才帮你解答」——图明明上一轮刚看过。
+    if scene == "exam" and (exts & IMAGE_EXT or _reusable_image(state)):
+        return "photo_practice"
     if files:
-        exts = {Path(f).suffix.lower() for f in files}
-        scene = (state.get("routing") or {}).get("scene")
-        if exts & IMAGE_EXT and scene == "exam":
-            return "vision"
         if exts & AUDIO_EXT:
             # 音频一律先转写：**不按场景收窄**。
             # 「场景」是由文字关键词猜出来的，而用户上传录音时那句文字往往很短
@@ -97,7 +109,10 @@ def dispatch(state: AssistantState) -> str:
             return "audio"
         return "local"
 
-    # 进行中的多轮流程（会议收集中 / 训练进行中）必须留在本地——
+    if scene == "meeting" and action in ("summarize", "stop"):
+        return "meeting"
+
+    # 进行中的多轮流程（会议收集中）必须留在本地——
     # Dify 侧没有这些会话状态。
     #
     # 状态从**会话状态**读，不是从 event 读：原来读的 `event["_sticky"]`
@@ -109,14 +124,28 @@ def dispatch(state: AssistantState) -> str:
     return "local"
 
 
+def _reusable_image(state: AssistantState) -> bool:
+    """本轮没带任何附件，但会话里还留着上一轮的题目图片（文件仍在）。
+
+    三种情况一律不放行：
+      · 本轮带了别的附件（例如录音）——拿旧题图去解他的话是最糟的错位；
+      · 本轮是纯算术请求（「计算 (18+24)*3」）——它该走零 token 快路径，
+        不是「接着看那张图」；
+      · 上一轮的图片文件已经被清掉（data/uploads 会被清理）。
+    """
+    if state.get("files"):
+        return False
+    if nodes.is_pure_arith(state.get("text") or ""):
+        return False
+    return any(
+        Path(f).suffix.lower() in IMAGE_EXT and Path(f).is_file()
+        for f in (state.get("last_images") or [])
+    )
+
+
 def _in_sticky_flow(state: AssistantState) -> bool:
     """是否处于进行中的多轮流程。与会话状态一致，不看单次请求的 event。"""
-    fitness = state.get("fitness") or {}
-    return bool(
-        (state.get("meeting") or {}).get("status") == "collecting"
-        or fitness.get("awaiting")
-        or (fitness.get("workout") or {}).get("status") in ("active", "paused")
-    )
+    return (state.get("meeting") or {}).get("status") in ("collecting", "paused")
 
 
 def build_graph(checkpointer: Any = None, *, with_telemetry: bool = True):
@@ -134,9 +163,13 @@ def build_graph(checkpointer: Any = None, *, with_telemetry: bool = True):
 
     g.add_node("meta_command", nodes.meta_command)
     g.add_node("calc_quick", nodes.calc_quick)
-    g.add_node("profile_flow", nodes.profile_flow)
-    g.add_node("exam_vision", nodes.exam_vision)
-    g.add_node("meeting_audio", nodes.meeting_audio)
+    g.add_node("exam_vision", EXAM_GRAPH)
+    g.add_node("exam_jev", JEV_EXAM_GRAPH)
+    g.add_node("photo_practice", PHOTO_GRAPH)
+    g.add_node("meeting_audio", MEETING_GRAPH)
+    g.add_node("audio_gate", lambda s: {})
+    g.add_node("meeting_summary", MEETING_GRAPH)
+    g.add_node("audio_other", nodes.meeting_audio)
     g.add_node("dify_scene", nodes.dify_scene)
     g.add_node("local_llm", nodes.local_llm)
     g.add_node("postprocess", nodes.postprocess)
@@ -146,9 +179,12 @@ def build_graph(checkpointer: Any = None, *, with_telemetry: bool = True):
 
     _routes = {
         "meta": "meta_command",
-        "profile": "profile_flow",
         "vision": "exam_vision",
-        "audio": "meeting_audio",
+        "vision_jev": "exam_jev",
+        "photo_practice": "photo_practice",
+        "audio": "audio_gate",
+        "meeting": "meeting_summary",
+        "audio_other": "audio_other",
         "dify": "dify_scene",
         "local": "calc_quick",
     }
@@ -162,9 +198,13 @@ def build_graph(checkpointer: Any = None, *, with_telemetry: bool = True):
 
     # 场景执行
     g.add_edge("meta_command", "postprocess")
-    g.add_edge("profile_flow", "postprocess")
     g.add_edge("exam_vision", "postprocess")
+    g.add_edge("exam_jev", "postprocess")
+    g.add_edge("photo_practice", "postprocess")
     g.add_edge("meeting_audio", "postprocess")
+    g.add_conditional_edges("audio_gate", lambda s: "meeting_audio" if (s.get("routing") or {}).get("scene") == "meeting" else "audio_other", ["meeting_audio", "audio_other"])
+    g.add_edge("meeting_summary", "postprocess")
+    g.add_edge("audio_other", "postprocess")
     g.add_edge("dify_scene", "postprocess")
 
     # 本地路径：先试零 token 的算术快路径，未命中再落到模型。

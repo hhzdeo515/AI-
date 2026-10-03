@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from typing import Any
+from math import isqrt
 
 
 def check_grids(spec: dict[str, Any] | None) -> dict[str, Any]:
@@ -46,37 +47,50 @@ def check_grids(spec: dict[str, Any] | None) -> dict[str, Any]:
         "left_minus_right_左减右": lambda a, b: a & (1 - b),
         "right_minus_left_右减左": lambda a, b: b & (1 - a),
     }
+    transforms = {"identity": lambda s: s}
+    side = isqrt(length)
+    if side * side == length:
+        def rotated(s, turns):
+            for _ in range(turns):
+                s = "".join(s[(side - 1 - c) * side + r] for r in range(side) for c in range(side))
+            return s
+        transforms.update({f"rotate{k * 90}": (lambda s, k=k: rotated(s, k)) for k in (1, 2, 3)})
+        transforms["mirror_horizontal"] = lambda s: "".join(s[r * side + side - 1 - c] for r in range(side) for c in range(side))
+        transforms["mirror_vertical"] = lambda s: "".join(s[(side - 1 - r) * side + c] for r in range(side) for c in range(side))
+        transforms["transpose"] = lambda s: "".join(s[c * side + r] for r in range(side) for c in range(side))
+        transforms["anti_transpose"] = lambda s: "".join(s[(side - 1 - c) * side + side - 1 - r] for r in range(side) for c in range(side))
+    pairs = [("identity", "identity")]
+    pairs += [(t, "identity") for t in transforms if t != "identity"]
+    pairs += [("identity", t) for t in transforms if t != "identity"]
     candidates = []
     for direction, lines in [("row", rows), ("column", [list(x) for x in zip(*rows)])]:
         known = [r for r in lines if "?" not in r]
-        unknown = [r for r in lines if r[2] == "?" and "?" not in r[:2]]
+        unknown = [r for r in lines if "?" in r]
         if len(known) < 2 or len(unknown) != 1:
             continue
-        for name, op in operations.items():
-
-            def combine(a: str, b: str) -> str:
-                return "".join(str(op(int(x), int(y))) for x, y in zip(a, b))
-
-            if not all(combine(a, b) == c for a, b, c in known):
-                continue
-            prediction = combine(*unknown[0][:2])
-            matches = [k for k, v in options.items() if v == prediction]
-            candidates.append(
-                {
-                    "direction": direction,
-                    "rule": name,
-                    "known_checks": [
-                        {"a": a, "b": b, "actual": c, "computed": combine(a, b)}
-                        for a, b, c in known
-                    ],
-                    "prediction": prediction,
-                    "matching_options": matches,
-                }
-            )
+        for left, right in pairs:
+            for name, op in operations.items():
+                def combine(a: str, b: str) -> str:
+                    return "".join(str(op(int(x), int(y))) for x, y in zip(transforms[left](a), transforms[right](b)))
+                if not all(combine(a, b) == c for a, b, c in known):
+                    continue
+                missing = unknown[0].index("?")
+                matches = []
+                for label, value in options.items():
+                    a, b, c = [value if v == "?" else v for v in unknown[0]]
+                    if combine(a, b) == c:
+                        matches.append(label)
+                prediction = combine(*unknown[0][:2]) if missing == 2 else None
+                candidates.append({"direction": direction, "rule": name,
+                    "left_transform": left, "right_transform": right,
+                    "known_checks": [{"a": a, "b": b, "actual": c, "computed": combine(a, b)} for a, b, c in known],
+                    "prediction": prediction, "matching_options": matches})
     return {
         "status": "checked",
         "observed_rows": rows,
         "observed_options": options,
+        "cell_count_per_panel": length,
+        "square_shape_candidate": {"rows": side, "columns": side} if side * side == length else None,
         "candidates": candidates,
-        "scope": "只验证所提交01串的逐格运算；不证明图片识别正确，也不排除其他类型规律，终审须回看原图。",
+        "scope": "验证所提交01串的逐格运算及单个操作数的旋转/镜像；不证明图片识别正确，不排除其他规律，终审须回看原图。",
     }

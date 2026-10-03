@@ -1,0 +1,65 @@
+[
+  {
+    "id": "civil",
+    "title": "2026国考公共科目大纲（国家林草局转载）",
+    "url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "kind": "scope",
+    "note": "用于界定考试范围，解题方法为独立整理，不是官方原文"
+  },
+  {
+    "id": "institution",
+    "title": "2026事业单位分类考试大纲（政府公开附件）",
+    "url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "kind": "scope",
+    "note": "用于界定考试范围，解题方法为独立整理，不是官方原文"
+  },
+  {
+    "id": "regional",
+    "title": "2026江苏事业单位公共科目大纲",
+    "url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "kind": "scope",
+    "note": "用于界定考试范围，解题方法为独立整理，不是官方原文"
+  },
+  {
+    "id": "constitution",
+    "title": "宪法2018修正文本",
+    "url": "https://www.npc.gov.cn/c2/c30834/201905/t20190521_281393.html",
+    "kind": "authority",
+    "note": "概念摘要的参考出处；仍需核对适用版本"
+  },
+  {
+    "id": "civilcode",
+    "title": "民法典2020文本，2021年施行",
+    "url": "https://www.sdcourt.gov.cn/lcgtfy/374994/374995/6120123/index.html",
+    "kind": "authority",
+    "note": "概念摘要的参考出处；仍需核对适用版本"
+  },
+  {
+    "id": "penalty",
+    "title": "行政处罚法2021修订文本",
+    "url": "https://www.gov.cn/xinwen/2021-01/23/content_5582030.htm",
+    "kind": "authority",
+    "note": "概念摘要的参考出处；仍需核对适用版本"
+  },
+  {
+    "id": "official",
+    "title": "党政机关公文处理工作条例2012文本",
+    "url": "https://www.miit.gov.cn/xwdt/szyw/art/2020/art_6afb8ee6d07540dcacccbeb47dbc0fd4.html",
+    "kind": "authority",
+    "note": "概念摘要的参考出处；仍需核对适用版本"
+  },
+  {
+    "id": "gdp",
+    "title": "国家统计局：国内生产总值的概念与核算",
+    "url": "https://www.stats.gov.cn/zs/tjws/tjzb/202301/t20230101_1903699.html",
+    "kind": "authority",
+    "note": "概念摘要的参考出处；仍需核对适用版本"
+  },
+  {
+    "id": "database",
+    "title": "PostgreSQL18：数据库约束",
+    "url": "https://www.postgresql.org/docs/18/ddl-constraints.html",
+    "kind": "authority",
+    "note": "概念摘要的参考出处；仍需核对适用版本"
+  }
+]

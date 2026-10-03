@@ -13,6 +13,7 @@ import sys
 import tempfile
 import threading
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -90,9 +91,11 @@ def test_index_renders_reused_frontend() -> None:
     r = _client().get("/")
     assert r.status_code == 200
     body = r.get_data(as_text=True)
-    assert "assistant-lite" in body or "Companion" in body
-    # 复用的前端要能区分三个场景
-    assert "会议纪要" in body and "拍照解题" in body and "锻炼指导" in body
+    assert "<title>智能助手</title>" in body
+    # 两个场景共用镜片主页；镜片结构由 hardware.js 挂载。
+    assert "会议纪要" in body and "拍照解题" in body
+    assert 'id="hardware-demo"' in body and '/static/hardware.js' in body
+    assert 'data-go="fitness"' not in body
 
 
 def test_static_assets_served_and_not_cached() -> None:
@@ -176,11 +179,11 @@ def test_chat_scene_hint_wins() -> None:
     restore = _stub_llm("健身回答")
     try:
         r = _client().post(
-            "/api/chat", data={"text": "这道题怎么做", "scene": "fitness", "owner": "u"}
+            "/api/chat", data={"text": "这道题怎么做", "scene": "meeting", "owner": "u"}
         )
     finally:
         restore()
-    assert r.get_json()["scene"] == "fitness"
+    assert r.get_json()["scene"] == "meeting"
 
 
 # --------------------------------------------------------------------------- #
@@ -190,11 +193,13 @@ def test_upload_image_saved_for_vision() -> None:
     _fresh()
     restore = _stub_llm("桩")
     try:
-        r = _client().post(
-            "/api/chat",
-            data={"text": "解这道题", "owner": "u", "files": _png()},
-            content_type="multipart/form-data",
-        )
+        with patch("lg_assistant.vision.observe", return_value="上传落盘测试题面"), \
+             patch("lg_assistant.practice_agents.classify_task", return_value={"agent": "unknown", "reason": "上传测试不调用模型"}):
+            r = _client().post(
+                "/api/chat",
+                data={"text": "解这道题", "owner": "u", "files": _png()},
+                content_type="multipart/form-data",
+            )
     finally:
         restore()
     assert r.status_code == 200
@@ -205,11 +210,15 @@ def test_upload_image_saved_for_vision() -> None:
 
 def test_upload_bad_extension_rejected() -> None:
     _fresh()
-    r = _client().post(
-        "/api/chat",
-        data={"text": "x", "files": (io.BytesIO(b"MZ"), "evil.exe")},
-        content_type="multipart/form-data",
-    )
+    restore = _stub_llm("附件拒绝测试回复")
+    try:
+        r = _client().post(
+            "/api/chat",
+            data={"text": "x", "files": (io.BytesIO(b"MZ"), "evil.exe")},
+            content_type="multipart/form-data",
+        )
+    finally:
+        restore()
     assert r.status_code == 200
     assert r.get_json()["rejected_files"], "非法扩展名必须被拒绝并说明"
 
@@ -237,7 +246,30 @@ def test_async_chat_returns_task_and_result() -> None:
 
 def test_async_unknown_task_404() -> None:
     _fresh()
-    assert _client().get("/api/task?task_id=nope").status_code == 404
+    result = _client().get("/api/task?task_id=nope")
+    assert result.status_code == 404
+    message = result.get_json()["error"]
+    assert "服务可能已重启" in message
+    assert "本次处理已中断" in message
+    assert "如已上传照片，可重新提交" in message
+
+
+def test_health_counts_only_pending_and_running_tasks() -> None:
+    _fresh()
+    client = _client()
+    records = {
+        "private-pending": {"status": "pending", "result": None},
+        "private-running": {"status": "running", "result": None},
+        "private-done": {"status": "done", "result": {"text": "private answer"}},
+        "private-error": {"status": "error", "error": "private error"},
+    }
+    with patch.dict("lg_assistant.web.app._TASKS", records, clear=True):
+        body = client.get("/health").get_json()
+    assert body["active_tasks"] == 2
+    assert not any(name in json.dumps(body) for name in records)
+    assert "private answer" not in json.dumps(body)
+    with patch.dict("lg_assistant.web.app._TASKS", {}, clear=True):
+        assert client.get("/health").get_json()["active_tasks"] == 0
 
 
 def test_async_rejects_bad_input_like_sync() -> None:
@@ -296,11 +328,19 @@ def test_routing_stats_endpoint() -> None:
 def test_resources_and_resource_detail() -> None:
     _fresh()
     c = _client()
-    restore = _stub_llm("会议纪要正文")
+    original = llm.chat
+    original_router = nodes._ROUTER
+    nodes.set_router(None)
+    def summary_stub(messages, **kw):
+        if "输出JSON：" in messages[0]["content"]:
+            return '{"checked":true,"issues":[]}'
+        return json.dumps({"topic": "会议纪要正文", "items": [{"id": "i1", "kind": "point", "text": "讨论报告", "evidence": [{"id": "s1", "quote": "讨论报告"}]}]})
+    llm.chat = summary_stub
     try:
-        c.post("/api/chat", data={"text": "帮我生成会议纪要", "owner": "u", "session_id": "s"})
+        c.post("/api/chat", data={"text": "生成会议纪要：讨论报告", "owner": "u", "session_id": "s"})
     finally:
-        restore()
+        llm.chat = original
+        nodes.set_router(original_router)
 
     rows = c.get("/api/resources?owner=u").get_json()["resources"]
     assert rows, "会议产出应归档"
@@ -313,6 +353,45 @@ def test_resources_and_resource_detail() -> None:
     assert c.get("/api/resource?owner=u&id=nope").status_code == 404
     # 跨 owner 必须拿不到
     assert c.get(f"/api/resource?owner=other&id={rid}").status_code == 404
+
+
+def test_concurrent_identical_requests_share_execution() -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from unittest.mock import patch
+    import time
+    from lg_assistant.web.app import create_app
+    _fresh()
+    class SlowGraph:
+        calls = 0
+        def invoke(self, state, cfg):
+            self.calls += 1
+            time.sleep(.05)
+            return {"routing":{"scene":"meeting"},"result":{"text":"same result"}}
+    slow = SlowGraph()
+    with patch.object(config, "ACCESS_TOKEN", ""):
+        app = create_app(slow)
+        def send(_):
+            with app.test_client() as client:
+                return client.post("/api/chat", data={"owner":"duplicate-test", "scene":"meeting", "text":"纪要", "request_id":"same"}).get_json()
+        with ThreadPoolExecutor(2) as pool:
+            results = list(pool.map(send, range(2)))
+    assert slow.calls == 1
+    assert sorted(r["status"] for r in results) == ["duplicate", "ok"]
+
+
+def test_pending_async_requests_share_task_id() -> None:
+    from lg_assistant.web.app import _task_submit
+    entered, release = threading.Event(), threading.Event()
+    def pending():
+        entered.set()
+        release.wait(2)
+        return {"text":"finished"}
+    try:
+        first = _task_submit(pending, "async-duplicate-test")
+        assert entered.wait(1)
+        assert _task_submit(pending, "async-duplicate-test") == first
+    finally:
+        release.set()
 
 
 def test_export_all_six_formats() -> None:
@@ -381,134 +460,35 @@ def test_progress_endpoint_without_record() -> None:
     assert body["finished"] is True
 
 
-def test_profile_empty_is_honest_not_invented() -> None:
-    """没建档时返回空档案，但**字段清单要给全** —— 前端靠它画表单。"""
-    _fresh()
-    body = _client().get("/api/profile").get_json()
-    assert body["profile"] == {}
-    assert body["complete"] is False
-    assert body["note"], "没建档要说明"
-    # fields 是服务端下发的，前端不硬编码字段
-    keys = [f["key"] for f in body["fields"]]
-    assert keys == [
-        "age", "height_cm", "weight_kg", "goal", "level",
-        "injuries", "conditions", "days_per_week", "equipment",
-    ]
-    assert body["fields"][0]["label"] == "年龄"
-    assert body["fields"][3]["options"], "选项类字段要带选项"
 
 
-def test_profile_write_then_read_back() -> None:
-    """手机端提交 → 眼镜端读到同一份。这是「云端存档案」的完整往返。"""
-    _fresh()
-    client = _client()
-    payload = {
-        "age": 28, "height_cm": 178, "weight_kg": 70,
-        "goal": "减脂", "level": "偶尔运动",
-        "injuries": ["膝盖"], "conditions": ["无"],
-        "days_per_week": 3, "equipment": ["哑铃", "弹力带"],
-    }
-    body = client.post(
-        "/api/profile", data={"owner": "u", "profile": json.dumps(payload, ensure_ascii=False)}
-    ).get_json()
-    assert body["complete"] is True
-    assert body["missing"] == []
-    assert abs(body["bmi"] - 22.1) < 0.05
-    assert "膝盖" in body["risk"]
-    assert "无" not in body["risk"], "「无」不是风险，不该出现在注意里"
-    assert body["meta"]["source"] == "phone"
-
-    # 再读一次：真的落库了，不是只回显
-    again = client.get("/api/profile?owner=u").get_json()
-    assert again["profile"]["age"] == 28
-    assert again["profile"]["height_cm"] == 178.0
 
 
-def test_profile_write_rejects_bad_values() -> None:
-    """校验不通过要 400 并说清哪里错，**不能悄悄存下半成品**。"""
-    _fresh()
-    client = _client()
-
-    # 年龄超范围
-    r = client.post(
-        "/api/profile",
-        data={"owner": "u", "profile": json.dumps({"age": 999}, ensure_ascii=False)},
-    )
-    assert r.status_code == 400
-    assert "年龄" in r.get_json()["error"]
-
-    # 缺字段（默认要求齐全）
-    r = client.post(
-        "/api/profile",
-        data={"owner": "u", "profile": json.dumps({"age": 30}, ensure_ascii=False)},
-    )
-    assert r.status_code == 400
-    assert "还缺" in r.get_json()["error"]
-
-    # 非法 JSON
-    r = client.post("/api/profile", data={"owner": "u", "profile": "{不是json"})
-    assert r.status_code == 400
-
-    assert client.get("/api/profile?owner=u").get_json()["profile"] == {}
 
 
-def test_profile_partial_draft_allowed_when_asked() -> None:
-    """``partial=1`` 才允许存草稿 —— 默认严格，免得用户以为存上了。"""
-    _fresh()
-    client = _client()
-    r = client.post(
-        "/api/profile",
-        data={"owner": "u", "profile": json.dumps({"age": 30}), "partial": "1"},
-    )
-    assert r.status_code == 200
-    body = r.get_json()
-    assert body["profile"]["age"] == 30
-    assert body["complete"] is False
-    assert "height_cm" in body["missing"]
 
 
-def test_profile_delete() -> None:
-    """删档案要真的删掉，且删不存在的档案不报错。"""
-    _fresh()
-    client = _client()
-    client.post(
-        "/api/profile",
-        data={"owner": "u", "profile": json.dumps({"age": 30}), "partial": "1"},
-    )
-    assert client.delete("/api/profile?owner=u").get_json()["ok"] is True
-    assert client.get("/api/profile?owner=u").get_json()["profile"] == {}
-    assert client.delete("/api/profile?owner=u").get_json()["ok"] is False
 
 
-def test_profile_is_isolated_per_owner() -> None:
-    """档案按 owner 隔离：别人的档案一个字都不该看到。"""
-    _fresh()
-    client = _client()
-    client.post(
-        "/api/profile",
-        data={
-            "owner": "alice",
-            "profile": json.dumps({"age": 30, "height_cm": 165}, ensure_ascii=False),
-            "partial": "1",
-        },
-    )
-    assert client.get("/api/profile?owner=bob").get_json()["profile"] == {}
-    assert client.get("/api/profile?owner=alice").get_json()["profile"]["age"] == 30
 
 
-def test_state_exposes_meeting_and_fitness_on_top_level() -> None:
-    """/api/state 必须在顶层给出 meeting / fitness。
-
-    前端是从 assistant-lite 原样复用的，状态卡片直接读 ``st.fitness``；
-    数据只塞在 ``values`` 里的话卡片读不到，WORKOUT 会恒显示 IDLE。
-    """
+def test_state_exposes_meeting_on_top_level() -> None:
+    """Meeting state stays at the top level for the existing UI."""
     _fresh()
     body = _client().get("/api/state?owner=u&session_id=s").get_json()
     assert "values" in body
-    assert "meeting" in body, "顶层缺 meeting，基线 UI 的卡片读不到"
-    assert "fitness" in body, "顶层缺 fitness，WORKOUT 卡片会恒为 IDLE"
-    assert isinstance(body["fitness"], dict)
     assert isinstance(body["meeting"], dict)
+    assert "fitness" not in body
+
+
+def test_retired_scenario_endpoints_are_removed() -> None:
+    _fresh()
+    client = _client()
+    for endpoint in ("/api/fitness", "/api/profile"):
+        assert client.get(endpoint).status_code == 404
+        assert client.post(endpoint, json={}).status_code == 404
+    assert "fitness" not in config.SCENES
+
 
 
 # --------------------------------------------------------------------------- #

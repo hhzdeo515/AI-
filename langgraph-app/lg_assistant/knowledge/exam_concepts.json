@@ -1,0 +1,5962 @@
+[
+  {
+    "id": "cs-5e6a2c9a-001",
+    "module": "图形推理",
+    "title": "图形题的观察顺序",
+    "content": "先判断序列、九宫格、分类、立体或折纸，再登记原始特征。元素相似先看位置；元素不同先看数量或属性。规律须覆盖全部已知图，不能只解释最后一步。",
+    "aliases": [
+      "图形推理",
+      "图形规律"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-002",
+    "module": "图形推理",
+    "title": "多元素独立运动",
+    "content": "分别跟踪点、三角、箭头等元素，记录坐标和朝向；每个元素可能有不同步长、方向和周期。混合元素不能按一个合成位置推断。先预测特征，再核对选项字母。",
+    "aliases": [
+      "移动",
+      "位移",
+      "运动",
+      "位置规律"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-003",
+    "module": "图形推理",
+    "title": "环形位置周期",
+    "content": "将边框位置按固定方向编号，位移按模运算处理；检查步长固定、递增或交替。要区分移动一格与旋转一个角度，转角处按题目离散位置计数。",
+    "aliases": [
+      "顺时针",
+      "逆时针",
+      "环形",
+      "周长",
+      "边框"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-004",
+    "module": "图形推理",
+    "title": "图形旋转",
+    "content": "跟踪不对称标记的坐标和朝向，检验统一转角或周期；对称图的外观不变不能证明未旋转。二维平面旋转保留手性，不能与镜像混同。",
+    "aliases": [
+      "旋转",
+      "转动",
+      "角度"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-005",
+    "module": "图形推理",
+    "title": "轴对称与镜像",
+    "content": "确定对称轴数量、方向、轴是否经过特定元素。镜像翻转会改变左右手性，旋转不会；部分元素对称不代表整体对称。",
+    "aliases": [
+      "轴对称",
+      "镜像",
+      "翻转"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-006",
+    "module": "图形推理",
+    "title": "中心对称",
+    "content": "以候选中心旋转180度后整体重合才成立。轴对称与中心对称分别检验，二者不互相蕴含；注意颜色和箭头方向也属于整体特征。",
+    "aliases": [
+      "中心对称",
+      "对称中心"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-007",
+    "module": "图形推理",
+    "title": "黑白格逐位运算",
+    "content": "把每幅图按相同尺寸、行优先编码。异或取不同为1，或取至少一个1，与取两个都1；分别核验全部已知行或列。总黑格数相同不足以证明位置规律。",
+    "aliases": [
+      "黑白",
+      "黑格",
+      "白格",
+      "异或",
+      "叠加",
+      "九宫格"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-008",
+    "module": "图形推理",
+    "title": "变换后叠加",
+    "content": "先检验同一个旋转或镜像，再逐位叠加。变换、运算、方向必须在所有已知组合一致，不能为每行更换规则。两个操作顺序通常不可交换。",
+    "aliases": [
+      "旋转叠加",
+      "旋转后",
+      "翻转后",
+      "rotate",
+      "xor"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-009",
+    "module": "图形推理",
+    "title": "黑白格尺寸",
+    "content": "一个n×n面板共有n平方个单元，展开后长度为n平方；25位对应5×5候选而不是5×25。九宫格外层3×3和每幅图内部网格尺寸是两回事。",
+    "aliases": [
+      "格子",
+      "位串",
+      "编码",
+      "行列"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-010",
+    "module": "图形推理",
+    "title": "封闭区域计数",
+    "content": "数真正被线条围住的区域；开口、重叠或遮挡需回看原图。若含圆与直线，按实际交叉分割后的区域数，不能把图形元素数直接当区域数。",
+    "aliases": [
+      "封闭",
+      "区域",
+      "面数",
+      "封闭空间"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-011",
+    "module": "图形推理",
+    "title": "交点计数",
+    "content": "区分线线交点、线圆交点、端点和切点，同一位置多线交汇按题设口径计数。看清交叉是否真正相连，不能由像素模糊推定连接。",
+    "aliases": [
+      "交点",
+      "相交",
+      "切点",
+      "相切"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-012",
+    "module": "图形推理",
+    "title": "线条计数",
+    "content": "明确数的是整条直线、分割线段、独立曲线还是书写笔画。交叉可能切分线段但不增加整条直线数。全部题图保持同一统计口径。",
+    "aliases": [
+      "直线",
+      "曲线",
+      "线段",
+      "笔画",
+      "线条"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-013",
+    "module": "图形推理",
+    "title": "角与边计数",
+    "content": "区分顶点角、直角、锐角及钝角，曲线不计直边。复杂组合不能直接套外轮廓边数，先确认规律针对内外哪些部分。",
+    "aliases": [
+      "角数",
+      "边数",
+      "多边形",
+      "角度"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-014",
+    "module": "图形推理",
+    "title": "连通块计数",
+    "content": "先明确共边连通、共点连通还是线段连接。黑格仅角接触时，四邻域与八邻域结果不同；各幅图和选项必须使用题目指定口径。",
+    "aliases": [
+      "连通",
+      "共边",
+      "连接",
+      "分离",
+      "一体"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-015",
+    "module": "图形推理",
+    "title": "一笔画条件",
+    "content": "将图视为连通图，交点和端点为顶点。连通图奇度顶点为0或2时可一笔遍历所有边；多连通分量分别处理。虚线桥接或线条遮挡先核对，不凭视觉印象判断。",
+    "aliases": [
+      "一笔画",
+      "奇点",
+      "笔画数",
+      "欧拉"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-016",
+    "module": "图形推理",
+    "title": "图形开闭曲直",
+    "content": "登记开放封闭、全直全曲混合、内外包含和相离相交相切等属性。分类题使用同一属性划分全部图，不允许逐项另造标准。",
+    "aliases": [
+      "开放",
+      "闭合",
+      "曲直",
+      "属性"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-017",
+    "module": "图形推理",
+    "title": "图形样式与遍历",
+    "content": "检查元素集合在各行列是否各出现一次，或是否去同存异、去异存同。位置与样式可同时变化，必须分开登记后组合验证。",
+    "aliases": [
+      "遍历",
+      "样式",
+      "相同元素",
+      "去同存异"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-018",
+    "module": "图形推理",
+    "title": "嵌套与包含",
+    "content": "分别登记外框、内部元素及其数量位置。内外互换、相对朝向和包含深度可形成规律；不能只看外形忽略内部标记。",
+    "aliases": [
+      "内外",
+      "嵌套",
+      "包含",
+      "外框"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-019",
+    "module": "图形推理",
+    "title": "九宫格行列选择",
+    "content": "横向与纵向都检验，统一使用全部已知三元组。只有两行支持的候选若预测不同选项，需要回图排除；不强制所有题均为布尔运算。",
+    "aliases": [
+      "九宫格",
+      "矩阵",
+      "每行",
+      "每列"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-020",
+    "module": "图形推理",
+    "title": "立体展开相邻相对",
+    "content": "给面编号，沿邻接边传播三维朝向；相反法向量是相对面。相对面不能同现于一个可见顶点；二维不相邻并不必然三维相对。",
+    "aliases": [
+      "展开图",
+      "正方体",
+      "立方体",
+      "相对面"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-021",
+    "module": "图形推理",
+    "title": "立体手性与面朝向",
+    "content": "三个面两两相邻只是必要条件，还须检验环绕公共顶点的顺序和图案朝向。展开图与选项的左右顺序不能任意交换，镜像体不能用旋转得到。",
+    "aliases": [
+      "立体",
+      "三面",
+      "方位",
+      "公共顶点"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-022",
+    "module": "图形推理",
+    "title": "截面与投影",
+    "content": "分清切面与观察投影。切割需检验平面与棱面的相交，投影需跟踪遮挡与方向。不能把二维外观相似当作同一种空间关系。",
+    "aliases": [
+      "截面",
+      "切割",
+      "投影",
+      "视图"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-023",
+    "module": "图形推理",
+    "title": "折纸打孔反向展开",
+    "content": "按折叠的逆序对折痕逐次反射孔位，落在折痕上的孔可能重合；每次检查有效纸域。孔数不是机械乘2的幂，边界、重叠层和打孔范围都影响结果。",
+    "aliases": [
+      "折纸",
+      "打孔",
+      "折叠",
+      "展开"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-024",
+    "module": "图形推理",
+    "title": "折纸剪切缺口",
+    "content": "逆序展开每一步剪口，跟踪边界开口与内部孔的区别。剪到边缘不会自动产生独立封闭孔；要保持原纸轮廓与缺口朝向。",
+    "aliases": [
+      "剪纸",
+      "剪切",
+      "缺口",
+      "折痕"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-025",
+    "module": "图形推理",
+    "title": "图形分类的完整性",
+    "content": "每幅图都必须恰好归入一类，每类具有统一可见特征。优先常规属性、数量、连接方式和对称性；分类不能依据与原图无关的名称或编号。",
+    "aliases": [
+      "分为两类",
+      "分类",
+      "六个图形"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-026",
+    "module": "图形推理",
+    "title": "图形规律的唯一性",
+    "content": "选择简单且覆盖全体的常规规律；有限序列可以被任意复杂函数拟合，不能仅以此否定考试预期规律。若两个同等自然规律分别选中不同选项，则解释真实歧义。",
+    "aliases": [
+      "规律",
+      "选出",
+      "最符合"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-027",
+    "module": "图形推理",
+    "title": "选项标签与图形绑定",
+    "content": "先预测目标的全部关键特征，再逐个核验选项的图与标签。不得把看到的正确图直接套用上轮或其他布局的字母；多页照片分别确认题号。",
+    "aliases": [
+      "选项",
+      "字母",
+      "对应",
+      "A",
+      "B"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-028",
+    "module": "图形推理",
+    "title": "拍照细节核对",
+    "content": "先检查题干、四个选项和图中细小标记是否完整。旋转校正不等于补全缺失线条；看不清的边线、孔位或箭头要显式列为不确定特征。",
+    "aliases": [
+      "模糊",
+      "倾斜",
+      "遮挡",
+      "照片"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-029",
+    "module": "图形推理",
+    "title": "图形工具适用范围",
+    "content": "布尔矩阵检查仅适用于同尺寸实心黑白格的缺格矩阵；折纸、分类、连续移动和立体图需用对应方法。工具不适用不表示题目无解，程序验证也不证明读图正确。",
+    "aliases": [
+      "程序",
+      "黑白格",
+      "折纸",
+      "序列"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-5e6a2c9a-030",
+    "module": "图形推理",
+    "title": "图形可判定性",
+    "content": "先检验“无法确定”是否为合法选项。题目条件明确不能唯一决定时，该选项可以是确定答案；要区分无法读图、规则真实冲突与题目考查条件不足。",
+    "aliases": [
+      "无法确定",
+      "不能确定",
+      "信息不足"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "图形推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-001",
+    "module": "类比推理",
+    "title": "类比关系优先级",
+    "content": "先用一句短句准确描述题干关系，保持语序；再比较概念关系、语义、功能、构词与常识。只共享一个词义不足以成立，要找结构最一致而非联系最多的选项。",
+    "aliases": [
+      "类比",
+      "词语关系",
+      "词项"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-002",
+    "module": "类比推理",
+    "title": "种属关系",
+    "content": "种概念属于属概念，方向不能逆转；同一词在具体语境可能多义。比较分类层级、包含方向及是否真为“一种”，不要把组成部分误当子种。",
+    "aliases": [
+      "种属",
+      "属于",
+      "一种",
+      "分类"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-003",
+    "module": "类比推理",
+    "title": "组成关系",
+    "content": "部分组成整体，通常不是整体的一个种类。部件与系统、材料与产品、成员与组织要分别比较；可拆分、主要成分和必要部件不是同一限制。",
+    "aliases": [
+      "组成",
+      "部分",
+      "整体",
+      "构成"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-004",
+    "module": "类比推理",
+    "title": "并列反对矛盾",
+    "content": "并列词应处在相同层级。矛盾关系互斥且穷尽，反对关系互斥但不穷尽；是否穷尽须在同一论域下判断，不能从日常联想补条件。",
+    "aliases": [
+      "并列",
+      "矛盾",
+      "反对",
+      "互斥"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-005",
+    "module": "类比推理",
+    "title": "交叉关系",
+    "content": "存在兼具两个概念的对象，并且通常两方都不被另一方完全包含。用集合交集、差集检查；现实中可兼任不等于语义上为种属。",
+    "aliases": [
+      "交叉",
+      "既是",
+      "同时",
+      "重叠"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-006",
+    "module": "类比推理",
+    "title": "全同关系",
+    "content": "两个名称指向同一概念或对象才是全同；近义可能程度、范围或感情色彩不同。文学别称、历史名称要核查对象和适用时代。",
+    "aliases": [
+      "全同",
+      "别称",
+      "同义",
+      "又称"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-007",
+    "module": "类比推理",
+    "title": "原因与结果",
+    "content": "区分必然原因、可能促成与结果症状；保留题干因果方向和中介层级。相关、共同原因或先后顺序不能自动当因果。",
+    "aliases": [
+      "原因",
+      "结果",
+      "导致",
+      "因果"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-008",
+    "module": "类比推理",
+    "title": "目的与手段",
+    "content": "一个行为作为达到目标的手段，未必保证目标实现。比较动作与目的的抽象层级；不能与对象、结果或功能混为同一种关系。",
+    "aliases": [
+      "目的",
+      "为了",
+      "手段",
+      "措施"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-009",
+    "module": "类比推理",
+    "title": "工具与用途",
+    "content": "考察对象的典型用途和动词角色，工具、实施者、对象不同。主要用途优于牵强可用方式；若两个选项同样典型，继续比较词性及其他题干关系。",
+    "aliases": [
+      "工具",
+      "用途",
+      "功能",
+      "用于"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-010",
+    "module": "类比推理",
+    "title": "职业与工作对象",
+    "content": "用“谁对什么做什么”核对施事、受事与动作。职业与场所、职业与产品、职业与工具不可交换；不额外要求所有个体都必然如此。",
+    "aliases": [
+      "职业",
+      "工作",
+      "服务",
+      "对象"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-011",
+    "module": "类比推理",
+    "title": "原料与成品",
+    "content": "原料经处理形成产品，与组成部件或生产工具区别。是否主要原料、物理或化学变化仅在题干能支持且选项需区分时作为第二层关系。",
+    "aliases": [
+      "原料",
+      "材料",
+      "产品",
+      "加工"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-012",
+    "module": "类比推理",
+    "title": "场所与活动",
+    "content": "比较活动的典型发生场所及词序；场所与存在物、场所与服务对象不同。不要把“可在某处发生”当作强限定的一一对应。",
+    "aliases": [
+      "场所",
+      "地点",
+      "活动",
+      "在"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-013",
+    "module": "类比推理",
+    "title": "事物与属性",
+    "content": "区分本质属性、常见属性、偶然属性与评价。程度和感情色彩应一致；不得因为一个反例就否定题干采用的典型语义关系。",
+    "aliases": [
+      "属性",
+      "特征",
+      "特点",
+      "品质"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-014",
+    "module": "类比推理",
+    "title": "动作先后与流程",
+    "content": "流程关系应保留必要前后、主体和对象。并列动作、因果动作和准备实施结果各不同；一般流程不意味着每个环节绝对不可跳过。",
+    "aliases": [
+      "先后",
+      "顺序",
+      "流程",
+      "步骤"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-015",
+    "module": "类比推理",
+    "title": "程度递进",
+    "content": "选项要在同一属性维度形成同方向程度变化。强弱变化不同于先后变化或范围大小；褒贬反转不等于程度递进。",
+    "aliases": [
+      "递进",
+      "程度",
+      "强弱",
+      "深浅"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-016",
+    "module": "类比推理",
+    "title": "反义与近义",
+    "content": "词义、语法功能、程度及语境须共同核对。绝对与相对反义分别处理；只有否定前缀的形态相似不能证明语义对应。",
+    "aliases": [
+      "反义",
+      "近义",
+      "词义",
+      "相反"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-017",
+    "module": "类比推理",
+    "title": "褒贬与中性",
+    "content": "比较同一词义下评价色彩及变换方向，语境讽刺不能替代词的通常色彩。成语近义还需判断对象、搭配和程度。",
+    "aliases": [
+      "褒义",
+      "贬义",
+      "感情色彩",
+      "中性"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-018",
+    "module": "类比推理",
+    "title": "双词到三词关系",
+    "content": "三词题检验第一第二、第二第三、第一第三全部关系以及统一结构。一个选项只匹配其中一对不能成立；不得为剩余两对另造不同关系。",
+    "aliases": [
+      "三词",
+      "三个词",
+      "三项"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-019",
+    "module": "类比推理",
+    "title": "填空双向代入",
+    "content": "分别把每个选项两端代入，前后两对须同方向、同层级、同角色。只看空的一边容易落入一个局部匹配的干扰项。",
+    "aliases": [
+      "填空",
+      "对应于",
+      "对于",
+      "括号"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-020",
+    "module": "类比推理",
+    "title": "构词与词性",
+    "content": "结构必须按实际词义断词，区分偏正、动宾、主谓、并列、补充。字面位置相同不保证结构相同，语法关系只在语义关系难区分时辅助。",
+    "aliases": [
+      "构词",
+      "词性",
+      "偏正",
+      "动宾",
+      "主谓"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-021",
+    "module": "类比推理",
+    "title": "典故与对应",
+    "content": "作者作品、人物典故、事件年代等常识要准确，不能把创作人、主人公、描写对象混同。确切年代或版本不清时核实可靠来源。",
+    "aliases": [
+      "典故",
+      "人物",
+      "作品",
+      "作者",
+      "朝代"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-022",
+    "module": "类比推理",
+    "title": "科学与计量关系",
+    "content": "辨明物理量、单位和符号，换算按同一方向与数量级。长度、面积和体积的进率不同；名称常见不等于同一种物理量。",
+    "aliases": [
+      "单位",
+      "量纲",
+      "计量",
+      "倍数"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-023",
+    "module": "类比推理",
+    "title": "同级概念比较",
+    "content": "先确定论域与抽象级别，防止题干为子类到大类而选项为具体个体到子类。若选项均合理，第二级关系应来自题干可见结构，不是临时偏好。",
+    "aliases": [
+      "层级",
+      "上位",
+      "下位",
+      "包含"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-024",
+    "module": "类比推理",
+    "title": "类比歧义处理",
+    "content": "列出两个候选均支持的关系，寻找题干可验证的差异。无证据不能用“更常见”“更直接”强行排除；真实歧义说明不足，不伪造排他规则。",
+    "aliases": [
+      "歧义",
+      "多个",
+      "两项",
+      "都可以"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-025",
+    "module": "类比推理",
+    "title": "避免牵强附加条件",
+    "content": "不要在主关系已成立后，为排除其他项临时加入“唯一”“专属”“仅人工”等题干没有的限制。次级关系需对题干和全部选项一致适用。",
+    "aliases": [
+      "类比",
+      "附加",
+      "唯一",
+      "必然"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-2a36d8d1-026",
+    "module": "类比推理",
+    "title": "类比全选项核验",
+    "content": "至少记录每项的一条成立关系或具体不匹配点。正确选项文字、答案字母、解析和口播一致；选中词项后再次查看其字母。",
+    "aliases": [
+      "类比",
+      "排除",
+      "选项"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "类比推理",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-001",
+    "module": "逻辑判断",
+    "title": "充分条件",
+    "content": "P推出Q等价于非Q推出非P；不等价于Q推出P或非P推出非Q。把自然语句的前件后件明确写出，不能混淆与必要条件。",
+    "aliases": [
+      "如果",
+      "若",
+      "只要",
+      "充分",
+      "推出"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-002",
+    "module": "逻辑判断",
+    "title": "必要条件",
+    "content": "“只有P才Q”表示Q推出P；“除非P否则Q”表示非P推出Q。注意否定词作用范围，不由连接词的位置直接判断箭头。",
+    "aliases": [
+      "只有",
+      "必要",
+      "除非",
+      "才"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-003",
+    "module": "逻辑判断",
+    "title": "等价与双条件",
+    "content": "P当且仅当Q要同时有P推出Q和Q推出P。单向充分或必要均不足以建立等价，检查选项是否偷偷补了逆命题。",
+    "aliases": [
+      "当且仅当",
+      "等价",
+      "充要"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-004",
+    "module": "逻辑判断",
+    "title": "合取与析取",
+    "content": "“且”要求各项真，“或”通常为相容析取；只有明确“二者择一且不能同时”才按不相容析取。否定合取变析取否定，否定析取变合取否定。",
+    "aliases": [
+      "并且",
+      "且",
+      "或者",
+      "或",
+      "至少一个"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-005",
+    "module": "逻辑判断",
+    "title": "量词否定",
+    "content": "“所有S是P”的否定为“有S不是P”；“有S是P”的否定为“所有S不是P”。全称命题本身不自动证明S存在，遵守题设论域。",
+    "aliases": [
+      "所有",
+      "每个",
+      "有的",
+      "至少",
+      "并非"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-006",
+    "module": "逻辑判断",
+    "title": "条件链与逆否链",
+    "content": "按同一个条件方向连接P到Q到R，或使用整链逆否；不能逆转中间一段。测试反例可否满足所有前提，是检验必然选项的方法。",
+    "aliases": [
+      "推出",
+      "链条",
+      "逻辑",
+      "必然为真"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-007",
+    "module": "逻辑判断",
+    "title": "真假话枚举",
+    "content": "将每句话形式化，枚举人物状态并逐句计算真假；保留题干真话数量约束。互为矛盾的命题恰一真，但反对或下反对关系不同。",
+    "aliases": [
+      "真假话",
+      "说谎",
+      "恰有",
+      "真话"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-008",
+    "module": "逻辑判断",
+    "title": "身份排序约束",
+    "content": "给每个对象建立互斥位置，先用固定关系与边界，再合并局部顺序。跨越和相邻分别建约束，逐项代入检验不要仅凭一组可行解断言必然。",
+    "aliases": [
+      "排序",
+      "排列",
+      "安排",
+      "分配"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-009",
+    "module": "逻辑判断",
+    "title": "削弱因果论证",
+    "content": "定位论点和论据后考虑他因、反向因果、选择偏差、对照不足和有因无果。削弱须关联关键连接，背景无关事实或重复论据通常力度弱。",
+    "aliases": [
+      "削弱",
+      "因果",
+      "导致",
+      "效果"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-010",
+    "module": "逻辑判断",
+    "title": "加强因果论证",
+    "content": "排除他因、建立可比对照、补上机制或提供与结论一致的新证据。论据重复不等于增强，力度还取决于对象、时间和变量一致性。",
+    "aliases": [
+      "加强",
+      "支持",
+      "证实",
+      "论证"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-011",
+    "module": "逻辑判断",
+    "title": "必要假设否定检验",
+    "content": "将候选否定，若论证关键连接因此断裂，候选可能是必要假设。充分支持不一定必要；否定测试应针对论证而非要求结论必然假。",
+    "aliases": [
+      "假设",
+      "前提",
+      "必要",
+      "论证成立"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-012",
+    "module": "逻辑判断",
+    "title": "解释矛盾",
+    "content": "找到需要同时解释的两个现象，候选须能让它们共同成立。否定其中一个已给事实或只重述一个现象不能解释矛盾。",
+    "aliases": [
+      "解释",
+      "矛盾",
+      "为何",
+      "反而"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-013",
+    "module": "逻辑判断",
+    "title": "评价与实验",
+    "content": "检查随机分组、样本可比、控制变量、测量指标、代表性及统计波动。观察性相关研究通常不能直接确认因果，样本数量大不自动消除系统偏差。",
+    "aliases": [
+      "评价",
+      "实验",
+      "对照",
+      "样本"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-014",
+    "module": "逻辑判断",
+    "title": "范围与程度偷换",
+    "content": "比较对象、时间、数量、程度及量词是否一致；部分变全部、可能变必然、局部变总体是常见断点。不能把相关概念当同义词。",
+    "aliases": [
+      "论证",
+      "范围",
+      "程度",
+      "概念"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-015",
+    "module": "逻辑判断",
+    "title": "溯因与可能结论",
+    "content": "“可能为真”和“必然为真”要求不同。满足一组全部前提的可行模型即可支持可能；必然结论需在所有可行模型成立。",
+    "aliases": [
+      "可能",
+      "最可能",
+      "推测",
+      "结论"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-016",
+    "module": "逻辑判断",
+    "title": "论证与演绎题区分",
+    "content": "演绎题把前提当真求必然关系；加强削弱题评估论据支持论点的力度；不能拿外部事实反驳假设题，也不能用形式有效代替事实核实。",
+    "aliases": [
+      "论证",
+      "推理",
+      "结论",
+      "题干"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-37c58f80-017",
+    "module": "逻辑判断",
+    "title": "选言三段论",
+    "content": "相容“P或Q”加非P可推出Q，但加P不能推出非Q；不相容析取则可。先核对“或”的含义，再运用排除。",
+    "aliases": [
+      "或者",
+      "二者",
+      "排除",
+      "推论"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "逻辑判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-07067df6-001",
+    "module": "定义判断",
+    "title": "定义要件核验",
+    "content": "将定义拆成主体、对象、行为、目的、条件、结果，对每个选项逐项检验必要要件。定义在本题优先，不能以日常词义替代。",
+    "aliases": [
+      "定义",
+      "根据上述",
+      "属于",
+      "不属于"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "定义判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-07067df6-002",
+    "module": "定义判断",
+    "title": "多定义与层级",
+    "content": "区分多个定义的共同点和差异，记录一个例子可同时符合几类。选项问哪一类就检验该类要件，不被熟悉的名字引导。",
+    "aliases": [
+      "定义",
+      "分别",
+      "两种",
+      "以下"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "定义判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-07067df6-003",
+    "module": "定义判断",
+    "title": "定义的合取析取",
+    "content": "定义用“且”时缺一个即不满足；用“或”时任一支满足即可。限定词“主要”“通常”“直接”不可擅自强化为“所有”“唯一”。",
+    "aliases": [
+      "定义",
+      "并且",
+      "或者",
+      "同时"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "定义判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-07067df6-004",
+    "module": "定义判断",
+    "title": "否定问法",
+    "content": "作答前确认问的是符合项还是例外项；记录每项符合或违反的具体要件，再反选。不要将干扰项中的双重否定读反。",
+    "aliases": [
+      "不属于",
+      "不符合",
+      "不能",
+      "错误"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "定义判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-07067df6-005",
+    "module": "定义判断",
+    "title": "定义证据不足",
+    "content": "选项没有交代一个条件与明确违背条件不同；根据题目合理语境检验但不编造事实。若必要细节确实缺失，指出是何要件不能判定。",
+    "aliases": [
+      "定义",
+      "未说明",
+      "信息不足",
+      "推断"
+    ],
+    "specialist": "reasoning",
+    "tags": [
+      "定义判断",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dedbda29-001",
+    "module": "言语理解",
+    "title": "主旨与中心句",
+    "content": "找转折、因果、总分结构和作者重点；选项概括要覆盖核心而非一个例子。论述对象和结论都要一致，不能被开头背景词锚定。",
+    "aliases": [
+      "主旨",
+      "主要",
+      "意在",
+      "中心"
+    ],
+    "specialist": "general",
+    "tags": [
+      "言语理解",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dedbda29-002",
+    "module": "言语理解",
+    "title": "意图与合理引申",
+    "content": "引申须依托主旨，有对策导向时优先紧贴问题的措施；不任意扩大到题外。题问明示主旨时不强加行动建议。",
+    "aliases": [
+      "意图",
+      "旨在",
+      "启示",
+      "意味着"
+    ],
+    "specialist": "general",
+    "tags": [
+      "言语理解",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dedbda29-003",
+    "module": "言语理解",
+    "title": "细节核对",
+    "content": "逐项定位原句，核对对象、时间、程度、范围和因果；“未提到”不同于“明确相反”。不能用常识补全原文没作出的断言。",
+    "aliases": [
+      "符合原文",
+      "细节",
+      "以下",
+      "正确"
+    ],
+    "specialist": "general",
+    "tags": [
+      "言语理解",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dedbda29-004",
+    "module": "言语理解",
+    "title": "逻辑填空",
+    "content": "先确定转折、因果、并列关系与空缺语义，再比搭配、词义、程度和色彩。多个空用交叉验证，熟悉词不必然最适合语境。",
+    "aliases": [
+      "填入",
+      "横线",
+      "词语",
+      "最恰当"
+    ],
+    "specialist": "general",
+    "tags": [
+      "言语理解",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dedbda29-005",
+    "module": "言语理解",
+    "title": "成语辨析",
+    "content": "检查适用对象、褒贬、程度和语法搭配；字面拆字容易误读成语整体含义。先以语境约束排除，再确认精确释义。",
+    "aliases": [
+      "成语",
+      "词义",
+      "恰当",
+      "使用"
+    ],
+    "specialist": "general",
+    "tags": [
+      "言语理解",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dedbda29-006",
+    "module": "言语理解",
+    "title": "语句排序",
+    "content": "找定义或引入句、代词指向、时间链和连接词成对关系；首句通常不含未交代的指代。局部强绑定后检验整段论述是否顺畅。",
+    "aliases": [
+      "排序",
+      "排列",
+      "顺序",
+      "衔接"
+    ],
+    "specialist": "general",
+    "tags": [
+      "言语理解",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dedbda29-007",
+    "module": "言语理解",
+    "title": "语句填空与接续",
+    "content": "承上句要匹配前文对象与结构，启下句需与后文衔接；下文推断优先最后提出的新话题，不能重复已经讲完的内容。",
+    "aliases": [
+      "语句",
+      "填入",
+      "接下来",
+      "下文"
+    ],
+    "specialist": "general",
+    "tags": [
+      "言语理解",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dedbda29-008",
+    "module": "言语理解",
+    "title": "标题选择",
+    "content": "标题须概括主题与侧重点，既不过宽也不截取局部；形式新颖不能弥补内容偏离。说明文和议论文的表达目的分别判断。",
+    "aliases": [
+      "标题",
+      "题目",
+      "命名",
+      "适合"
+    ],
+    "specialist": "general",
+    "tags": [
+      "言语理解",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dedbda29-009",
+    "module": "言语理解",
+    "title": "病句判断",
+    "content": "检查成分残缺、搭配不当、语序、歧义、逻辑冲突与否定数量。修改应最少且保留原意，不凭文风偏好判语法错误。",
+    "aliases": [
+      "病句",
+      "语病",
+      "表达",
+      "修改"
+    ],
+    "specialist": "general",
+    "tags": [
+      "言语理解",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dedbda29-010",
+    "module": "言语理解",
+    "title": "歧义与指代",
+    "content": "分析不同句法切分与代词可能先行词。语境已明确的多义不必然歧义，必要时给出两种完整合理解释。",
+    "aliases": [
+      "歧义",
+      "指代",
+      "他",
+      "其"
+    ],
+    "specialist": "general",
+    "tags": [
+      "言语理解",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dedbda29-011",
+    "module": "言语理解",
+    "title": "材料观点立场",
+    "content": "区分作者判断、他人引语、被反驳观点及例子；措辞色彩和全文结论共同确定立场。不能把引用内容直接当作者赞同。",
+    "aliases": [
+      "观点",
+      "态度",
+      "作者",
+      "评价"
+    ],
+    "specialist": "general",
+    "tags": [
+      "言语理解",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-001",
+    "module": "数量关系",
+    "title": "方程与代入",
+    "content": "明确变量含义和单位，把每个条件转成独立等式；解后回代全部条件并检验正数、整数等约束。选项代入可验证候选，不能忽略缺失条件。",
+    "aliases": [
+      "方程",
+      "未知数",
+      "等式",
+      "求解"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-002",
+    "module": "数量关系",
+    "title": "比例与份数",
+    "content": "统一比较对象与方向，以公倍数统一份数；比值与份额不同，a:b中a占总量a/(a+b)。多级比例用同一个公共项衔接。",
+    "aliases": [
+      "比例",
+      "比值",
+      "按比",
+      "分配"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-003",
+    "module": "数量关系",
+    "title": "整除与余数",
+    "content": "n除以d得到余r意味着n=dq+r且0不大于r小于d。联立同余时检验兼容性，余数条件不能误读为商。",
+    "aliases": [
+      "整除",
+      "余数",
+      "倍数",
+      "整数"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-004",
+    "module": "数量关系",
+    "title": "奇偶与尾数",
+    "content": "奇偶、模10或模100是必要约束，可快速排除；通过约束的候选仍须核对原等式。乘法末位用各因子末位即可，除法不能直接照搬。",
+    "aliases": [
+      "奇数",
+      "偶数",
+      "尾数",
+      "末位"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-005",
+    "module": "数量关系",
+    "title": "行程相遇追及",
+    "content": "单位统一后路程等于速度乘时间；相遇用相向速度和，追及用同向速度差。起点错位、出发延迟、停车和往返需分段建模。",
+    "aliases": [
+      "路程",
+      "速度",
+      "相遇",
+      "追及"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-006",
+    "module": "数量关系",
+    "title": "流水与扶梯",
+    "content": "顺流为静水速度加水速，逆流为静水速度减水速；同一距离时间不同。扶梯相对速度的方向与静止扶梯步数要分别明确。",
+    "aliases": [
+      "顺流",
+      "逆流",
+      "流水",
+      "扶梯"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-007",
+    "module": "数量关系",
+    "title": "工程效率",
+    "content": "总量等于效率乘时间，可将总量设为工作天数公倍数；多人合作效率相加，但轮班与间歇逐段累计，不能直接平均天数。",
+    "aliases": [
+      "工程",
+      "工作量",
+      "效率",
+      "合作"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-008",
+    "module": "数量关系",
+    "title": "利润与折扣",
+    "content": "利润为售价减成本，利润率分母通常成本，折扣作用于标价。连续折扣相乘，亏损也按带符号差额计算；题目另定义分母则从题设。",
+    "aliases": [
+      "利润",
+      "折扣",
+      "成本",
+      "售价"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-009",
+    "module": "数量关系",
+    "title": "浓度混合",
+    "content": "溶质质量守恒，浓度为溶质除以溶液总质量；蒸发通常只减少溶剂。体积与质量不可无密度条件直接互换。",
+    "aliases": [
+      "浓度",
+      "溶液",
+      "混合",
+      "稀释"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-010",
+    "module": "数量关系",
+    "title": "排列组合",
+    "content": "先判断有无顺序、重复、限制和可区分对象；排列数与组合数不同。捆绑、插空、分类时确保不重不漏，多步可用乘法原理。",
+    "aliases": [
+      "排列",
+      "组合",
+      "选取",
+      "安排"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-011",
+    "module": "数量关系",
+    "title": "概率模型",
+    "content": "明确等可能样本空间与有无放回，独立事件概率才可直接相乘。“至少一次”常用1减全无，但不同抽样机制不能共用公式。",
+    "aliases": [
+      "概率",
+      "随机",
+      "抽取",
+      "至少"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-012",
+    "module": "数量关系",
+    "title": "容斥计数",
+    "content": "两集合并集为两者数量和减交集；三集合再加三重交集。题说恰有两项时，不可将包含三项的两两交集重复计入。",
+    "aliases": [
+      "至少",
+      "都",
+      "仅",
+      "集合"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-013",
+    "module": "数量关系",
+    "title": "最值与抽屉",
+    "content": "“保证”按最不利安排求阈值，再加一步突破；“可能”取可构造方案。平均数只能给界，是否取到还需整数与分配约束。",
+    "aliases": [
+      "至少",
+      "最多",
+      "保证",
+      "最少"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-014",
+    "module": "数量关系",
+    "title": "数列差分",
+    "content": "依次检验差、二阶差、比、递推、奇偶分组等简单规律，覆盖全部项。只有有限数据时避免用任意多项式解释为唯一规律。",
+    "aliases": [
+      "数列",
+      "数字推理",
+      "规律",
+      "差值"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-015",
+    "module": "数量关系",
+    "title": "年龄问题",
+    "content": "年龄差固定，多人年龄和按人数等量变化；年龄比随时间变化。建立同一时点的等式，不把当年年龄比直接用于其他年份。",
+    "aliases": [
+      "年龄",
+      "几年前",
+      "几年后",
+      "岁"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-016",
+    "module": "数量关系",
+    "title": "日期与周期",
+    "content": "按周期取余，并区分起始日是否计入。公历闰年规则需考虑百年与400年；跨年、跨月按实际天数累加。",
+    "aliases": [
+      "星期",
+      "日期",
+      "周期",
+      "闰年"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-017",
+    "module": "数量关系",
+    "title": "平面几何",
+    "content": "识别半径直径、底高与垂直条件；相似图长度比k、面积比k平方。图形未标比例时不能靠屏幕长度代替题目数据。",
+    "aliases": [
+      "面积",
+      "周长",
+      "三角形",
+      "圆"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-018",
+    "module": "数量关系",
+    "title": "立体体积",
+    "content": "按已知形体与维度使用公式，长度单位换算后再平方立方。截去或组合体要分清重叠体积与新增暴露表面。",
+    "aliases": [
+      "体积",
+      "表面积",
+      "圆柱",
+      "圆锥"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-019",
+    "module": "数量关系",
+    "title": "平均速度",
+    "content": "总路程除总时间才是平均速度；等时间可算速度算术平均，等距离两段用调和平均。不能对任意两段直接取算术平均。",
+    "aliases": [
+      "平均速度",
+      "往返",
+      "同程",
+      "同时间"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-020",
+    "module": "数量关系",
+    "title": "分段与阶梯计费",
+    "content": "逐区间累计，边界只计一次；超过阈值部分与全部按新费率是两种规则。把图表定义转成区间公式后核对边界值。",
+    "aliases": [
+      "分段",
+      "阶梯",
+      "收费",
+      "超过"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-021",
+    "module": "数量关系",
+    "title": "不等式与边界",
+    "content": "严格与非严格不等号区分，乘除负数反向；整数变量下开区间端点需向内取整。不要将近似等式用作边界判断。",
+    "aliases": [
+      "不等式",
+      "大于",
+      "小于",
+      "至少"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7c818e4e-022",
+    "module": "数量关系",
+    "title": "计算校验与量纲",
+    "content": "程序只验证提交的算式，不验证建模；先核对量纲、数据来源和公式适用条件。保留足够精度直到最后，结果量级与单位须能解释。",
+    "aliases": [
+      "计算",
+      "算式",
+      "单位",
+      "校验"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "数量关系",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-001",
+    "module": "资料分析",
+    "title": "现期基期增长率",
+    "content": "设现期A、增长率r，基期A/(1+r)，增长量Ar/(1+r)。下降用负r，增长率分母为基期；未知基期不能把现期乘r当准确增长量。",
+    "aliases": [
+      "基期",
+      "现期",
+      "增长率",
+      "同比"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-002",
+    "module": "资料分析",
+    "title": "同比与环比",
+    "content": "同比比较上一年相同期，环比比较相邻期；时间区间、累计单期不同不能直接对比。题干的同比增速不能代入环比公式。",
+    "aliases": [
+      "同比",
+      "环比",
+      "上年",
+      "上月"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-003",
+    "module": "资料分析",
+    "title": "增长量比较",
+    "content": "增长量同时受规模和增速影响，不是增速最大即增量最大。规模相近可先比增速，跨量级应精算或用有界近似。",
+    "aliases": [
+      "增长量",
+      "增加额",
+      "增量",
+      "增长最多"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-004",
+    "module": "资料分析",
+    "title": "百分比与百分点",
+    "content": "百分比为相对变化，百分点为两个百分数相减。例如占比从10%至12%，提高2个百分点，相对提高20%；不能互换单位。",
+    "aliases": [
+      "百分点",
+      "百分比",
+      "提高",
+      "下降"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-005",
+    "module": "资料分析",
+    "title": "比重与占比",
+    "content": "比重为部分除整体，核对部分是否真的属于该整体。两期部分增速a与整体增速b，现期比重较基期上升当且仅当a大于b（正数条件）。",
+    "aliases": [
+      "占比",
+      "比重",
+      "部分",
+      "整体"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-006",
+    "module": "资料分析",
+    "title": "两期比重差",
+    "content": "现期比重p，部分增速a、整体增速b时，比重差为p(a-b)/(1+a)。符号与百分点一致；a-b只是方向线索，不是准确比重差。",
+    "aliases": [
+      "比重",
+      "上升",
+      "下降",
+      "两期"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-007",
+    "module": "资料分析",
+    "title": "平均数增长",
+    "content": "平均值A/B，分子增速a、分母增速b时平均值增速为(a-b)/(1+b)。分子分母必须同一时期和范围，不能直接减增速作为精确值。",
+    "aliases": [
+      "平均",
+      "每",
+      "均",
+      "人均"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-008",
+    "module": "资料分析",
+    "title": "倍数与增长倍数",
+    "content": "“是n倍”通常为现值除基值n，“增长了n倍”通常意味着现值为原值n+1倍。跟题干明确措辞，不将增长百分比与倍数混同。",
+    "aliases": [
+      "倍",
+      "倍数",
+      "增长了",
+      "是"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-009",
+    "module": "资料分析",
+    "title": "复合增长与年均",
+    "content": "跨n期倍数为各期(1+r)乘积，年均复合增长为终初比开n次方减1。期数通常为末年减首年，不是年份个数。",
+    "aliases": [
+      "年均",
+      "复合",
+      "连续",
+      "累计"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-010",
+    "module": "资料分析",
+    "title": "隔期增长率",
+    "content": "两期增长率r1、r2累计为r1+r2+r1r2。不能简单相加，下降同样用带符号数；每一基期必须相邻一致。",
+    "aliases": [
+      "隔年",
+      "两年",
+      "累计增速",
+      "连续增长"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-011",
+    "module": "资料分析",
+    "title": "混合增长率",
+    "content": "总体增速以各部分基期量加权平均，不是简单平均，也不是现期占比直接加权。正基期量时总体增速介于分项增速之间。",
+    "aliases": [
+      "合计",
+      "总体",
+      "两部分",
+      "混合"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-012",
+    "module": "资料分析",
+    "title": "贡献率与拉动",
+    "content": "贡献率为分项增量除整体增量；拉动增长率通常为分项增量除整体基期量。整体增量近零或负数时注意符号和不稳定性。",
+    "aliases": [
+      "贡献率",
+      "拉动",
+      "增长贡献",
+      "贡献"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-013",
+    "module": "资料分析",
+    "title": "表图定位",
+    "content": "核对标题、单位、图例、横纵轴、年份、累计或当期，避免跨行跨列取数。双轴图不能按柱高直接比较不同轴的绝对数。",
+    "aliases": [
+      "表格",
+      "图表",
+      "折线",
+      "柱状"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-014",
+    "module": "资料分析",
+    "title": "分数比较",
+    "content": "正数分数可交叉相乘或差值比较；不确定分母符号时不能盲目交叉。估算需误差小于相邻选项差距，接近时精算。",
+    "aliases": [
+      "比率",
+      "比值",
+      "哪个最高",
+      "比较"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-015",
+    "module": "资料分析",
+    "title": "综合判断",
+    "content": "对每个选项单独找数据与计算条件，错误选项可用方向、量级或上下界排除。不能因为一个条件吻合就认定整条复合陈述正确。",
+    "aliases": [
+      "综合",
+      "下列",
+      "能够推出",
+      "正确"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-4762903c-016",
+    "module": "资料分析",
+    "title": "统计口径与单位",
+    "content": "名义实际、累计单月、总量人均、地域行业范围必须统一；金额数量不同量纲不能直接相除后称比重。表中的单位换算应保留到最终结果。",
+    "aliases": [
+      "口径",
+      "单位",
+      "亿元",
+      "万人"
+    ],
+    "specialist": "quantitative",
+    "tags": [
+      "资料分析",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-24cec522-001",
+    "module": "申论与材料写作",
+    "title": "材料概括",
+    "content": "按题干限定对象、范围、字数提取事实和观点，合并同义、保留区别，突出材料中的因果与层级。概括应来自材料，不能用模板常识替代。",
+    "aliases": [
+      "申论",
+      "概括",
+      "归纳",
+      "要点"
+    ],
+    "specialist": "general",
+    "tags": [
+      "申论与材料写作",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-24cec522-002",
+    "module": "申论与材料写作",
+    "title": "综合分析",
+    "content": "先解释命题或句子在材料中的含义，再分层论证原因、表现、影响，最后回应任务。不同问法有不同结构，不机械套“是什么为什么怎么办”。",
+    "aliases": [
+      "申论",
+      "分析",
+      "谈理解",
+      "认识"
+    ],
+    "specialist": "general",
+    "tags": [
+      "申论与材料写作",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-24cec522-003",
+    "module": "申论与材料写作",
+    "title": "提出对策",
+    "content": "对策对应材料问题与原因，明确责任主体、实施动作、对象和条件；可行性与职责边界须一致。不能只罗列抽象口号。",
+    "aliases": [
+      "对策",
+      "建议",
+      "解决",
+      "措施"
+    ],
+    "specialist": "general",
+    "tags": [
+      "申论与材料写作",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-24cec522-004",
+    "module": "申论与材料写作",
+    "title": "应用文任务",
+    "content": "核对身份、受众、目的、场合和格式；内容来自材料且适应文种。题要求不写格式或只列提纲时从题，不添加无用落款。",
+    "aliases": [
+      "讲话稿",
+      "倡议书",
+      "汇报",
+      "提纲"
+    ],
+    "specialist": "general",
+    "tags": [
+      "申论与材料写作",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-24cec522-005",
+    "module": "申论与材料写作",
+    "title": "论证写作",
+    "content": "中心论点回应主题，分论点彼此区分并支持中心；论据需准确、解释其支持关系。不能编造数字、文件引语或人物言论。",
+    "aliases": [
+      "作文",
+      "议论文",
+      "论点",
+      "论据"
+    ],
+    "specialist": "general",
+    "tags": [
+      "申论与材料写作",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-24cec522-006",
+    "module": "申论与材料写作",
+    "title": "写作约束核验",
+    "content": "核对规定字数、指定材料、文体、标题和任务对象。言之有据优先于套话数量；不要把未核实的时政表述写成确定官方原句。",
+    "aliases": [
+      "字数",
+      "材料",
+      "申论",
+      "要求"
+    ],
+    "specialist": "general",
+    "tags": [
+      "申论与材料写作",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-ae7120b1-001",
+    "module": "事业单位综合应用",
+    "title": "事业单位分类范围",
+    "content": "2026分类大纲按综合管理、社会科学专技、自然科学专技、教师、医疗卫生等类别组织；具体岗位与试卷以当地公告为准，分类大纲不意味着每地公基都同卷。",
+    "aliases": [
+      "事业单位",
+      "A类",
+      "B类",
+      "C类",
+      "D类",
+      "E类"
+    ],
+    "specialist": "general",
+    "tags": [
+      "事业单位综合应用",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-ae7120b1-002",
+    "module": "事业单位综合应用",
+    "title": "管理情境分析",
+    "content": "识别角色权限、利益相关者、事实缺口与优先事项，先保护必要权益和核实事实，再提出可执行安排。答案不应超越题设职责。",
+    "aliases": [
+      "综合应用",
+      "协调",
+      "突发",
+      "投诉"
+    ],
+    "specialist": "general",
+    "tags": [
+      "事业单位综合应用",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-ae7120b1-003",
+    "module": "事业单位综合应用",
+    "title": "社会科学材料",
+    "content": "分清事实判断与价值判断、材料观点与作者观点，核验论证前提与范围；校阅指出具体错误和修订，不能仅评“表达不好”。",
+    "aliases": [
+      "社会科学",
+      "概念分析",
+      "论证评价",
+      "校阅"
+    ],
+    "specialist": "general",
+    "tags": [
+      "事业单位综合应用",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-ae7120b1-004",
+    "module": "事业单位综合应用",
+    "title": "自然科学材料",
+    "content": "读清实验设计、样本、变量、测量单位和统计结果；相关不代表因果，图表结论需由数据支持。未知专业机制不擅自编造。",
+    "aliases": [
+      "自然科学",
+      "科技文献",
+      "数据处理",
+      "实验"
+    ],
+    "specialist": "general",
+    "tags": [
+      "事业单位综合应用",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-ae7120b1-005",
+    "module": "事业单位综合应用",
+    "title": "教师案例任务",
+    "content": "按学生发展、教学目标、师生沟通、活动设计和评价逐层分析，措施与问题对应。具体法规、考试类别和学段要求须按指定版本核验。",
+    "aliases": [
+      "教师",
+      "教学案例",
+      "学生",
+      "教育"
+    ],
+    "specialist": "general",
+    "tags": [
+      "事业单位综合应用",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-ae7120b1-006",
+    "module": "事业单位综合应用",
+    "title": "医疗案例任务",
+    "content": "区分考试知识与真实患者处置；案例需核对生命体征、病程、检验单位、鉴别和禁忌。药物剂量、指南变化等事实必须有适用版本，不能靠摘要作临床决策。",
+    "aliases": [
+      "医疗",
+      "医学案例",
+      "诊断",
+      "护理"
+    ],
+    "specialist": "general",
+    "tags": [
+      "事业单位综合应用",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bf5634c4-001",
+    "module": "马克思主义哲学",
+    "title": "物质与意识",
+    "content": "区分物质第一性与意识能动作用；承认能动作用不等于意识决定物质。主观唯心与客观唯心按将本原归于个人意识还是独立精神实体判断。",
+    "aliases": [
+      "物质",
+      "意识",
+      "唯物",
+      "唯心"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "马克思主义哲学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bf5634c4-002",
+    "module": "马克思主义哲学",
+    "title": "实践与认识",
+    "content": "实践是认识来源、动力、目的和检验标准；直接经验与间接经验均可构成个人知识。经验常识与普遍真理不得不经条件分析直接等同。",
+    "aliases": [
+      "实践",
+      "认识",
+      "真理",
+      "检验"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "马克思主义哲学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bf5634c4-003",
+    "module": "马克思主义哲学",
+    "title": "联系观点",
+    "content": "联系具有普遍性、客观性和条件性；不能说任何两个具体事物都无条件直接联系。系统中的部分作用受结构影响，整体效能不是简单求和。",
+    "aliases": [
+      "联系",
+      "系统",
+      "整体",
+      "部分"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "马克思主义哲学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bf5634c4-004",
+    "module": "马克思主义哲学",
+    "title": "发展观点",
+    "content": "变化范围大于发展，发展强调前进上升；新事物依据规律和趋势判断，不只看出现时间。过程中可有曲折，不能把每个变化都称进步。",
+    "aliases": [
+      "发展",
+      "变化",
+      "新事物",
+      "旧事物"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "马克思主义哲学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bf5634c4-005",
+    "module": "马克思主义哲学",
+    "title": "矛盾普遍特殊",
+    "content": "普遍性寓于特殊性并经特殊性表现；具体问题具体分析须尊重对象条件。相同一般规律不等于可以一套措施适用全部对象。",
+    "aliases": [
+      "矛盾",
+      "普遍性",
+      "特殊性",
+      "具体分析"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "马克思主义哲学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bf5634c4-006",
+    "module": "马克思主义哲学",
+    "title": "主要矛盾与方面",
+    "content": "多种矛盾中的主要矛盾侧重重点任务；一对矛盾的主要方面通常影响事物性质。抓重点与判断性质不同，不能交换概念。",
+    "aliases": [
+      "主要矛盾",
+      "次要矛盾",
+      "主要方面",
+      "性质"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "马克思主义哲学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bf5634c4-007",
+    "module": "马克思主义哲学",
+    "title": "量变质变",
+    "content": "量变为质变准备，质变开启新的量变；在一定“度”内性质相对稳定。并非任何增加立即质变，也不能因重视积累而忽略条件与阈值。",
+    "aliases": [
+      "量变",
+      "质变",
+      "适度",
+      "度"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "马克思主义哲学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bf5634c4-008",
+    "module": "马克思主义哲学",
+    "title": "否定与扬弃",
+    "content": "辩证否定包含克服与保留，不是全盘丢弃或原样照搬。事物内在矛盾推动发展，外部作用也需通过内部条件发挥效果。",
+    "aliases": [
+      "否定",
+      "扬弃",
+      "继承",
+      "创新"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "马克思主义哲学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bf5634c4-009",
+    "module": "马克思主义哲学",
+    "title": "真理与价值",
+    "content": "真理的客观性与认识条件性不同；具体真理的适用条件不能随意删去。价值评价涉及主体需要与客体属性，不意味着客观事实由偏好决定。",
+    "aliases": [
+      "真理",
+      "相对",
+      "绝对",
+      "价值"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "马克思主义哲学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bf5634c4-010",
+    "module": "马克思主义哲学",
+    "title": "历史唯物主义",
+    "content": "区分生产力与生产关系、经济基础与上层建筑，分析相互作用及适应关系。人民群众历史作用与个人作用不互相排斥，不作机械单因解释。",
+    "aliases": [
+      "生产力",
+      "生产关系",
+      "经济基础",
+      "上层建筑"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "马克思主义哲学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-f67ef160-001",
+    "module": "政治理论与政策核验",
+    "title": "政治表述精确核验",
+    "content": "先确定报告、会议、文件、时间及原文对象；“首要”“根本”“关键”等定位词不能按语感替换。知识摘要用于找概念，具体官方原句须核实出处。",
+    "aliases": [
+      "政治理论",
+      "政治",
+      "方针",
+      "政策"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "政治理论与政策核验",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-f67ef160-002",
+    "module": "政治理论与政策核验",
+    "title": "理论体系层级",
+    "content": "区分理论名称、总体布局、战略布局、发展理念及具体举措；层级和所问时期需一致。不能把不同会议版本的词条拼成一个官方概念。",
+    "aliases": [
+      "理论体系",
+      "指导思想",
+      "基本方略",
+      "思想"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "政治理论与政策核验",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-f67ef160-003",
+    "module": "政治理论与政策核验",
+    "title": "发展理念比较",
+    "content": "比较不同发展理念所针对的问题和政策侧重点，措施可能同时服务多个目标。单选按题目主要作用判断，不加入“只有一个理念相关”的绝对限制。",
+    "aliases": [
+      "创新",
+      "协调",
+      "绿色",
+      "开放",
+      "共享"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "政治理论与政策核验",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-f67ef160-004",
+    "module": "政治理论与政策核验",
+    "title": "现代化与发展任务",
+    "content": "核对政治文件中的任务、特征、要求与目标层级以及时间口径。题干中的历史表述不能用最新提法覆盖，不能将概念总结冒充完整官方清单。",
+    "aliases": [
+      "现代化",
+      "高质量",
+      "发展",
+      "建设"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "政治理论与政策核验",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-f67ef160-005",
+    "module": "政治理论与政策核验",
+    "title": "党史事件与文件",
+    "content": "建立事件时间、地点、会议、文件和实际内容的对应，分别核验。不能凭同一年代把不同事件的意义或原文移用，争议细节需权威资料。",
+    "aliases": [
+      "党史",
+      "会议",
+      "路线",
+      "历史"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "政治理论与政策核验",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-f67ef160-006",
+    "module": "政治理论与政策核验",
+    "title": "时政动态资料",
+    "content": "经济数字、人事、会议结果、法律生效和新政策必须按题干日期核实。无日期不能默认为任意历史年份；资料的发布日与事件日分别记录。",
+    "aliases": [
+      "时政",
+      "最新",
+      "现行",
+      "今年"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "政治理论与政策核验",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-303dc6a4-001",
+    "module": "法律解题方法",
+    "title": "法律适用版本",
+    "content": "先确定法律部门、争议行为时间、施行时间、主体和适用地域；条号、金额、年龄、期限及例外必须核实对应原文。新旧法规则与司法解释不能凭一般经验推断。",
+    "aliases": [
+      "法律",
+      "民法",
+      "刑法",
+      "行政法",
+      "法条"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "法律解题方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-303dc6a4-002",
+    "module": "法律解题方法",
+    "title": "法条要件推理",
+    "content": "按主体、行为、主观状态、结果、因果和例外逐项比对，区分成立条件和承担责任条件。道德评价不替代法律要件。",
+    "aliases": [
+      "法律",
+      "构成要件",
+      "责任",
+      "违法"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "法律解题方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-303dc6a4-003",
+    "module": "法律解题方法",
+    "title": "民事效力与责任",
+    "content": "成立、生效、无效、可撤销和效力待定不同；合同责任与侵权责任分别检验。不能把所有瑕疵一律判无效，具体期限和救济以适用法为准。",
+    "aliases": [
+      "民事",
+      "合同",
+      "效力",
+      "无效"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "法律解题方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-303dc6a4-004",
+    "module": "法律解题方法",
+    "title": "行政行为与救济",
+    "content": "区分许可、处罚、强制、确认与指导，确定实施主体、权限、程序和救济途径。可以救济不表示任何情形任选程序，特定前置和期限需核法。",
+    "aliases": [
+      "行政",
+      "许可",
+      "处罚",
+      "复议",
+      "诉讼"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "法律解题方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-303dc6a4-005",
+    "module": "法律解题方法",
+    "title": "刑事判断与阶段",
+    "content": "从构成要件、违法阻却、责任能力到犯罪形态分别判断。行为停止原因、危险与结果关系需明示；刑罚数额与定罪标准不能凭摘要确定。",
+    "aliases": [
+      "刑事",
+      "犯罪",
+      "未遂",
+      "预备",
+      "停止"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "法律解题方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-303dc6a4-006",
+    "module": "法律解题方法",
+    "title": "劳动与人事规则",
+    "content": "劳动关系与事业单位人事关系不完全相同；招聘、聘用、工资、社保、解除的规则来源分别核对。企业常规做法不能直接替代单位内部制度。",
+    "aliases": [
+      "劳动",
+      "劳动合同",
+      "事业单位",
+      "聘用"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "法律解题方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-303dc6a4-007",
+    "module": "法律解题方法",
+    "title": "证据与程序概念",
+    "content": "区分事实认定、证明责任、证明标准和证据合法性；诉讼部门不同规则不同。单一证据存在不必然足以证明全部要件。",
+    "aliases": [
+      "证据",
+      "证明",
+      "程序",
+      "举证"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "法律解题方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-303dc6a4-008",
+    "module": "法律解题方法",
+    "title": "宪法机构比较",
+    "content": "国家机关性质、组成、产生方式、职权和层级分别判断；“最高”“监督”“执行”限定不能互换。具体职权以相关宪法条文核验。",
+    "aliases": [
+      "宪法",
+      "人大",
+      "政府",
+      "监察",
+      "法院",
+      "检察院"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "法律解题方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-cc6935bc-001",
+    "module": "宪法基础摘要",
+    "title": "宪法效力层级",
+    "content": "2018修正文本将宪法定位为国家根本法并具有最高法律效力；国家制度和具体机关职权须回查对应条文。此为该版本摘要，不自动证明任一后来年份的现行状态。",
+    "aliases": [
+      "宪法",
+      "根本法",
+      "法律效力"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "宪法基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "宪法2018修正文本；作答须核实适用版本",
+    "risk": "version_sensitive",
+    "source_url": "https://www.npc.gov.cn/c2/c30834/201905/t20190521_281393.html",
+    "source_title": "宪法2018修正文本",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-cc6935bc-002",
+    "module": "宪法基础摘要",
+    "title": "人民代表大会制度",
+    "content": "按2018宪法文本，全国人民代表大会是最高国家权力机关，地方各级人大是地方国家权力机关；不要与最高行政机关或监察机关混淆。",
+    "aliases": [
+      "人民代表大会",
+      "人大",
+      "最高权力机关"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "宪法基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "宪法2018修正文本；作答须核实适用版本",
+    "risk": "version_sensitive",
+    "source_url": "https://www.npc.gov.cn/c2/c30834/201905/t20190521_281393.html",
+    "source_title": "宪法2018修正文本",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-cc6935bc-003",
+    "module": "宪法基础摘要",
+    "title": "公民基本权利义务",
+    "content": "公民的基本权利与义务应按2018文本第二章核对；法律面前平等与不同机关法定职权并不矛盾。案例中的权利限制、程序与救济仍需适用法律。",
+    "aliases": [
+      "公民",
+      "权利",
+      "义务",
+      "宪法"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "宪法基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "宪法2018修正文本；作答须核实适用版本",
+    "risk": "version_sensitive",
+    "source_url": "https://www.npc.gov.cn/c2/c30834/201905/t20190521_281393.html",
+    "source_title": "宪法2018修正文本",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-6bb91cd0-001",
+    "module": "民法典基础摘要",
+    "title": "民事行为有效条件",
+    "content": "2020民法典第143条的有效条件包括相应民事行为能力、真实意思表示，以及不违反强制性规定和公序良俗。具体行为须进一步检查例外与追认规则。",
+    "aliases": [
+      "民法典",
+      "民事法律行为",
+      "意思表示"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "民法典基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "民法典2020通过，2021施行；核实题干时间与特别法",
+    "risk": "version_sensitive",
+    "source_url": "https://www.sdcourt.gov.cn/lcgtfy/374994/374995/6120123/index.html",
+    "source_title": "民法典2020文本，2021年施行",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-6bb91cd0-002",
+    "module": "民法典基础摘要",
+    "title": "民事行为能力区分",
+    "content": "2020民法典区分完全、限制、无民事行为能力；年龄与辨认能力均可影响类别。纯获利益、适龄行为和其他行为的效力规则不同，须查具体条文。",
+    "aliases": [
+      "行为能力",
+      "民法典",
+      "未成年人"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "民法典基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "民法典2020通过，2021施行；核实题干时间与特别法",
+    "risk": "version_sensitive",
+    "source_url": "https://www.sdcourt.gov.cn/lcgtfy/374994/374995/6120123/index.html",
+    "source_title": "民法典2020文本，2021年施行",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-6bb91cd0-003",
+    "module": "民法典基础摘要",
+    "title": "诉讼时效与除斥期间",
+    "content": "民法典中的诉讼时效和撤销等权利的除斥期间不同，起算、中止中断和后果不能共用。题问具体期限时核查法律或特别规定，不能机械使用通用期限。",
+    "aliases": [
+      "诉讼时效",
+      "除斥",
+      "民法典",
+      "期限"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "民法典基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "民法典2020通过，2021施行；核实题干时间与特别法",
+    "risk": "version_sensitive",
+    "source_url": "https://www.sdcourt.gov.cn/lcgtfy/374994/374995/6120123/index.html",
+    "source_title": "民法典2020文本，2021年施行",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-9ac2b02c-001",
+    "module": "行政处罚基础摘要",
+    "title": "一事不二罚款",
+    "content": "2021行政处罚法第29条针对同一个违法行为禁止两次以上罚款；同一行为违反多个规范应当罚款时按罚款数额高的规定处罚。不能扩大成任何处罚种类都只能一次。",
+    "aliases": [
+      "行政处罚",
+      "一事不二罚",
+      "罚款"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "行政处罚基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "行政处罚法2021修订文本；适用时间另行核验",
+    "risk": "version_sensitive",
+    "source_url": "https://www.gov.cn/xinwen/2021-01/23/content_5582030.htm",
+    "source_title": "行政处罚法2021修订文本",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-9ac2b02c-002",
+    "module": "行政处罚基础摘要",
+    "title": "处罚设定实施",
+    "content": "2021处罚法区分规范的处罚设定权限与机关的处罚实施权限；有管理职责不自动有一切处罚权限。具体处罚种类与授权、委托的界限须核原文。",
+    "aliases": [
+      "行政处罚",
+      "设定",
+      "实施",
+      "主体"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "行政处罚基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "行政处罚法2021修订文本；适用时间另行核验",
+    "risk": "version_sensitive",
+    "source_url": "https://www.gov.cn/xinwen/2021-01/23/content_5582030.htm",
+    "source_title": "行政处罚法2021修订文本",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-9ac2b02c-003",
+    "module": "行政处罚基础摘要",
+    "title": "处罚程序与救济",
+    "content": "2021文本规定告知、陈述申辩与相应程序保障；并非每种处罚都必经听证。听证范围、期限和程序按该版本具体条文及特别规定核验。",
+    "aliases": [
+      "行政处罚",
+      "听证",
+      "告知",
+      "陈述",
+      "申辩"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "行政处罚基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "行政处罚法2021修订文本；适用时间另行核验",
+    "risk": "version_sensitive",
+    "source_url": "https://www.gov.cn/xinwen/2021-01/23/content_5582030.htm",
+    "source_title": "行政处罚法2021修订文本",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-b48c8b73-001",
+    "module": "经济学基础",
+    "title": "供给需求与价格",
+    "content": "区分价格变化引起的曲线上移动与收入、偏好、成本等引起的曲线移动。均衡方向取决于两曲线的共同变化，不能只看一个因素断言数量。",
+    "aliases": [
+      "需求",
+      "供给",
+      "价格",
+      "市场"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "经济学基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-b48c8b73-002",
+    "module": "经济学基础",
+    "title": "价格弹性",
+    "content": "弹性是相对变化比，按题定义符号或绝对值判断。线性需求不意味着各点弹性恒定；销售收入变动取决于弹性大小与价格方向。",
+    "aliases": [
+      "弹性",
+      "需求",
+      "价格",
+      "收入"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "经济学基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-b48c8b73-003",
+    "module": "经济学基础",
+    "title": "机会成本",
+    "content": "机会成本通常为放弃的最佳替代用途价值，不是所有备选价值总和。沉没成本已发生且不可收回，不应直接决定新增选择。",
+    "aliases": [
+      "机会成本",
+      "选择",
+      "放弃",
+      "成本"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "经济学基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-b48c8b73-004",
+    "module": "经济学基础",
+    "title": "边际与平均",
+    "content": "边际值为新增单位的变化，平均为总量除数量；边际低于平均通常拉低平均，反之拉高。短期长期和固定可变成本分别辨析。",
+    "aliases": [
+      "边际",
+      "平均成本",
+      "收益",
+      "产量"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "经济学基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-b48c8b73-005",
+    "module": "经济学基础",
+    "title": "公共物品与外部性",
+    "content": "公共物品以竞争性、排他性判断，政府提供不自动意味着纯公共物品。外部性为交易主体外部受影响且未充分计价的成本或收益。",
+    "aliases": [
+      "公共物品",
+      "外部性",
+      "非竞争",
+      "非排他"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "经济学基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-b48c8b73-006",
+    "module": "经济学基础",
+    "title": "宏观政策工具",
+    "content": "财政政策主要涉及税收与政府支出，货币政策涉及货币金融条件；具体工具和机构职权须核实本国制度。扩张或收缩效果还受传导条件影响。",
+    "aliases": [
+      "财政",
+      "货币政策",
+      "利率",
+      "税收"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "经济学基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-b48c8b73-007",
+    "module": "经济学基础",
+    "title": "通货膨胀与失业",
+    "content": "个别商品涨价不必然是总价格水平持续上升；名义与实际收入要区分。失业类别、劳动力统计口径及政策关系不能作无条件定论。",
+    "aliases": [
+      "通胀",
+      "通货膨胀",
+      "失业",
+      "价格总水平"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "经济学基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-a3d81e44-001",
+    "module": "国民经济统计基础",
+    "title": "国内生产总值口径",
+    "content": "GDP衡量一定时期常住单位生产的最终成果，生产法按增加值核算以避免中间投入重复。存量资产转让本身不同于当期新增生产。",
+    "aliases": [
+      "GDP",
+      "国内生产总值",
+      "增加值"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "国民经济统计基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.stats.gov.cn/zs/tjws/tjzb/202301/t20230101_1903699.html",
+    "source_title": "国家统计局：国内生产总值的概念与核算",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-a3d81e44-002",
+    "module": "国民经济统计基础",
+    "title": "GDP三种核算",
+    "content": "国家统计局介绍生产、收入、支出三种核算角度；支出角度涉及最终消费、资本形成与货物服务净出口。方法原则上对应同一生产成果，不将收入项目重复计入。",
+    "aliases": [
+      "GDP",
+      "生产法",
+      "收入法",
+      "支出法"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "国民经济统计基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.stats.gov.cn/zs/tjws/tjzb/202301/t20230101_1903699.html",
+    "source_title": "国家统计局：国内生产总值的概念与核算",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-a3d81e44-003",
+    "module": "国民经济统计基础",
+    "title": "现价不变价GDP",
+    "content": "现价规模包含价格影响，不变价格用于分离价格因素观察数量变化。不能把名义总量增速直接当官方实际经济增速。",
+    "aliases": [
+      "GDP",
+      "现价",
+      "不变价",
+      "实际增长"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "国民经济统计基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.stats.gov.cn/zs/tjws/tjzb/202301/t20230101_1903699.html",
+    "source_title": "国家统计局：国内生产总值的概念与核算",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dd9412fa-001",
+    "module": "公共管理与组织",
+    "title": "管理职能",
+    "content": "按制定目标、配置结构、动员协调与反馈纠偏区分职能；同一活动可能跨职能，题问主要性质时看具体动作。理论分类以题干或指定教材定义为准。",
+    "aliases": [
+      "计划",
+      "组织",
+      "领导",
+      "控制",
+      "管理"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "公共管理与组织",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dd9412fa-002",
+    "module": "公共管理与组织",
+    "title": "组织结构",
+    "content": "比较权责线、专业分工、项目与部门双重关系，评估协调成本和适用环境。不存在脱离规模与任务的一种结构永远最优。",
+    "aliases": [
+      "直线",
+      "职能",
+      "矩阵",
+      "组织结构"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "公共管理与组织",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dd9412fa-003",
+    "module": "公共管理与组织",
+    "title": "决策类型",
+    "content": "重复有规则的问题与新颖不确定问题区别，确定、风险、不确定条件分别建模。决策过程包括问题定义、方案、评估、实施和反馈。",
+    "aliases": [
+      "决策",
+      "程序化",
+      "非程序化",
+      "风险"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "公共管理与组织",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dd9412fa-004",
+    "module": "公共管理与组织",
+    "title": "激励与沟通",
+    "content": "区分激励理论所解释的需要、过程或强化机制，不能把不同理论的分类拼接。措施与主体需求、公平感和反馈条件相适应。",
+    "aliases": [
+      "激励",
+      "沟通",
+      "需要",
+      "员工"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "公共管理与组织",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dd9412fa-005",
+    "module": "公共管理与组织",
+    "title": "公共服务与治理",
+    "content": "区分政府职责、市场机制与社会参与；协同不意味着免除法定责任。公共政策评估应明确目标、成本、对象和实施效果。",
+    "aliases": [
+      "公共服务",
+      "治理",
+      "协同",
+      "政府"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "公共管理与组织",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-dd9412fa-006",
+    "module": "公共管理与组织",
+    "title": "应急与风险管理",
+    "content": "先识别风险与保护对象，再确定报告、分工、处置、恢复和复盘。行动依赖权限、预案和实际情况，不能从抽象管理原则推定具体法定权限。",
+    "aliases": [
+      "应急",
+      "风险",
+      "预案",
+      "危机"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "公共管理与组织",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-e8378988-001",
+    "module": "公文处理基础摘要",
+    "title": "公文文种选择",
+    "content": "2012公文条例区分请示与报告：请求指示批准与汇报工作反映情况用途不同。不能在报告中夹带请示事项，具体行文按适用条例与任务要求。",
+    "aliases": [
+      "公文",
+      "文种",
+      "请示",
+      "报告"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "公文处理基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "党政机关公文处理工作条例2012文本",
+    "risk": "version_sensitive",
+    "source_url": "https://www.miit.gov.cn/xwdt/szyw/art/2020/art_6afb8ee6d07540dcacccbeb47dbc0fd4.html",
+    "source_title": "党政机关公文处理工作条例2012文本",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-e8378988-002",
+    "module": "公文处理基础摘要",
+    "title": "公文函与批复",
+    "content": "按2012条例，不相隶属机关商洽询答等用函，答复下级请示用批复。两者不能因都是回复就互换，先核对机关关系与事项性质。",
+    "aliases": [
+      "公文",
+      "函",
+      "批复",
+      "答复"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "公文处理基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "党政机关公文处理工作条例2012文本",
+    "risk": "version_sensitive",
+    "source_url": "https://www.miit.gov.cn/xwdt/szyw/art/2020/art_6afb8ee6d07540dcacccbeb47dbc0fd4.html",
+    "source_title": "党政机关公文处理工作条例2012文本",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-e8378988-003",
+    "module": "公文处理基础摘要",
+    "title": "公文通知与通报",
+    "content": "2012条例中不同文种的发布事项与对象各有用途，不能只靠标题语感判断。选择文种先看事项、受众、行文方向，再核验规定。",
+    "aliases": [
+      "公文",
+      "通知",
+      "通报",
+      "公告",
+      "通告"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "公文处理基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "党政机关公文处理工作条例2012文本",
+    "risk": "version_sensitive",
+    "source_url": "https://www.miit.gov.cn/xwdt/szyw/art/2020/art_6afb8ee6d07540dcacccbeb47dbc0fd4.html",
+    "source_title": "党政机关公文处理工作条例2012文本",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-e8378988-004",
+    "module": "公文处理基础摘要",
+    "title": "公文行文关系",
+    "content": "2012条例按隶属关系和职权范围确定行文关系，原则上不越级；请示一文一事。特殊情形、抄送与联合行文权限需回查具体条文。",
+    "aliases": [
+      "行文",
+      "越级",
+      "联合行文",
+      "主送"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "公文处理基础摘要",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "党政机关公文处理工作条例2012文本",
+    "risk": "version_sensitive",
+    "source_url": "https://www.miit.gov.cn/xwdt/szyw/art/2020/art_6afb8ee6d07540dcacccbeb47dbc0fd4.html",
+    "source_title": "党政机关公文处理工作条例2012文本",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-89b89c60-001",
+    "module": "公文与事务写作方法",
+    "title": "公文结构与语言",
+    "content": "任务对象、事由、依据、措施和结尾组织清楚，措辞准确简洁。版式标准与文件内容不同，问具体字体字号或标点时核查指定标准版本。",
+    "aliases": [
+      "公文",
+      "拟写",
+      "格式",
+      "语言"
+    ],
+    "specialist": "general",
+    "tags": [
+      "公文与事务写作方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-89b89c60-002",
+    "module": "公文与事务写作方法",
+    "title": "材料转换与校改",
+    "content": "先查文种和逻辑，再查事实、称谓、语法、数字、引文与格式；给出具体修改。日期、机关名称和规定不得为让语句流畅而编造。",
+    "aliases": [
+      "公文",
+      "改错",
+      "校改",
+      "材料"
+    ],
+    "specialist": "general",
+    "tags": [
+      "公文与事务写作方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-89b89c60-003",
+    "module": "公文与事务写作方法",
+    "title": "事务文书",
+    "content": "计划写目标行动与安排，总结写事实成效问题经验；简报与法定公文不相同。各文体以题干要求和实际用途组织内容。",
+    "aliases": [
+      "总结",
+      "计划",
+      "简报",
+      "调查报告"
+    ],
+    "specialist": "general",
+    "tags": [
+      "公文与事务写作方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-89c2db68-001",
+    "module": "历史与文化",
+    "title": "历史时间与因果",
+    "content": "区分事件发生、制度建立、文件发布和意义评价。建立先后关系后还需证据证明因果，不能只凭时间邻接作因果断言。",
+    "aliases": [
+      "历史",
+      "年代",
+      "先后",
+      "事件"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "历史与文化",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-89c2db68-002",
+    "module": "历史与文化",
+    "title": "朝代制度文化",
+    "content": "分别核对时代、人物、制度和成就，区分起源、形成、成熟和推广时期。文化现象跨朝代延续，不应看到人物名称就排除所有其他时代。",
+    "aliases": [
+      "朝代",
+      "制度",
+      "文化",
+      "中国史"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "历史与文化",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-89c2db68-003",
+    "module": "历史与文化",
+    "title": "文学作者作品",
+    "content": "作者、作品、体裁、人物和时代分别对应，文学作品主人公不等于作者。篇目版本、引语和别称应核对可靠文本。",
+    "aliases": [
+      "文学",
+      "作者",
+      "作品",
+      "诗词"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "历史与文化",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-89c2db68-004",
+    "module": "历史与文化",
+    "title": "文体与艺术",
+    "content": "概念按形式与表达特点分类；题干若给定义以本题为准。名家作品、流派和别称不能靠相似词或网络讹传确定。",
+    "aliases": [
+      "文体",
+      "诗歌",
+      "书法",
+      "艺术"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "历史与文化",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-89c2db68-005",
+    "module": "历史与文化",
+    "title": "传统历法节气",
+    "content": "分清节气与农历日期，节气与太阳周年运动有关，农历含朔望月与置闰。不同地区气候不能由节气名称机械推断。",
+    "aliases": [
+      "节气",
+      "历法",
+      "农历",
+      "二十四"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "历史与文化",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-89c2db68-006",
+    "module": "历史与文化",
+    "title": "传统思想流派",
+    "content": "比较主张的主体、治理方式、价值目标与历史语境，避免把后世标签当原作者完整立场。原句出处和人物归属不清时核实。",
+    "aliases": [
+      "儒家",
+      "道家",
+      "法家",
+      "思想"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "历史与文化",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-89c2db68-007",
+    "module": "历史与文化",
+    "title": "文化常识核验",
+    "content": "涉及确切名录、非遗等级、遗址年代或当代认定时须按日期查官方资料；通用文化摘要无法替代动态名单。",
+    "aliases": [
+      "文化",
+      "典故",
+      "称谓",
+      "常识"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "历史与文化",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-a567842d-001",
+    "module": "地理与环境",
+    "title": "经纬与时区",
+    "content": "经度关联地方太阳时差，东边通常更早；区时由制度划分，不总等于地方太阳时。跨日期变更线与夏令时须分别核查。",
+    "aliases": [
+      "经度",
+      "纬度",
+      "时区",
+      "地方时"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "地理与环境",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-a567842d-002",
+    "module": "地理与环境",
+    "title": "地球运动季节",
+    "content": "昼夜交替主要与自转有关，季节与公转及地轴倾斜有关，不能用离太阳远近解释南北半球相反季节。观测地点与时点决定昼长和正午高度。",
+    "aliases": [
+      "自转",
+      "公转",
+      "昼夜",
+      "季节"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "地理与环境",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-a567842d-003",
+    "module": "地理与环境",
+    "title": "气候与天气",
+    "content": "天气为短时状态，气候为长期统计；气温降水受纬度、海陆、地形和环流等影响。不同地区同纬度不保证同气候。",
+    "aliases": [
+      "气候",
+      "天气",
+      "降水",
+      "季风"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "地理与环境",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-a567842d-004",
+    "module": "地理与环境",
+    "title": "水循环与河流",
+    "content": "区分蒸发、输送、降水、下渗和径流，河流补给和季节变化依赖地域条件。流域面积与河流长度、流量不是同一指标。",
+    "aliases": [
+      "水循环",
+      "河流",
+      "流域",
+      "径流"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "地理与环境",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-a567842d-005",
+    "module": "地理与环境",
+    "title": "地形与地质",
+    "content": "内力外力作用分别分析，地形外观不能唯一决定成因。岩浆岩、沉积岩、变质岩按形成过程分类，不按颜色直接确定。",
+    "aliases": [
+      "地形",
+      "地质",
+      "板块",
+      "岩石"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "地理与环境",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-a567842d-006",
+    "module": "地理与环境",
+    "title": "资源与生态",
+    "content": "可再生不意味着无限无代价，生态系统稳定性受多样性与干扰强度等因素影响。环境政策、保护区和排名必须核实具体时间。",
+    "aliases": [
+      "资源",
+      "生态",
+      "环境",
+      "污染"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "地理与环境",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-235aa8fc-001",
+    "module": "科技与自然科学",
+    "title": "力与运动",
+    "content": "速度变化包含大小或方向变化，加速度与速度方向可能不同。作用力反作用力作用于不同物体，不能当作同一物体上的平衡力。",
+    "aliases": [
+      "物理",
+      "运动",
+      "速度",
+      "加速度"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "科技与自然科学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-235aa8fc-002",
+    "module": "科技与自然科学",
+    "title": "功与能量",
+    "content": "功率为单位时间做功，能量守恒不表示所有能量均可有效利用。力与位移方向夹角、系统边界及摩擦损耗要纳入题设。",
+    "aliases": [
+      "功",
+      "能量",
+      "功率",
+      "效率"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "科技与自然科学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-235aa8fc-003",
+    "module": "科技与自然科学",
+    "title": "热与物态",
+    "content": "温度、热量、内能不同；传热方向由温差决定，相变阶段温度行为依赖物质与条件。不能凭“冷”“热”语词直接比较内能。",
+    "aliases": [
+      "温度",
+      "热量",
+      "汽化",
+      "凝固"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "科技与自然科学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-235aa8fc-004",
+    "module": "科技与自然科学",
+    "title": "光与声",
+    "content": "分别分析传播介质、反射与折射；声通常需要介质，光可在真空传播。成像、波速与频率关系按介质和题设条件核验。",
+    "aliases": [
+      "光",
+      "声音",
+      "反射",
+      "折射"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "科技与自然科学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-235aa8fc-005",
+    "module": "科技与自然科学",
+    "title": "电路与安全",
+    "content": "串并联分别核对等流等压条件，欧姆定律注意适用元件；电功率公式变量须为同一元件。现实电气操作不能从考试摘要推定安全步骤。",
+    "aliases": [
+      "电流",
+      "电压",
+      "电阻",
+      "电路"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "科技与自然科学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-235aa8fc-006",
+    "module": "科技与自然科学",
+    "title": "化学变化与守恒",
+    "content": "物理变化与化学变化按是否生成新物质区别；质量与元素守恒在确定系统边界下使用。现象相似不证明反应机制相同。",
+    "aliases": [
+      "化学",
+      "反应",
+      "物理变化",
+      "元素"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "科技与自然科学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-235aa8fc-007",
+    "module": "科技与自然科学",
+    "title": "酸碱盐与溶液",
+    "content": "概念、溶解与电离区别，pH与温度条件关联；稀释不总使所有溶液按同一简单规律变化。反应能否发生需核对条件，不能按名称配对猜。",
+    "aliases": [
+      "酸",
+      "碱",
+      "盐",
+      "pH",
+      "溶液"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "科技与自然科学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-235aa8fc-008",
+    "module": "科技与自然科学",
+    "title": "细胞遗传基础",
+    "content": "区分结构、复制、表达与调控，遗传信息表达不等于所有基因同时表达。孟德尔比例适用于特定遗传与配对条件，不能对任意性状套用。",
+    "aliases": [
+      "细胞",
+      "DNA",
+      "RNA",
+      "遗传"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "科技与自然科学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-235aa8fc-009",
+    "module": "科技与自然科学",
+    "title": "生物与生态关系",
+    "content": "食物链、能量流与物质循环不同，个体与种群层级不同。疾病、药物与防治题涉及医学事实需查适用指南，不能以一般生物摘要替代。",
+    "aliases": [
+      "生物",
+      "食物链",
+      "生态",
+      "免疫"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "科技与自然科学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-235aa8fc-010",
+    "module": "科技与自然科学",
+    "title": "科学与技术新进展",
+    "content": "技术概念可以用稳定定义辨析，但首创、纪录、任务状态、型号性能与最新成果必须核实日期和原始发布。网络流行介绍不作为唯一依据。",
+    "aliases": [
+      "科技",
+      "航天",
+      "人工智能",
+      "最新"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "科技与自然科学",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://www.forestry.gov.cn/c/www/gsgg/645383.jhtml",
+    "source_title": "2026国考公共科目大纲（国家林草局转载）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-6d65bae4-001",
+    "module": "金融与银行基础",
+    "title": "金融市场与工具",
+    "content": "期限、发行交易阶段、收益风险和法律关系分别分类；短期长期分界以教材或规范定义为准。资本市场不等于只有股票，货币市场不等于现金市场。",
+    "aliases": [
+      "金融",
+      "货币市场",
+      "资本市场",
+      "债券"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "金融与银行基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-6d65bae4-002",
+    "module": "金融与银行基础",
+    "title": "利率与债券",
+    "content": "固定现金流债券价格通常与贴现率反向，须保持信用和现金流条件相同。票面利率、到期收益率和实际回报不同，不能直接替换。",
+    "aliases": [
+      "利率",
+      "债券",
+      "现值",
+      "贴现"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "金融与银行基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-6d65bae4-003",
+    "module": "金融与银行基础",
+    "title": "银行资产负债",
+    "content": "从银行视角区分资产负债与权益，客户视角可能相反；表外业务不意味着没有风险。业务许可、准备金制度和监管比例必须按时间与机构核实。",
+    "aliases": [
+      "银行",
+      "存款",
+      "贷款",
+      "资产负债"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "金融与银行基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-6d65bae4-004",
+    "module": "金融与银行基础",
+    "title": "金融风险类别",
+    "content": "违约、价格变化、资金周转与操作失误分别对应风险类别，多个风险可共存。能盈利不代表当期能偿债，流动性不同于偿付能力。",
+    "aliases": [
+      "信用风险",
+      "市场风险",
+      "流动性",
+      "金融"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "金融与银行基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-6d65bae4-005",
+    "module": "金融与银行基础",
+    "title": "央企岗位金融制度",
+    "content": "岗位通用理论与具体单位制度分开，考试指定的内部规定只从用户选定资料检索。不得用公共摘要猜权限、考核或操作流程。",
+    "aliases": [
+      "银行",
+      "烟草",
+      "国企",
+      "制度"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "金融与银行基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bdca954e-001",
+    "module": "财会与财务基础",
+    "title": "会计恒等式",
+    "content": "资产等于负债加所有者权益是基本静态关系，业务发生可同时影响多个项目。借贷方向随科目性质不同，不能认为借永远增加贷永远减少。",
+    "aliases": [
+      "会计",
+      "资产",
+      "负债",
+      "所有者权益"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "财会与财务基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bdca954e-002",
+    "module": "财会与财务基础",
+    "title": "权责发生与现金",
+    "content": "确认收入费用与收付现金是不同维度，利润与经营现金流可不同。具体准则、科目处理和税务口径须按考试规定版本核验。",
+    "aliases": [
+      "权责发生",
+      "收入",
+      "费用",
+      "现金流"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "财会与财务基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bdca954e-003",
+    "module": "财会与财务基础",
+    "title": "报表与财务指标",
+    "content": "先定义分子分母和时点，再判断盈利、偿债与运营效率。分母为零、负值或季节波动时要说明局限，不能用单个比率全面评价。",
+    "aliases": [
+      "财务",
+      "报表",
+      "流动比率",
+      "资产负债率"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "财会与财务基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-bdca954e-004",
+    "module": "财会与财务基础",
+    "title": "投资与成本决策",
+    "content": "同时间口径比较现金流与折现值，区分相关增量成本和沉没成本。折现率、税收与风险假设需来自题目，不能擅自填经验数。",
+    "aliases": [
+      "财务",
+      "净现值",
+      "投资",
+      "成本"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "财会与财务基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-e009ecee-001",
+    "module": "计算机基础",
+    "title": "计算机组成",
+    "content": "处理器、内存、外存与输入输出按功能区分，容量、速度和带宽不同。型号性能和技术规格随版本变化，通用架构不确定具体产品能力。",
+    "aliases": [
+      "计算机",
+      "CPU",
+      "内存",
+      "存储"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "计算机基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-e009ecee-002",
+    "module": "计算机基础",
+    "title": "数据表示与编码",
+    "content": "数制换算区分数值与编码，位与字节进率8；十进制与二进制容量前缀不同。补码位宽固定后再求负数范围与溢出。",
+    "aliases": [
+      "二进制",
+      "编码",
+      "位",
+      "字节"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "计算机基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-e009ecee-003",
+    "module": "计算机基础",
+    "title": "操作系统与并发",
+    "content": "进程与线程的资源和调度关系不同，互斥、同步与死锁条件分别判断。具体实现依系统版本，不能把一种实现当通用定义。",
+    "aliases": [
+      "操作系统",
+      "进程",
+      "线程",
+      "死锁"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "计算机基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-e009ecee-004",
+    "module": "计算机基础",
+    "title": "网络分层与协议",
+    "content": "按分层职责辨析，可靠传输、寻址、域名、应用协议与加密各有作用。协议的新版本或产品支持范围须核查官方规范。",
+    "aliases": [
+      "网络",
+      "TCP",
+      "UDP",
+      "HTTP",
+      "IP"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "计算机基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-e009ecee-005",
+    "module": "计算机基础",
+    "title": "算法与复杂度",
+    "content": "区分最好平均最坏情况与空间复杂度，输入结构和实现假设明确。对数复杂度底数通常不影响阶，但实际运行时间还取决于常数和环境。",
+    "aliases": [
+      "算法",
+      "复杂度",
+      "排序",
+      "查找"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "计算机基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-e009ecee-006",
+    "module": "计算机基础",
+    "title": "数据结构",
+    "content": "栈后进先出、队列先进先出是抽象行为，树图性质按定义判断。哈希查找的平均复杂度与最坏情况不同，不能无条件断言恒定时间。",
+    "aliases": [
+      "数据结构",
+      "栈",
+      "队列",
+      "树",
+      "哈希"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "计算机基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-e009ecee-007",
+    "module": "计算机基础",
+    "title": "信息安全基础",
+    "content": "保密、完整、可用不同；加密不自动证明身份，数字签名不等于内容保密。备份、容灾和权限分离分别解决不同风险。",
+    "aliases": [
+      "安全",
+      "加密",
+      "认证",
+      "签名",
+      "备份"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "计算机基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-e009ecee-008",
+    "module": "计算机基础",
+    "title": "数据库基础",
+    "content": "实体、属性、键、关系与约束分别理解，事务原子性一致性隔离性持久性不同。具体SQL和隔离行为必须按数据库版本定义核验。",
+    "aliases": [
+      "数据库",
+      "关系",
+      "事务",
+      "SQL"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "计算机基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-b3b2f465-001",
+    "module": "数据库约束",
+    "title": "主键与唯一约束",
+    "content": "PostgreSQL18中主键要求唯一且非空，唯一约束的空值行为需按定义或NULLS NOT DISTINCT设置检查。不能泛称所有数据库的唯一约束都自动非空。",
+    "aliases": [
+      "主键",
+      "唯一约束",
+      "primary key",
+      "unique"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "数据库约束",
+      "计算机"
+    ],
+    "version": "stable",
+    "version_label": "PostgreSQL18文档；跨版本需核实",
+    "risk": "",
+    "source_url": "https://www.postgresql.org/docs/18/ddl-constraints.html",
+    "source_title": "PostgreSQL18：数据库约束",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-b3b2f465-002",
+    "module": "数据库约束",
+    "title": "外键与检查约束",
+    "content": "外键维持引用关系，检查约束限制行表达式；两者用途不同。空值、复合键与级联动作按PostgreSQL18具体规则判断，不凭术语猜跨库行为。",
+    "aliases": [
+      "外键",
+      "check",
+      "foreign key",
+      "约束"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "数据库约束",
+      "计算机"
+    ],
+    "version": "stable",
+    "version_label": "PostgreSQL18文档；跨版本需核实",
+    "risk": "",
+    "source_url": "https://www.postgresql.org/docs/18/ddl-constraints.html",
+    "source_title": "PostgreSQL18：数据库约束",
+    "source_kind": "authority",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-d32efb49-001",
+    "module": "教育基础",
+    "title": "学习与发展",
+    "content": "不同年龄的认知、社会情绪和经验影响学习，个体差异与一般发展规律同时考虑。案例措施要适合学段与具体学生，不凭标签诊断。",
+    "aliases": [
+      "教育",
+      "学习",
+      "发展",
+      "学生"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "教育基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-d32efb49-002",
+    "module": "教育基础",
+    "title": "教学目标与评价",
+    "content": "目标、活动和评价要一致，形成性与终结性评价用途不同。测量结果、价值判断与反馈改进不能混为一项。",
+    "aliases": [
+      "教学",
+      "目标",
+      "评价",
+      "课程"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "教育基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-d32efb49-003",
+    "module": "教育基础",
+    "title": "教育心理理论",
+    "content": "按理论解释的学习机制及条件辨析，不能将不同学者分类拼接。考试指定教材表述优先，概念摘要用于辅助比较。",
+    "aliases": [
+      "教育",
+      "心理",
+      "行为主义",
+      "建构"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "教育基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-d32efb49-004",
+    "module": "教育基础",
+    "title": "班级与师德案例",
+    "content": "以学生权益、事实调查、公平沟通与教育目标分析案例；具体法定义务和纪律处理规则须核实指定版本，不用抽象原则替代程序。",
+    "aliases": [
+      "教师",
+      "师德",
+      "班级",
+      "沟通"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "教育基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7ceaafbc-001",
+    "module": "医疗卫生考试方法",
+    "title": "医学题的条件核验",
+    "content": "先核对年龄、病程、症状、生命体征、单位和参考区间，再比较鉴别诊断与题目所问阶段。单个检查阳性不自动唯一确诊。",
+    "aliases": [
+      "医学",
+      "病史",
+      "检验",
+      "诊断"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "医疗卫生考试方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7ceaafbc-002",
+    "module": "医疗卫生考试方法",
+    "title": "卫生统计与实验",
+    "content": "敏感度与特异度按疾病状态条件定义，预测值还受患病率影响；不能互换条件概率。研究偏倚、混杂和适用人群分别检查。",
+    "aliases": [
+      "卫生",
+      "敏感度",
+      "特异度",
+      "阳性预测"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "医疗卫生考试方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-7ceaafbc-003",
+    "module": "医疗卫生考试方法",
+    "title": "药物与指南版本",
+    "content": "用药剂量、禁忌、治疗路径与指南是高风险和版本相关事实，摘要只提供核对框架。作答须核查考试指定指南与病例条件，不推演真实患者处置。",
+    "aliases": [
+      "药物",
+      "剂量",
+      "禁忌",
+      "指南"
+    ],
+    "specialist": "knowledge",
+    "tags": [
+      "医疗卫生考试方法",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/202603/P020260312625711589289.pdf",
+    "source_title": "2026事业单位分类考试大纲（政府公开附件）",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-d0f8e93e-001",
+    "module": "英语考试基础",
+    "title": "英语阅读证据",
+    "content": "先找到对应原句，区分主旨细节、作者立场与推断；程度、否定、代词和比较对象逐一核对。不能把背景知识当作文章明确陈述。",
+    "aliases": [
+      "英语",
+      "reading",
+      "passage",
+      "according"
+    ],
+    "specialist": "general",
+    "tags": [
+      "英语考试基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-d0f8e93e-002",
+    "module": "英语考试基础",
+    "title": "英语语法结构",
+    "content": "以主干主谓宾和从句关系确定时态、语态、主谓一致与非谓语。固定搭配和语境共同判断，不能只按距离最近的名词配动词。",
+    "aliases": [
+      "英语",
+      "grammar",
+      "tense",
+      "clause"
+    ],
+    "specialist": "general",
+    "tags": [
+      "英语考试基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-d0f8e93e-003",
+    "module": "英语考试基础",
+    "title": "英语填空与词义",
+    "content": "词义、词性、搭配、篇章连接和色彩共同核验，多空彼此制约。近义词不可只用中文翻译替代实际搭配差异。",
+    "aliases": [
+      "英语",
+      "blank",
+      "word",
+      "fill"
+    ],
+    "specialist": "general",
+    "tags": [
+      "英语考试基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  },
+  {
+    "id": "cs-d0f8e93e-004",
+    "module": "英语考试基础",
+    "title": "翻译与写作",
+    "content": "保留主体、时间、逻辑、程度和事实，不用通顺改写删除限制条件。写作按任务、受众和长度组织，具体引语与数据不能虚构。",
+    "aliases": [
+      "英语",
+      "translation",
+      "writing",
+      "translate"
+    ],
+    "specialist": "general",
+    "tags": [
+      "英语考试基础",
+      "通用"
+    ],
+    "version": "stable",
+    "version_label": "通用方法；以题干定义为准",
+    "risk": "",
+    "source_url": "https://jshrss.jiangsu.gov.cn/art/2026/3/18/art_93341_11743853.html",
+    "source_title": "2026江苏事业单位公共科目大纲",
+    "source_kind": "scope",
+    "reviewed_at": "2026-09-30"
+  }
+]

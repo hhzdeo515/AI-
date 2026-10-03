@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent  # langgraph-app/
 load_dotenv(ROOT / ".env")
@@ -17,11 +17,36 @@ BASE_URL = os.getenv(
 ).strip()
 MODEL_TEXT = os.getenv("MODEL_TEXT", "qwen-plus").strip()
 MODEL_VISION = os.getenv("MODEL_VISION", "qwen-vl-max").strip()
+# Exam models are separate from meeting/general chat configuration.
+EXAM_MODEL = os.getenv("EXAM_MODEL", "qwen3.8-flash").strip()
+EXAM_INDEPENDENT_MODEL = os.getenv("EXAM_INDEPENDENT_MODEL", "qwen3.7-plus").strip()
+EXAM_REVIEW_MODEL = os.getenv("EXAM_REVIEW_MODEL", "qwen3.8-max-0902").strip()
+EXAM_THINKING_BUDGET = int(os.getenv("EXAM_THINKING_BUDGET", "4096"))
+EXAM_REQUEST_TIMEOUT = float(os.getenv("EXAM_REQUEST_TIMEOUT", "60"))
+JEV_SOLVER_THINKING_BUDGET = int(os.getenv("JEV_SOLVER_THINKING_BUDGET", "1024"))
+EXAM_BATCH_WORKERS = max(1, min(8, int(os.getenv("EXAM_BATCH_WORKERS", "3"))))
 MODEL_ASR = os.getenv("MODEL_ASR", "qwen3-asr-flash").strip()
 #: 语音合成。只用 tts_v2(cosyvoice)——sambert 那套在百炼新账号上返回空数据。
 MODEL_TTS = os.getenv("MODEL_TTS", "cosyvoice-v1").strip()
 TTS_VOICE = os.getenv("TTS_VOICE", "longxiaochun").strip()
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "120"))
+
+# JEV credentials can reuse the already configured isolated trial version.
+# Only JEV-specific settings are read; its model/storage settings never replace ours.
+_jev_env = dotenv_values(ROOT.parent / "langgraph-jev" / ".env", interpolate=False)
+
+
+def _jev_setting(name: str, default: str = "") -> str:
+    return (os.getenv(name) or _jev_env.get(name) or default).strip()
+
+
+TYPESAFE_API_KEY = _jev_setting("TYPESAFE_API_KEY", _jev_setting("JEV_API_KEY"))
+JEV_BASE_URL = _jev_setting("JEV_BASE_URL", "https://api.typesafe.ai").rstrip("/")
+JEV_MODEL = _jev_setting("JEV_MODEL", "jev-latest")
+JEV_MIN_CONFIDENCE = float(_jev_setting("JEV_MIN_CONFIDENCE", "0.75"))
+JEV_TIMEOUT = float(_jev_setting("JEV_TIMEOUT", "30"))
+JEV_MAX_RETRIES = 2
+del _jev_env, _jev_setting
 
 # ---------- 路径 ----------
 DATA_DIR = Path(os.getenv("DATA_DIR", str(ROOT / "data")))
@@ -45,8 +70,8 @@ WEB_HOST = os.getenv("WEB_HOST", "127.0.0.1").strip()
 WEB_PORT = int(os.getenv("WEB_PORT", "8802"))
 
 # ---------- 外部工具 ----------
-#: 外部安装物统一放 E 盘（沿用 assistant-lite 的约定）
-TOOLS_DIR = Path(os.getenv("TOOLS_DIR", r"E:\AI智能助手\tools"))
+#: 外部安装物默认放在仓库根目录 tools/，也可通过环境变量指定。
+TOOLS_DIR = Path(os.getenv("TOOLS_DIR", str(ROOT.parent / "tools")))
 #: ffmpeg 可执行文件。留空则按 TOOLS_DIR/ffmpeg/bin -> PATH 顺序查找。
 FFMPEG_PATH = os.getenv("FFMPEG_PATH", "").strip()
 #: 长音频分片长度（秒）。ASR 单次调用有时长上限，长会议必须切。
@@ -70,10 +95,15 @@ DIFY_FALLBACK_LOCAL = os.getenv("DIFY_FALLBACK_LOCAL", "1").strip() not in ("0",
 # ---------- 端侧契约（见 docs/端侧适配设计_眼镜.md §3）----------
 #: 端侧 1–3B 判定可信阈值。低于此值只作证据、不作提示。
 DEVICE_CONFIDENCE_FLOOR = float(os.getenv("DEVICE_CONFIDENCE_FLOOR", "0.75"))
-#: 安全相关意图永不降级（与锻炼场景的「不适即停」一致）
-DEVICE_NEVER_DOWNGRADE = frozenset({"train_pain"})
+#: 保留端侧扩展契约；当前没有需要特殊保留的意图。
+DEVICE_NEVER_DOWNGRADE = frozenset()
 
-SCENES = ("meeting", "exam", "fitness", "resource", "general")
+SCENES = ("meeting", "exam", "resource", "general")
+
+#: 附件后缀 -> 场景。**附件类型本身就是意图信号**（贴图=问题、传录音=会议），
+#: 路由层用它压过会话里残留的粘性场景，见 ``routing.route`` 第 4 步。
+IMAGE_EXT = frozenset({".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"})
+AUDIO_EXT = frozenset({".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".amr", ".wma", ".webm"})
 
 
 def ensure_dirs() -> None:

@@ -38,6 +38,8 @@ class SceneResult(TypedDict, total=False):
     speech: str
     #: python / dify / local_fallback
     backend: str
+    #: Actual photo-solving model; omitted for other scene results.
+    exam_backend: str
     #: 非空表示这条结果不是正常产出，需要显式暴露给用户
     note: str
     artifacts: list[dict[str, Any]]
@@ -78,7 +80,15 @@ class AssistantState(TypedDict, total=False):
     owner: str
     session_id: str
     request_id: str
+    # Per-request exam selection, also persisted for checkpoint continuation.
+    exam_backend: str
+    # The learning task survives text turns and model switches in the same session.
+    practice_state: Annotated[dict[str, Any], _replace]
     files: list[str]
+    #: 本会话最近一次解题用过的题目图片。**追问时用户不会重新上传图片**，
+    #: 批题视觉链在本轮没图时沿用全部仍可用的照片（`nodes.exam_vision`）。
+    #: 只记原图路径、只在本场景用，不跨会话；每次上传覆盖为最新照片批次。
+    last_images: list[str]
     event: dict[str, Any]
     scene_hint: str | None
 
@@ -98,16 +108,6 @@ class AssistantState(TypedDict, total=False):
     notes: Annotated[list[str], operator.add]
 
     # ---- 设备形态状态（前端卡片读它）----
-    #: 训练状态：``{"workout": {"status", "current", "total_sets"}}``。
-    #: 前端 Web 层复用基线的 UI，WORKOUT 卡片读这个字段；迁移到图之后
-    #: 一度没有来源，卡片恒显示 IDLE。由 ``nodes.next_workout`` 补齐。
-    #:
-    #: 另含建档问卷的两个键（``nodes.profile_flow`` 读写）：
-    #: ``awaiting``（正在等哪个字段）与 ``draft``（已填部分）。
-    #: 它们放这里而不是新开字段，是因为 ``_in_sticky_flow`` 与
-    #: ``sticky_flags`` 已经在看 ``fitness.awaiting``——问卷期间必须粘住
-    #: fitness 场景，否则用户答「28」这类没有任何关键词的内容会掉到 general。
-    fitness: Annotated[dict[str, Any], _merge_dict]
     #: 会议状态：``{"status": "collecting|ended", "transcript": "..."}``。
     #: 同上，MEETING 卡片的 LISTENING 态与转写区读它。
     #: 由 ``nodes.next_meeting`` 补齐。

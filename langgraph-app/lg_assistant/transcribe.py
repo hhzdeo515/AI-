@@ -182,7 +182,8 @@ def fetch_result(task_id: str) -> dict[str, Any]:
         time.sleep(POLL_INTERVAL)
         try:
             q = req.post(f"{DASHSCOPE_BASE}/api/v1/tasks/{task_id}", headers=headers, timeout=60)
-            out = (q.json() or {}).get("output") or {}
+            envelope = q.json() or {}
+            out = envelope.get("output") or {}
         except Exception as e:  # noqa: BLE001
             last = f"{type(e).__name__}: {e}"
             continue
@@ -203,6 +204,7 @@ def fetch_result(task_id: str) -> dict[str, Any]:
                 data = req.get(url, timeout=180).json()
             except Exception as e:  # noqa: BLE001
                 raise TranscriptionError(f"下载识别结果失败：{type(e).__name__}: {e}") from e
+            data["service_usage"] = envelope.get("usage")
             return data
         if status in ("FAILED", "CANCELED"):
             raise TranscriptionError(
@@ -408,6 +410,7 @@ def parse_result(data: dict[str, Any]) -> dict[str, Any]:
         "utterances": utterances,
         "speakers": sorted({s["speaker"] for s in sentences if s["speaker"] is not None}),
         "duration_ms": int(props.get("original_duration_in_milliseconds") or 0),
+        "usage": data.get("service_usage"),
         "text": format_transcript(utterances),
     }
 

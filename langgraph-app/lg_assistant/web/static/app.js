@@ -7,20 +7,20 @@
 
   /* ── 常量 ───────────────────────────────────────────────────────── */
   const IMAGE_EXT = /\.(png|jpe?g|webp|bmp|gif|tiff?)$/i;
-  const AUDIO_EXT = /\.(wav|mp3|m4a|aac|flac|ogg|amr|wma)$/i;
-  const SCENE_LABEL = { meeting: "会议纪要", exam: "题解", fitness: "训练总结", general: "资料" };
+  const AUDIO_EXT = /\.(wav|mp3|m4a|aac|flac|ogg|amr|wma|webm)$/i;
+  const SCENE_LABEL = { meeting: "会议纪要", exam: "题解", general: "资料" };
 
   const VIEW_META = {
-    home: "Home",
-    meeting: "Meeting · 会议纪要",
-    vision: "Vision · 拍照解题",
-    fitness: "Fitness · 锻炼指导",
-    memory: "Memory · 资料库",
+    home: "首页",
+    meeting: "会议纪要",
+    vision: "拍照解题",
+    memory: "资料库",
+    hardware: "眼镜视野",
   };
 
   /* ── 状态 ───────────────────────────────────────────────────────── */
   const S = {
-    view: "home",
+    view: "hardware",
     owner: "local",
     session: "web",
     attached: [],
@@ -29,14 +29,15 @@
     meeting: { status: "idle", transcript: "", id: "" },
     meetingStage: "",           // "" | "structuring" | "done"
     meetingHadAudio: false,
-    fitness: { workout: { status: "idle" }, awaiting: "" },
-    profile: { profile: {}, summary: "", risk: "", bmi: null },
+    meetingElapsed: 0,          // 已结算的秒数（暂停时累加）
+    meetingStartedAt: null,     // 当前计时片段起点；暂停/结束时置空
     memoryFilter: "",
   };
 
   /* ── DOM 小工具 ─────────────────────────────────────────────────── */
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.prototype.slice.call((root || document).querySelectorAll(sel));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -120,12 +121,15 @@
   }
 
   function speechHtml(spoken, text) {
-    // 播报语是给「耳朵」的短版；和正文不同才显示，避免重复
-    if (!spoken || spoken === text) return "";
-    return '<div class="speech"><span class="speech-label">播报</span>' +
-      '<span class="speech-text">' + esc(spoken) + "</span>" +
-      '<button class="speech-play" type="button" aria-label="播放播报">▶</button>' +
-      "</div>";
+    // 播报块已从界面移除（用户要求）。
+    //
+    // 原因不只是「用不上」：屏幕上出现一条被单独高亮的「播报」，会让人把它
+    // 当成经过核实的结论。实测出现过模型把「二十届三中全会尚未召开」这种
+    // 明显过期的判断放进播报语——屏幕上多一个强调框，就等于多一次把错误
+    // 信息说得很确定的机会。语音播报是眼镜端的事，网页不需要预览。
+    //
+    // Reply.speech 字段仍保留并返回（设备端要用），只是不再渲染。
+    return "";
   }
 
   /* ── 语音合成播放（眼镜端由设备自己播，这里是网页预览） ─────────── */
@@ -134,7 +138,7 @@
 
   function stopSpeech() {
     if (speechAudio) { speechAudio.pause(); speechAudio = null; }
-    if (speechBtn) { speechBtn.textContent = "▶"; speechBtn = null; }
+    if (speechBtn) { speechBtn.textContent = "播报"; speechBtn = null; }
   }
 
   async function toggleSpeech(text, btn) {
@@ -146,7 +150,7 @@
       "&text=" + encodeURIComponent(text);
     speechAudio = new Audio(url);
     speechBtn = btn;
-    btn.textContent = "■";
+    btn.textContent = "停止播报";
     speechAudio.addEventListener("ended", stopSpeech);
     speechAudio.addEventListener("error", () => {
       stopSpeech();
@@ -167,20 +171,49 @@
 
   /* ── API ────────────────────────────────────────────────────────── */
   async function apiJson(path, opts) {
-    const res = await fetch(path, opts);
-    let data = null;
-    try { data = await res.json(); } catch (e) { data = null; }
-    if (!res.ok) throw new Error((data && data.error) || ("HTTP " + res.status));
-    return data;
+    const requestOptions = Object.assign({}, opts);
+    // Only the synchronous model request may legitimately hold a connection
+    // open for minutes. Submission, polling and state reads must settle so
+    // their caller can release the UI lock even if the service stops replying.
+    const timeoutMs = requestOptions.timeoutMs ?? (path === "/api/chat" ? 0 : 15000);
+    delete requestOptions.timeoutMs;
+    const controller = timeoutMs > 0 ? new AbortController() : null;
+    if (controller) requestOptions.signal = controller.signal;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      const res = await fetch(path, requestOptions);
+      let data = null;
+      try { data = await res.json(); }
+      catch (e) { if (controller?.signal.aborted) throw e; }
+      if (!res.ok) throw new Error((data && data.error) || ("HTTP " + res.status));
+      if (data === null) throw new Error("服务未返回有效数据，请稍后重试");
+      return data;
+    } catch (e) {
+      if (controller?.signal.aborted) {
+        throw new Error("本地服务响应超时；任务可能仍在后台处理，请先查看资料库中的结果");
+      }
+      // fetch 自己对网络中断只会说 "Failed to fetch"，用户看不懂。
+      // 本地服务被重启时就会这样（异步任务表在内存里，重启即丢）。
+      if (e instanceof TypeError) throw new Error("连不上本地服务（可能刚重启或已退出），请重试");
+      throw e;
+    } finally {
+      if (timer !== null) clearTimeout(timer);
+    }
   }
 
   function form(opts) {
     const fd = new FormData();
     fd.append("owner", S.owner);
-    fd.append("session_id", S.session);
+    fd.append("session_id", opts.session_id || S.session);
     if (opts.text != null) fd.append("text", opts.text);
     if (opts.scene) fd.append("scene", opts.scene);
-    if (opts.event) fd.append("event", JSON.stringify(opts.event));
+    fd.append("exam_backend", opts.exam_backend || window.AssistantModel.id);
+    const event = Object.assign({}, opts.event || {});
+    if (opts.scene === "exam" && window.Exam) event.exam = window.Exam.options();
+    if (Object.keys(event).length) fd.append("event", JSON.stringify(event));
+    // request_id 必须回传：否则进度记录挂在后端自己生成的 id 上，
+    // 前端拿着另一个 id 去轮询 /api/progress，永远只能拿到空进度。
+    if (opts.request_id) fd.append("request_id", opts.request_id);
     (opts.files || []).forEach((f) => fd.append("files", f, f.name));
     return fd;
   }
@@ -190,17 +223,27 @@
   }
 
   // 长耗时场景用：提交后立刻拿到 task_id，再轮询结果。
-  // 一次拍题要 ~27 秒，同步请求会长时间挂起，设备端更没法等。
+  // 一次拍题要 30–60 秒（四次模型调用），同步请求会把界面挂住——
+  // 用户看到的就是「点了发送没反应」。所以带附件一律走异步 + 轮询。
   async function sendAsync(opts) {
     const started = await apiJson("/api/chat/async", { method: "POST", body: form(opts) });
     const tid = started.task_id;
-    for (let i = 0; i < 600; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const rec = await apiJson("/api/task?task_id=" + encodeURIComponent(tid));
-      if (rec.status === "done") return rec.result;
-      if (rec.status === "error") throw new Error(rec.error || "任务失败");
+    const rid = opts.request_id || started.request_id || "";
+    let stopPoll = null;
+    if (opts.onProgress && rid) stopPoll = pollProgress(rid, opts.onProgress);
+    try {
+      // A photograph may contain many questions. Keep waiting for this same task
+      // while the server reports that it is pending/running; never resubmit it.
+      while (true) {
+        await sleep(600);
+        const rec = await apiJson("/api/task?task_id=" + encodeURIComponent(tid));
+        if (rec.status === "done") return rec.result;
+        if (rec.status === "error") throw new Error(rec.error || "任务失败");
+        if (rec.status !== "pending" && rec.status !== "running") throw new Error("任务状态无法确认，请查看资料库中的结果或稍后重试");
+      }
+    } finally {
+      if (stopPoll) stopPoll();
     }
-    throw new Error("任务超时");
   }
 
   /* ── Toast ──────────────────────────────────────────────────────── */
@@ -215,39 +258,49 @@
 
   /* ── 视图路由 ───────────────────────────────────────────────────── */
   function urlView() {
-    return (location.hash || "").replace("#", "") || "home";
+    return location.hash === "#memory" ? "memory" : "hardware";
   }
 
   function go(view, fromUrl) {
-    if (!VIEW_META[view]) view = "home";
+    view = view === "memory" ? "memory" : "hardware";
+    if (view !== "hardware" && window.MeetingRecorder?.isActive()) window.MeetingRecorder.stop("已离开眼镜视野，录音已关闭。");
     S.view = view;
-
-    if (!fromUrl) {
-      const want = view === "home" ? "" : view;
-      if ((location.hash || "").replace("#", "") !== want) {
-        if (view === "home") history.pushState(null, "", location.pathname);
-        else location.hash = view;
-      }
+    const target = location.pathname + location.search + "#" + view;
+    if (location.hash !== "#" + view) {
+      if (fromUrl) history.replaceState(null, "", target);
+      else location.hash = view;
     }
-
     $$(".view").forEach((v) => v.classList.toggle("is-on", v.dataset.view === view));
-    $$(".nav-item").forEach((b) => b.classList.toggle("is-on", b.dataset.go === view));
-    $$(".tabbar button").forEach((b) => b.classList.toggle("is-on", b.dataset.go === view));
+    $$(".topbar [data-go]").forEach((b) => {
+      const active = b.dataset.go === view;
+      b.classList.toggle("is-on", active);
+      b.setAttribute("aria-current", active ? "page" : "false");
+    });
     $("#crumb").textContent = VIEW_META[view];
-    $("#nav").classList.remove("is-open");
+    $("#crumb").hidden = view === "hardware";
     $("#stage").scrollTop = 0;
     $("#live-host").innerHTML = "";
+    // 解题页的输入框就是「拍题框」，提示语跟着场景走
+    $("#input").placeholder = view === "vision"
+      ? "补充要求（可选）"
+      : "输入内容";
+    showVeil(false);
     stopSpeech();
 
+    if (view === "vision" && window.Exam) window.Exam.refresh(S.owner);
     if (view === "memory") loadMemory();
-    if (view === "fitness") loadProfile();
     if (view === "meeting") renderMeeting();
+    // 切到带状态卡片的视图时补拉一次会话状态。
+    // 不拉的话卡片会停在初始值（WORKOUT 恒显示 IDLE），
+    // 只有在本页提交过请求才会更新——刷新或重新进入就看不到了。
+    if (view === "meeting") refreshState();
     renderContext();
   }
 
   /* ── 状态指示 ───────────────────────────────────────────────────── */
   function applyHealth(h) {
     S.health = h;
+    window.AssistantModel.setReady(h.jev_ready);
     const on = !!h.api_key_configured;
     const chips = {
       vision: true,
@@ -258,7 +311,7 @@
       const ok = chips[c.dataset.chip];
       c.classList.toggle("is-off", !ok);
     });
-    $("#mode-note").textContent = on ? "模型已连接 · 未接眼镜硬件" : "未配置 API Key";
+
   }
 
   /* ── Pipeline ───────────────────────────────────────────────────── */
@@ -287,7 +340,7 @@
       if (stopped) return;
       try {
         const p = await apiJson("/api/progress?request_id=" + encodeURIComponent(rid));
-        if (p && p.steps && p.steps.length) onUpdate(p);
+        if (p && (p.batch || p.steps && p.steps.length)) onUpdate(p);
       } catch (e) { /* 轮询失败不打断主流程 */ }
       if (!stopped) setTimeout(tick, 520);
     })();
@@ -298,13 +351,13 @@
   function meetingSteps() {
     const hasText = !!(S.meeting.transcript || "").length;
     const stage = S.meetingStage;
-    const capturedLabel = S.meetingHadAudio ? "Audio captured" : "Content captured";
+    const capturedLabel = S.meetingHadAudio ? "已收录音" : "已收记录";
 
     const steps = [
       { id: "captured", label: capturedLabel },
-      { id: "transcript", label: "Transcript ready" },
-      { id: "structuring", label: "Structuring meeting" },
-      { id: "summary", label: "Summary ready" },
+      { id: "transcript", label: "转写完成" },
+      { id: "structuring", label: "整理纪要" },
+      { id: "summary", label: "纪要完成" },
     ];
 
     let level = 0;                       // 0..4，已完成的步数
@@ -323,32 +376,46 @@
   function renderMeeting() {
     const m = S.meeting;
     const collecting = m.status === "collecting";
+    const paused = m.status === "paused";
+    const live = collecting || paused;   // 暂停仍属于"会话还在"，面板不收起
     const panel = $("#meeting-session");
     const badge = $("#meeting-badge");
 
-    $("#meeting-start").hidden = collecting;
-    $("#meeting-stop").hidden = !collecting;
-    panel.hidden = !collecting;
+    $("#meeting-start").hidden = live;
+    $("#meeting-stop").hidden = !live;
+    $("#meeting-pause").hidden = !live;
+    $("#meeting-pause").textContent = paused ? "恢复文字记录" : "暂停文字记录";
+    panel.hidden = !live;
 
-    if (collecting) {
-      badge.textContent = "LISTENING";
-      badge.className = "badge is-live";
+    if (live) {
+      badge.textContent = paused ? "记录已暂停" : "文字记录中";
+      badge.className = "badge " + (paused ? "is-paused" : "is-live");
       const ta = $("#meeting-transcript");
       if (document.activeElement !== ta) ta.value = m.transcript || "";
       updateMeetingCount();
-      if (!S.meetingStartedAt) S.meetingStartedAt = Date.now();
+      if (collecting && !S.meetingStartedAt) S.meetingStartedAt = Date.now();
+      if (paused && S.meetingStartedAt) {
+        // 进入暂停：把这一段时长结算掉，之后不再增长
+        S.meetingElapsed += (Date.now() - S.meetingStartedAt) / 1000;
+        S.meetingStartedAt = null;
+      }
     } else {
       S.meetingStartedAt = null;
+      S.meetingElapsed = 0;
       if (m.status === "ended") {
-        badge.textContent = "ENDED";
+        badge.textContent = "已结束";
         badge.className = "badge is-idle";
       }
     }
 
-    $("#meeting-monitor").hidden = !collecting;
-    if (collecting) startMeetingTimer(); else stopMeetingTimer();
+    const monitor = $("#meeting-monitor");
+    monitor.hidden = true; // Text collection is not microphone recording.
+    monitor.classList.toggle("is-paused", paused);
+    $("#mono-state").textContent = paused ? "记录已暂停" : "文字记录";
+    stopMeetingTimer();
+    if (paused) paintMeetingTime();
 
-    const hasAny = collecting || S.meetingStage;
+    const hasAny = live || S.meetingStage;
     renderPipeline($("#meeting-pipeline"), hasAny ? meetingSteps() : null);
   }
 
@@ -359,139 +426,30 @@
 
   let meetingTimer = null;
 
+  // 已计时秒数 = 之前片段累加 + 当前片段；暂停后 meetingStartedAt 为空，数字不再增长
+  function meetingSeconds() {
+    const running = S.meetingStartedAt ? (Date.now() - S.meetingStartedAt) / 1000 : 0;
+    return Math.floor(S.meetingElapsed + running);
+  }
+
+  function paintMeetingTime() {
+    const total = meetingSeconds();
+    $("#mono-time").textContent =
+      String(Math.floor(total / 60)).padStart(2, "0") + ":" +
+      String(total % 60).padStart(2, "0");
+  }
+
   function startMeetingTimer() {
     if (meetingTimer) return;
-    const tick = () => {
-      if (!S.meetingStartedAt) return;
-      const total = Math.floor((Date.now() - S.meetingStartedAt) / 1000);
-      $("#mono-time").textContent =
-        String(Math.floor(total / 60)).padStart(2, "0") + ":" +
-        String(total % 60).padStart(2, "0");
-    };
-    tick();
-    meetingTimer = setInterval(tick, 1000);
+    paintMeetingTime();
+    meetingTimer = setInterval(paintMeetingTime, 1000);
   }
 
   function stopMeetingTimer() {
     if (meetingTimer) { clearInterval(meetingTimer); meetingTimer = null; }
   }
 
-  /* ── 组间休息倒计时 ─────────────────────────────────────────────── */
-  // 时长直接取自后端返回的建议（"休息 60–90 秒再开始下一组"），不自己编数字。
-  const RING_LEN = 113; // 2πr, r=18
-
-  function parseRest(text) {
-    const m = String(text || "").match(/休息\s*(\d+)\s*[–\-~至]\s*(\d+)\s*秒/);
-    return m ? parseInt(m[2], 10) : 0;
-  }
-
-  let restTimer = null;
-
-  function stopRest() {
-    if (restTimer) { clearInterval(restTimer); restTimer = null; }
-  }
-
-  function startRest(seconds) {
-    stopRest();
-    if (!seconds) return;
-    const ring = $("#rest-ring");
-    let left = seconds;
-    $("#fit-rest").hidden = false;
-
-    const tick = () => {
-      const m = Math.floor(left / 60), s = left % 60;
-      $("#rest-time").textContent =
-        String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
-      if (ring) ring.style.strokeDashoffset = String(RING_LEN * (1 - left / seconds));
-      if (left <= 0) {
-        $("#rest-time").textContent = "READY";
-        stopRest();
-        return;
-      }
-      left -= 1;
-    };
-    tick();
-    restTimer = setInterval(tick, 1000);
-  }
-
-  /* ── Fitness ────────────────────────────────────────────────────── */
-  async function loadProfile() {
-    try {
-      S.profile = await apiJson("/api/profile?owner=" + encodeURIComponent(S.owner));
-    } catch (e) {
-      S.profile = { profile: {}, summary: "", risk: "", bmi: null };
-    }
-    renderFitness();
-  }
-
-  function renderFitness() {
-    const host = $("#fit-profile");
-    const p = S.profile.profile || {};
-    const has = Object.keys(p).length > 0;
-
-    if (!has) {
-      host.innerHTML =
-        '<div class="panel-head"><span class="panel-title">Health Profile</span>' +
-        '<span class="badge is-idle">NOT SET</span></div>' +
-        '<p class="frame-hint" style="margin:0 0 14px;text-align:left">' +
-        "建档后，器械指导与训练计划都会结合你的年龄、目标、伤病与慢性病。" +
-        "</p>";
-      const btn = el("button", "btn btn-primary", "建立健康档案");
-      btn.addEventListener("click", () => {
-        go("fitness");
-        runComposer({ text: "建立健康档案", scene: "fitness" });
-      });
-      host.appendChild(btn);
-    } else {
-      const fields = [
-        ["年龄", p.age], ["身高", p.height_cm ? p.height_cm + " cm" : ""],
-        ["体重", p.weight_kg ? p.weight_kg + " kg" : ""],
-        ["BMI", S.profile.bmi != null ? S.profile.bmi : ""],
-        ["目标", p.goal], ["运动基础", p.level],
-        ["每周训练", p.days_per_week != null ? p.days_per_week + " 天" : ""],
-        ["伤病", (p.injuries || []).join("、")],
-        ["慢性病", (p.conditions || []).join("、")],
-        ["可用器械", (p.equipment || []).join("、")],
-      ].filter((f) => f[1] !== "" && f[1] != null);
-
-      host.innerHTML =
-        '<div class="panel-head"><span class="panel-title">Health Profile</span>' +
-        '<span class="badge">SET</span></div>' +
-        '<dl class="profile-grid">' +
-        fields.map((f) =>
-          '<div class="pfield"><dt>' + esc(f[0]) + "</dt><dd>" + esc(f[1]) + "</dd></div>"
-        ).join("") + "</dl>" +
-        (S.profile.risk
-          ? '<p class="frame-hint" style="margin:0;text-align:left">注意：' + esc(S.profile.risk) +
-            "。涉及这些情况的训练请先咨询医生或线下教练。</p>"
-          : "");
-    }
-
-    // Workout 区：空闲态与活跃态都在 DOM 里，只切换显示，绝不重写 innerHTML。
-    // （曾用 innerHTML 覆盖空闲态，切到活跃态时 #fit-sets 等元素已不存在 →
-    //   TypeError → refreshState 抛出 → runComposer 的 busy 永远不释放 → UI 锁死）
-    const w = S.fitness.workout || {};
-    const active = w.status === "active" || w.status === "paused";
-
-    $("#fit-session").hidden = false;
-    $("#fit-idle").hidden = active;
-    $("#fit-active").hidden = !active;
-
-    if (active) {
-      $("#fit-badge").textContent = w.status === "paused" ? "PAUSED" : "ACTIVE";
-      $("#fit-badge").className = "badge " + (w.status === "paused" ? "is-warn" : "is-live");
-      $("#fit-sets").textContent = String(w.total_sets || 0);
-      $("#fit-current").textContent = w.current || "—";
-      $("#fit-state").textContent = (w.status || "idle").toUpperCase();
-      $("#fit-rest").hidden = w.status !== "active";
-    } else {
-      $("#fit-badge").textContent = "IDLE";
-      $("#fit-badge").className = "badge is-idle";
-      stopRest();
-    }
-  }
-
-  /* ── Memory ─────────────────────────────────────────────────────── */
+  /* 资料库 */
   async function loadMemory() {
     const host = $("#memory-list");
     host.innerHTML = '<div class="empty">读取中…</div>';
@@ -506,7 +464,7 @@
     }
 
     if (!rows.length) {
-      host.innerHTML = '<div class="empty">还没有归档资料。<br>生成会议纪要、题解或训练总结后会自动出现在这里。</div>';
+      host.innerHTML = '<div class="empty">还没有归档资料。<br>生成会议纪要或题解后会自动出现在这里。</div>';
       return;
     }
 
@@ -536,7 +494,6 @@
     const paths = {
       meeting: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>',
       exam: '<path d="M4 8V5.6A1.6 1.6 0 0 1 5.6 4H8"/><path d="M16 4h2.4A1.6 1.6 0 0 1 20 5.6V8"/><path d="M20 16v2.4a1.6 1.6 0 0 1-1.6 1.6H16"/><path d="M8 20H5.6A1.6 1.6 0 0 1 4 18.4V16"/><circle cx="12" cy="12" r="3"/>',
-      fitness: '<path d="M3 12.5h3.4l2-5.2 3 10.4 2.4-7.2 1.8 4h4.9"/>',
     };
     return '<svg class="mem-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" ' +
       'stroke-linecap="round" stroke-linejoin="round">' + (paths[scene] || paths.general || paths.meeting) + "</svg>";
@@ -549,8 +506,15 @@
     host.scrollIntoView({ behavior: "smooth", block: "nearest" });
     try {
       const r = await apiJson("/api/resource?owner=" + encodeURIComponent(S.owner) + "&id=" + encodeURIComponent(id));
-      host.innerHTML = resultHtml(r.content, exportBar(r.id, r.scene));
+      const split = r.has_transcript ? splitMeetingBody(r.content || "") : null;
+      host.innerHTML = split
+        ? '<div class="md">' + renderMd(split.head) + "</div>" +
+          '<div class="tr-panel" id="tr-host" data-rid="' + esc(r.id) + '"></div>' +
+          exportBar(r.id, r.scene)
+        : resultHtml(r.content, exportBar(r.id, r.scene));
       bindExport(host, r.id);
+      const trHost = $("#tr-host", host);
+      if (trHost) mountTranscriptEditor(trHost, r.id);
     } catch (e) {
       host.innerHTML = '<div class="empty">' + esc(e.message) + "</div>";
     }
@@ -558,8 +522,8 @@
 
   function exportBar(id, scene) {
     const fmts = ["docx", "pdf", "md", "txt"];
-    return '<div class="export-bar"><span class="label">Export</span>' +
-      fmts.map((f) => '<button class="btn-mini" data-fmt="' + f + '">' + f.toUpperCase() + "</button>").join("") +
+    return '<div class="export-bar"><span class="label">导出</span>' +
+      fmts.map((f) => '<button class="btn-mini" data-fmt="' + f + '">' + ({docx:"文字文档", pdf:"版式文档", md:"排版文本", txt:"纯文本"})[f] + "</button>").join("") +
       "</div>";
   }
 
@@ -569,7 +533,7 @@
         const fmt = b.dataset.fmt;
         window.location.href = "/api/export?owner=" + encodeURIComponent(S.owner) +
           "&id=" + encodeURIComponent(id) + "&format=" + fmt;
-        toast("正在导出 " + fmt.toUpperCase());
+        toast("正在导出");
       });
     });
   }
@@ -580,37 +544,23 @@
     const secs = [];
 
     if (S.view === "meeting") {
-      secs.push(["Session", [
-        ["状态", S.meeting.status || "idle"],
-        ["会议 ID", S.meeting.id ? S.meeting.id.slice(0, 8) : "—"],
+      secs.push(["会议记录", [
+        ["状态", ({idle:"未开始", collecting:"记录中", paused:"已暂停", ended:"已结束"})[S.meeting.status] || "未开始"],
+        ["会议编号", S.meeting.id ? S.meeting.id.slice(0, 8) : "—"],
         ["转写", (S.meeting.transcript || "").length + " / 48000 字"],
       ]]);
     } else if (S.view === "vision") {
-      secs.push(["Image", [["已选", S.attached.length ? S.attached[0].name : "—"]]]);
-      secs.push(["Verification", [
-        ["计算校验", "由 /api/exam-check 执行"],
-        ["黑白格", "等尺寸黑白格题逐格运算"],
-      ]]);
-    } else if (S.view === "fitness") {
-      const p = S.profile.profile || {};
-      const w = S.fitness.workout || {};
-      secs.push(["Profile", [
-        ["目标", p.goal || "—"],
-        ["基础", p.level || "—"],
-        ["伤病", (p.injuries || []).join("、") || "—"],
-      ]]);
-      secs.push(["Workout", [
-        ["状态", (w.status || "idle").toUpperCase()],
-        ["当前动作", w.current || "—"],
-        ["累计组数", String(w.total_sets || 0)],
+      secs.push(["附件", [
+        ["待发送附件", S.attached.length ? S.attached.map((f) => f.name).join("、") : "—"],
+        ["发送方式", "拖入 / Ctrl+V 粘贴 / 点 + 选择"],
       ]]);
     } else if (S.view === "memory") {
-      secs.push(["Library", [
-        ["筛选", S.memoryFilter || "All"],
+      secs.push(["资料库", [
+        ["筛选", ({meeting:"会议纪要", exam:"题解"})[S.memoryFilter] || "全部"],
         ["数据目录", S.health ? S.health.data_dir : "—"],
       ]]);
     } else {
-      secs.push(["Assistant", [
+      secs.push(["助手", [
         ["文本模型", S.health ? S.health.model_text : "—"],
         ["视觉模型", S.health ? S.health.model_vision : "—"],
         ["语音模型", S.health ? S.health.model_asr : "—"],
@@ -626,6 +576,8 @@
   }
 
   /* ── 附件 ───────────────────────────────────────────────────────── */
+  // 图片/录音统一挂在底部输入框上：拖入、Ctrl+V 粘贴、点 + 选择，
+  // 与拍照结果都汇到 addFiles()，统一确认后发送。
   let fileCallback = null;
 
   function pickFiles(accept, cb) {
@@ -636,22 +588,125 @@
     input.click();
   }
 
-  function addFiles(files) {
-    Array.prototype.slice.call(files || []).forEach((f) => {
-      const ok = IMAGE_EXT.test(f.name) || AUDIO_EXT.test(f.name);
-      if (!ok) { toast("不支持的格式：" + f.name); return; }
-      if (!S.attached.some((x) => x.name === f.name && x.size === f.size)) S.attached.push(f);
-    });
-    renderAttached();
-    // 在 Vision 页选了图片就直接进取景框预览
-    if (S.view === "vision" && S.attached.some((f) => IMAGE_EXT.test(f.name))) showVisionPreview();
+  /** 剪贴板/拖拽给的文件可能没有名字，补一个带正确扩展名的名字 */
+  function normalizeFile(f) {
+    if (!f) return f;
+    if (IMAGE_EXT.test(f.name || "") || AUDIO_EXT.test(f.name || "")) return f;
+    const type = f.type || "";
+    let ext = "";
+    if (type.indexOf("image/") === 0) ext = (type.split("/")[1] || "png").replace("jpeg", "jpg");
+    else if (type.indexOf("audio/") === 0) ext = type.split("/")[1] || "mp3";
+    if (!ext) return f;
+    const base = String(f.name || "clipboard").replace(/\.[^.]*$/, "") || "clipboard";
+    try {
+      return new File([f], base + "." + ext, { type: type });
+    } catch (e) {
+      return f;
+    }
   }
 
+  function addFiles(files) {
+    if (S.view === "hardware" && window.HardwareLens) {
+      const media = Array.from(files || []).map(normalizeFile);
+      for (const file of media) {
+        if (IMAGE_EXT.test(file.name)) window.HardwareLens.acceptImage(file);
+        else if (AUDIO_EXT.test(file.name)) window.HardwareLens.acceptAudio(file);
+        else toast("不支持的格式：" + (file.name || "未知文件"));
+      }
+      return media.length;
+    }
+    if (S.view === "memory") { toast("返回眼镜视野后再导入图片或录音"); return 0; }
+    let added = 0;
+    Array.prototype.slice.call(files || []).forEach((raw) => {
+      const f = normalizeFile(raw);
+      if (!IMAGE_EXT.test(f.name) && !AUDIO_EXT.test(f.name)) {
+        toast("不支持的格式：" + (f.name || "未知文件"));
+        return;
+      }
+      if (!S.attached.some((x) => x.name === f.name && x.size === f.size)) {
+        S.attached.push(f);
+        added++;
+      }
+    });
+    renderAttached();
+    if (added) {
+      toast(S.attached.length + " 个附件已放进输入框 · 按 Enter 或点 → 发送");
+      $("#input").focus();
+    }
+    return added;
+  }
+
+  let attachUrls = [];
+  let msgUrls = [];
+
   function renderAttached() {
-    const host = $("#attached");
-    host.textContent = S.attached.length
-      ? "附件：" + S.attached.map((f) => f.name).join("、")
-      : "";
+    const strip = $("#attach-strip");
+    const note = $("#attached");
+    // 缩略图用的 objectURL 每次重绘都要回收，否则选十张图就漏十份内存
+    attachUrls.forEach((u) => URL.revokeObjectURL(u));
+    attachUrls = [];
+
+    if (!S.attached.length) {
+      strip.hidden = true;
+      strip.innerHTML = "";
+      note.textContent = "";
+      return;
+    }
+
+    strip.hidden = false;
+    strip.innerHTML = S.attached.map((f, i) => {
+      const isImg = IMAGE_EXT.test(f.name);
+      let thumb;
+      if (isImg) {
+        const url = URL.createObjectURL(f);
+        attachUrls.push(url);
+        thumb = '<img src="' + url + '" alt="">';
+      } else {
+        thumb = '<span class="attach-file">录音</span>';
+      }
+      return '<span class="attach-chip">' + thumb +
+        '<span class="attach-name">' + esc(f.name) + "</span>" +
+        '<button class="attach-x" type="button" data-remove="' + i + '" aria-label="移除">×</button></span>';
+    }).join("");
+
+    $$("[data-remove]", strip).forEach((b) => {
+      b.addEventListener("click", () => {
+        S.attached.splice(Number(b.dataset.remove), 1);
+        renderAttached();
+      });
+    });
+
+    note.textContent = "已就绪 " + S.attached.length + " 个附件 · 按 Enter 或点 → 发送";
+  }
+
+  /* ── 拖拽 / 粘贴：落点永远是输入框 ──────────────────────────────── */
+  function dtHasFiles(e) {
+    const dt = e.dataTransfer;
+    if (!dt || !dt.types) return false;
+    return Array.prototype.indexOf.call(dt.types, "Files") >= 0;
+  }
+
+  function filesFrom(dt) {
+    const out = [];
+    if (!dt) return out;
+    if (dt.files && dt.files.length) {
+      Array.prototype.push.apply(out, Array.prototype.slice.call(dt.files));
+    } else if (dt.items) {
+      Array.prototype.slice.call(dt.items).forEach((it) => {
+        if (it.kind === "file") {
+          const f = it.getAsFile();
+          if (f) out.push(f);
+        }
+      });
+    }
+    return out.map(normalizeFile);
+  }
+
+  function showVeil(on) {
+    const veil = $("#drop-veil");
+    if (veil) veil.hidden = !on;
+    const box = $("#composer");
+    if (box) box.classList.toggle("is-drop", !!on);
   }
 
   /* ── 结果渲染 ───────────────────────────────────────────────────── */
@@ -665,28 +720,372 @@
     card.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  /* ── Composer：统一的发送入口 ───────────────────────────────────── */
-  async function runComposer(opts) {
-    if (S.busy) return null;
-    S.busy = true;
-    $("#send").disabled = true;
+  /* ── 对话流（解题页）：输入框在上、消息在上方依次出现 ─────────────
+     为什么要一条流：用户的原话是「点发送没反应，把图拖进聊天框里，
+     然后上边给我出现答案解析」。所以发出去的消息、等待态、答案解析
+     全都在输入框上方按顺序出现，而不是散落在页面各处。            */
+  const VISION_EMPTY = '<div id="vision-empty"></div>';
 
-    const rid = Math.random().toString(16).slice(2, 14);
+  function threadHost() {
+    return S.view === "vision" ? $("#vision-thread") : null;
+  }
+
+  /** 往当前场景的对话流里追加一条消息；非解题页沿用原来的单卡结果区 */
+  function pushMsg(html, cls) {
+    const host = threadHost();
+    if (!host) {
+      pushLive(html);
+      return $("#live-host .result");
+    }
+    const empty = $("#vision-empty");
+    if (empty) empty.remove();
+    const clearBtn = $("#vision-clear");
+    if (clearBtn) clearBtn.hidden = false;
+    const node = el("div", "msg" + (cls ? " " + cls : ""));
+    node.innerHTML = html;
+    host.appendChild(node);
+    node.scrollIntoView({ behavior: "smooth", block: "end" });
+    return node;
+  }
+
+  function resetThread() {
+    const host = $("#vision-thread");
+    if (!host) return;
+    msgUrls.forEach((u) => URL.revokeObjectURL(u));
+    msgUrls = [];
+    host.innerHTML = VISION_EMPTY;
+    const clearBtn = $("#vision-clear");
+    if (clearBtn) clearBtn.hidden = true;
+    bindVisionPick();
+  }
+
+  function bindVisionPick() {
+    const b = $("#vision-pick");
+    if (b) b.addEventListener("click", () => window.ExamCamera.open());
+  }
+
+  function userMsgHtml(text, files) {
+    const imgs = (files || []).filter((f) => IMAGE_EXT.test(f.name));
+    const others = (files || []).filter((f) => !IMAGE_EXT.test(f.name));
+    let html = "";
+    if (imgs.length) {
+      html += '<div class="msg-thumbs">' + imgs.map((f) => {
+        // 消息里的缩略图单独记一份 URL：renderAttached() 会把附件条的 URL 回收掉，
+        // 两条消息共用一份的话，发出去的一瞬间气泡里的图就白了。
+        const url = URL.createObjectURL(f);
+        msgUrls.push(url);
+        return '<img src="' + url + '" alt="">';
+      }).join("") + "</div>";
+    }
+    if (text) html += '<p class="msg-text">' + esc(text) + "</p>";
+    if (others.length) {
+      html += '<p class="msg-file">' + esc(others.map((f) => f.name).join("、")) + "</p>";
+    }
+    return html;
+  }
+
+  // 等待态：点下去立刻有反应——转圈 + 已用时间（真实步骤由后端上报后填进来）
+  const EXAM_STEP_CN = { capture: "读图", recognize: "识别题干", solve: "求解", verify: "回看原图复核" };
+
+  function pendingHtml(hasImage) {
+    return '<div class="think"><span class="spinner" aria-hidden="true"></span>' +
+      '<span class="think-label">' + (hasImage ? "正在解题…" : "正在思考…") + "</span>" +
+      '<span class="think-time">0.0 秒</span></div>' +
+      '<div class="pipeline" data-role="steps" hidden></div>';
+  }
+
+  function startTimer(node) {
+    const t = $(".think-time", node);
+    const t0 = Date.now();
+    const show = () => { if (t) t.textContent = ((Date.now() - t0) / 1000).toFixed(1) + " 秒"; };
+    show();
+    const id = setInterval(show, 200);
+    return () => { clearInterval(id); show(); };
+  }
+
+  /** Keep photographed questions together: each answer is followed by its explanation. */
+  function examResultHtml(r, options = {}) {
+    const practice=(r.artifacts||[]).find(a=>a.kind==="practice"&&["essay","interview"].includes(a.agent)&&Array.isArray(a.stages));
+    if(practice)return practiceResultHtml(practice);
+    const batch = (r.artifacts || []).find(a => a.kind === "exam_batch" && Array.isArray(a.questions));
+    const modelLabel = r.exam_backend === "jev" ? "JEV" : r.exam_backend === "original" ? "原版" : "";
+    const model = modelLabel ? '<span class="answer-model">' + modelLabel + '解题</span>' : "";
+    if (batch) {
+      const questions = batch.questions;
+      const statusOf = q => q.status === "answered" && String(q.answer || "").trim() ? "answered" : q.status === "needs_photo" ? "needs_photo" : q.status === "error" ? "error" : "unresolved";
+      const answered = questions.filter(q => statusOf(q) === "answered").length;
+      const missing = questions.filter(q => statusOf(q) === "needs_photo").length;
+      const pending = questions.length - answered - missing;
+      const summary = '<p class="exam-batch-summary" role="status">识别 ' + questions.length + ' 道题 · 已解 ' + answered + ' 道' +
+        (missing ? ' · 需补拍 ' + missing + ' 道' : '') + (pending ? ' · 待核验 ' + pending + ' 道' : '') + '</p>';
+      const selected = Number.isInteger(options.questionIndex) && options.questionIndex >= 0 && options.questionIndex < questions.length;
+      const shownQuestions = selected ? [questions[options.questionIndex]] : questions;
+      const cards = shownQuestions.map((q, offset) => {
+        const i = selected ? options.questionIndex : offset;
+        const status = statusOf(q), label = String(q.label || '第 ' + (i + 1) + ' 题');
+        const page = Number.isInteger(q.page) && q.page > 0 ? '<span class="exam-question-page">第 ' + q.page + ' 张照片</span>' : '';
+        const answer = status === "answered" ? String(q.answer).trim() : status === "needs_photo" ? "需补拍" : status === "error" ? "处理未完成" : "暂无法确定";
+        let detail = q.explanation ? renderMd(q.explanation) : status === "answered" ? '<p>本次未返回详细解析。</p>' : '';
+        if (q.needed) detail += '<div class="exam-question-needed"><strong>' + (status === "needs_photo" ? '补拍提示' : status === "error" ? '处理失败' : '未确定原因') + '</strong>' + renderMd(q.needed) + '</div>';
+        else if (status === "needs_photo") detail += '<p class="exam-question-needed">请将这道题的题干、图形和全部选项一起拍完整，再次提交。</p>';
+        else if (status === "error" && !detail) detail = '<p>本题处理未完成，请稍后重试。</p>';
+        else if (status !== "answered" && !detail) detail = '<p>本次未得到通过复核的答案。</p>';
+        if (q.review_notes && !String(q.explanation || '').includes(String(q.review_notes))) detail += '<div class="exam-question-review"><strong>核对说明</strong>' + renderMd(q.review_notes) + '</div>';
+        return '<article class="exam-question is-' + status + '"><header class="exam-question-heading"><h3>' + esc(label) + '</h3>' + page + '</header>' +
+          '<div class="answer-block"><span class="answer-kicker">答案</span><span class="answer-value">' + esc(answer) + '</span></div>' +
+          '<section class="exam-question-explanation"><h4>解析</h4><div class="md">' + detail + '</div></section></article>';
+      }).join('');
+      const notes = Array.isArray(batch.notes) ? batch.notes.filter(n => typeof n === 'string' && n.trim()) : [];
+      let notices = batch.error ? renderMd(String(batch.error)) : '';
+      if (notes.length) notices += '<ul>' + notes.map(n => '<li>' + inlineMd(n) + '</li>').join('') + '</ul>';
+      if (!questions.length && !notices) notices = renderMd(r.text || '未识别到可分题的题目，请补拍清晰完整的题面。');
+      return '<div class="exam-inline-results">' + summary + model + cards + (notices ? '<aside class="exam-photo-notices" aria-label="照片识别提示"><h4>照片提示</h4><div class="md">' + notices + '</div></aside>' : '') + '</div>';
+    }
+    const text = String(r.text || "");
+    const answer = text.match(/(?:^|\n)\s*\*\*答案[：:]\s*([\s\S]*?)\*\*(?=\s*(?:\n|$))/) || text.match(/(?:^|\n)\s*(?:#{1,6}\s*)?答案[：:]\s*([^\n]+)/);
+    if (answer) {
+      const rest = text.replace(answer[0], "").replace(/(?:^|\n)\s*\*\*解析\*\*\s*(?:\n|$)/, "\n").trim();
+      return '<div class="exam-inline-results"><article class="exam-question is-answered"><div class="answer-block"><span class="answer-kicker">答案</span>' +
+        '<span class="answer-value">' + esc(answer[1]) + '</span>' + model + '</div><section class="exam-question-explanation"><h4>解析</h4>' +
+        '<div class="md">' + renderMd(rest || "本次未返回详细解析。") + '</div></section></article></div>';
+    }
+    const vision = (r.artifacts || []).find(a => a.kind === "vision");
+    if (vision && vision.answerable === false) {
+      return '<div class="exam-inline-results"><article class="exam-question is-unresolved"><div class="answer-block"><span class="answer-kicker">答案</span>' +
+        '<span class="answer-value">暂无法确定</span>' + model + '</div><section class="exam-question-explanation"><h4>解析与补充提示</h4><div class="md">' +
+        renderMd(text) + '</div></section></article></div>';
+    }
+    return '<div class="md">' + renderMd(text) + '</div>' + model;
+  }
+
+  function practiceResultHtml(practice) {
+    const names={ability:"职业能力测试",essay:"策论",interview:"面试"};
+    const decisionLabel={user:"手动题型",previous:"沿用题型",rule:"题型判断规则"}[practice.decision_model]||(practice.decision_model?"题型判断 "+practice.decision_model:"");
+    const decision=decisionLabel?'<span>'+esc(decisionLabel)+'</span>':"";
+    const generationAction=practice.agent==="essay"?"写作":practice.stages.some(stage=>stage.id==="feedback")?"点评":practice.stages.some(stage=>stage.id==="follow_up")?"追问":"出题";
+    const generation=practice.generation_model?'<span>'+generationAction+' '+esc(practice.generation_model)+'</span>':"";
+    return '<div class="hw-practice-reading"><p class="hw-practice-source">'+(practice.question_source==="provided"?'<span>题面原文</span>':"")+decision+generation+'</p>'+
+      (practice.question?'<section class="hw-practice-question"><h3>'+esc(names[practice.agent]||"学习题目")+'</h3>'+renderMd(practice.question)+'</section>':"")+
+      (practice.stages||[]).map(stage=>'<section class="hw-practice-stage"><h3>'+esc(stage.label||stage.id||"练习内容")+'</h3>'+renderMd(stage.text||"")+'</section>').join("")+'</div>';
+  }
+
+  /** 助手回答：解题结果把答案单独拎出来，解析与核对说明跟在后面 */
+  function answerHtml(r) {
+    const exp = r.artifacts && r.artifacts.length ? exportBar(r.artifacts[0].id, r.scene) : "";
+    const modelLabel = r.exam_backend === "jev" ? "JEV" : r.exam_backend === "original" ? "原版" : "";
+    const model = modelLabel ? '<span class="answer-model">' + modelLabel + '解题</span>' : "";
+    if (r.status === "error") {
+      return '<div class="msg-error">' + esc(r.text || "请求失败") + "</div>";
+    }
+    if (r.scene === "exam" || (r.artifacts || []).some(a => a.kind === "vision" || a.kind === "exam_batch")) return examResultHtml(r) + exp;
+    return meetingResultHtml(r, exp) + model;
+  }
+
+  /* ── 会议产出：正文里的文字记录换成可改判的逐段视图 ──────────────
+     说话人聚类的错（把两个人的话算成一个人、把一个人拆成两个）自动修不了，
+     只能人来定：拆分、合并、改名。正文里那份纯文本留着没用（同一份内容
+     有两处、改了一处另一处没变才是灾难），所以正文只留纪要，文字记录
+     交给下面的可编辑视图，改完顺带把归档正文一起重写。            */
+  function splitMeetingBody(text) {
+    const marker = "\n\n---\n\n## 会议文字记录";
+    const i = String(text || "").indexOf(marker);
+    if (i < 0) return null;
+    const head = text.slice(0, i);
+    const tail = text.slice(i + marker.length);
+    const nl = tail.indexOf("\n\n");
+    return {
+      head: head,
+      report: nl < 0 ? "" : tail.slice(0, nl).trim(),
+      transcript: nl < 0 ? "" : tail.slice(nl + 2),
+    };
+  }
+
+  function meetingResultHtml(r, extra) {
+    const art = (r.artifacts || []).find((a) => a.kind === "transcript" && a.editable);
+    const split = art ? splitMeetingBody(r.text || "") : null;
+    if (!art || !split) return resultHtml(r.text, extra, r.speech);
+    return '<div class="md">' + renderMd(split.head) + "</div>" +
+      '<div class="tr-panel" id="tr-host" data-rid="' + esc(art.id) + '"></div>' +
+      (extra || "");
+  }
+
+  function fmtClock(ms) {
+    const total = Math.max(0, Math.round(Number(ms || 0) / 1000));
+    return String(Math.floor(total / 60)).padStart(2, "0") + ":" + String(total % 60).padStart(2, "0");
+  }
+
+  async function mountTranscriptEditor(host, rid) {
+    if (!host || !rid) return;
+    host.innerHTML = '<div class="empty">读取转写记录…</div>';
+    let rec = null;
+    try {
+      rec = await apiJson("/api/transcript?owner=" + encodeURIComponent(S.owner) +
+        "&id=" + encodeURIComponent(rid));
+    } catch (e) {
+      host.innerHTML = "";
+      return;
+    }
+    renderTranscriptEditor(host, rec);
+  }
+
+  function transcriptOptions(speakers, selected, withNew) {
+    return speakers.map((s) =>
+      '<option value="' + esc(s.id) + '"' +
+      (String(s.id) === String(selected) ? " selected" : "") + ">" + esc(s.label) + "</option>"
+    ).join("") + (withNew ? '<option value="new">＋ 拆成新发言人</option>' : "");
+  }
+
+  function renderTranscriptEditor(host, rec) {
+    const speakers = rec.speakers || [];
+    const names = rec.names || {};
+    const utts = rec.utterances || [];
+    host.dataset.rid = rec.id;
+
+    host.innerHTML =
+      '<div class="panel-head"><span class="panel-title">发言人</span>' +
+      '<span class="badge">' + speakers.length + " 人 · " + utts.length + " 段</span></div>" +
+      '<p class="tr-report">' + esc(rec.report || "") + "</p>" +
+      '<div class="spk-list">' + speakers.map((s) =>
+        '<div class="spk-row">' +
+        '<span class="spk-label">' + esc(s.label) + "</span>" +
+        '<input class="spk-name" data-spk="' + esc(s.id) + '" maxlength="24"' +
+        ' placeholder="填真名，如 王浩" value="' + esc(names[String(s.id)] || "") + '">' +
+        '<span class="spk-meta">' + s.turns + " 段 · " + s.seconds + " 秒</span>" +
+        (speakers.length > 1
+          ? '<select class="spk-merge" data-src="' + esc(s.id) + '">' +
+            '<option value="">合并到…</option>' + transcriptOptions(speakers, null, false) + "</select>"
+          : "") +
+        "</div>").join("") + "</div>" +
+      '<div class="tr-lines">' + utts.map((u, i) =>
+        '<div class="tr-line' + (rec.fragile && rec.fragile[i] ? " is-fragile" : "") + '">' +
+        '<span class="tr-time">' + fmtClock(u.begin_ms) + "</span>" +
+        '<select class="tr-spk" data-index="' + i + '">' + transcriptOptions(speakers, u.speaker, true) + "</select>" +
+        '<span class="tr-text">' + esc(u.text) + "</span></div>").join("") + "</div>" +
+      '<div class="tr-actions">' +
+      '<button class="btn btn-primary" id="tr-resummarize">按新归属重算纪要</button>' +
+      '<button class="btn btn-ghost" id="tr-reset">恢复原始分离</button>' +
+      '<span class="tr-status" id="tr-status"></span></div>';
+
+    const status = (msg, ms) => {
+      const el2 = $("#tr-status", host);
+      if (!el2) return;
+      el2.textContent = msg || "";
+      if (ms) setTimeout(() => { if (el2.textContent === msg) el2.textContent = ""; }, ms);
+    };
+
+    const apply = async (params, note) => {
+      status("保存中…");
+      try {
+        const next = await apiJson("/api/transcript", {
+          method: "POST",
+          body: (() => {
+            const fd = new FormData();
+            fd.append("owner", S.owner);
+            fd.append("id", host.dataset.rid);
+            Object.keys(params).forEach((k) => fd.append(k, params[k]));
+            return fd;
+          })(),
+        });
+        renderTranscriptEditor(host, next);
+        const el2 = $("#tr-status", host);
+        if (el2 && note) el2.textContent = note;
+      } catch (e) {
+        status("失败：" + e.message);
+        toast("改判失败：" + e.message, 3600);
+      }
+    };
+
+    $$(".spk-name", host).forEach((inp) => {
+      inp.addEventListener("change", () => {
+        apply({ action: "rename", speaker: inp.dataset.spk, name: inp.value.trim() }, "已改名");
+      });
+    });
+    $$(".spk-merge", host).forEach((sel) => {
+      sel.addEventListener("change", () => {
+        if (!sel.value) return;
+        const target = sel.value;
+        const label = (speakers.find((s) => String(s.id) === String(sel.dataset.src)) || {}).label || "";
+        const into = (speakers.find((s) => String(s.id) === String(target)) || {}).label || "";
+        if (!window.confirm("把「" + label + "」的所有发言并进「" + into + "」？")) { sel.value = ""; return; }
+        apply({ action: "merge", source: sel.dataset.src, target: target }, "已合并");
+      });
+    });
+    $$(".tr-spk", host).forEach((sel) => {
+      sel.addEventListener("change", () => {
+        apply({ action: "reassign", index: sel.dataset.index, speaker: sel.value }, "已改这一段");
+      });
+    });
+    const rz = $("#tr-resummarize", host);
+    if (rz) {
+      rz.addEventListener("click", async () => {
+        rz.disabled = true;
+        status("正在按新归属重算纪要…（约 20 秒）");
+        try {
+          const next = await apiJson("/api/transcript", {
+            method: "POST",
+            body: (() => {
+              const fd = new FormData();
+              fd.append("owner", S.owner);
+              fd.append("id", host.dataset.rid);
+              fd.append("action", "resummarize");
+              return fd;
+            })(),
+          });
+          // 纪要变了：整张卡片按新内容重画，再挂回改判面板
+          const card = host.closest(".result, .msg");
+          if (card) {
+            const split = splitMeetingBody(next.content || "");
+            const md = $(".md", card);
+            if (md && split) md.innerHTML = renderMd(split.head);
+          }
+          renderTranscriptEditor(host, next);
+          const el2 = $("#tr-status", host);
+          if (el2) el2.textContent = "纪要已按新归属重算";
+        } catch (e) {
+          status("重算失败：" + e.message);
+        } finally {
+          rz.disabled = false;
+        }
+      });
+    }
+    const rs = $("#tr-reset", host);
+    if (rs) {
+      rs.addEventListener("click", () => {
+        if (!window.confirm("恢复到算法最初的分离结果？（改名也会一起清掉）")) return;
+        apply({ action: "reset" }, "已恢复原始分离");
+      });
+    }
+  }
+
+  /* ── Composer：统一的发送入口 ───────────────────────────────────── */
+  let lastError = "";
+
+  const VIEW_SCENE = { vision: "exam" };
+
+  function composerScene() {
+    return VIEW_SCENE[S.view] || "";
+  }
+
+  function setSendBusy(on) {
+    window.AssistantModel.setBusy(on);
+    const b = $("#send");
+    if (!b) return;
+    b.disabled = !!on;
+    b.classList.toggle("is-busy", !!on);
+  }
+
+  async function runComposer(opts) {
+    if (S.busy) { toast("上一条还在处理中，稍等一下"); return null; }
+    opts=Object.assign({},opts,{exam_backend:window.AssistantModel.id});
+    S.busy = true;
+    setSendBusy(true);
+    lastError = "";
+
+    const rid = opts.request_id || Math.random().toString(16).slice(2, 14);
     const hasImage = (opts.files || []).some((f) => IMAGE_EXT.test(f.name));
     const hasAudio = (opts.files || []).some((f) => AUDIO_EXT.test(f.name));
 
-    let stopPoll = null;
     try {
-      if (opts.scene === "exam" && hasImage) {
-        renderPipeline($("#vision-pipeline"), [
-          { id: "capture", label: "Capture", state: "done" },
-          { id: "recognize", label: "Recognize", state: "active" },
-          { id: "solve", label: "Solve", state: "pending" },
-          { id: "verify", label: "Verify", state: "pending" },
-        ], { numbered: true });
-        stopPoll = pollProgress(rid, (p) =>
-          renderPipeline($("#vision-pipeline"), p.steps, { numbered: true }));
-      }
       if (opts.scene === "meeting" && opts.text === "生成会议纪要") {
         S.meetingStage = "structuring";
         renderMeeting();
@@ -694,44 +1093,71 @@
 
       let data;
       try {
-        data = opts.async ? await sendAsync(opts) : await send({
-          text: opts.text,
-          scene: opts.scene,
-          files: opts.files,
-          event: opts.event,
-        });
+        // 带附件的一律异步：拍题要 30–60 秒（四次模型调用），录音转写更久，
+        // 走同步接口就是界面假死——用户看到的正是「点了发送没反应」。
+        const useAsync = opts.async || hasImage || hasAudio;
+        data = useAsync
+          ? await sendAsync(Object.assign({}, opts, { request_id: rid }))
+          : await send({
+              text: opts.text, scene: opts.scene, files: opts.files,
+              event: opts.event, request_id: rid, exam_backend: opts.exam_backend,
+            });
       } catch (e) {
         S.meetingStage = "";
-        toast("请求失败：" + e.message, 4200);
+        lastError = e.message || String(e);
+        toast("请求失败：" + lastError, 4200);
         return null;
       }
 
       if (hasAudio) S.meetingHadAudio = true;
-      await refreshState();
+      // The lens has its own session and already has the completed response.
+      // Refreshing the unrelated composer session must not delay its answer.
+      if (!opts.session_id || opts.session_id === S.session) await refreshState();
       return data;
     } finally {
       // 无论成功、请求失败还是渲染异常，都必须释放锁。
       // 曾经 refreshState 抛 TypeError 导致 busy 永远为 true，整个 UI 卡死。
-      if (stopPoll) stopPoll();
       S.busy = false;
-      $("#send").disabled = false;
+      setSendBusy(false);
     }
   }
+
+  // Hardware UI reuses the real upload, polling and rendering path; sessions are isolated.
+  window.HardwareAssistant = {
+    async run(opts) {
+      const result = await runComposer(Object.assign({}, opts, {async: true}));
+      if (!result) throw new Error(lastError || "请求未执行，请稍后重试");
+      return result;
+    },
+    render: renderMd,
+    renderExam: examResultHtml,
+    renderPractice: practiceResultHtml,
+    speak: toggleSpeech,
+    stopSpeech,
+  };
 
   async function refreshState() {
     try {
       const st = await apiJson("/api/state?owner=" + encodeURIComponent(S.owner) +
         "&session_id=" + encodeURIComponent(S.session));
       S.meeting = st.meeting || S.meeting;
-      S.fitness = st.fitness || S.fitness;
     } catch (e) { /* 忽略 */ }
     renderMeeting();
-    if (S.view === "fitness") renderFitness();
     renderContext();
   }
 
   /* ── 事件绑定 ───────────────────────────────────────────────────── */
   function bind() {
+    document.addEventListener("meeting-recorded", async (event) => {
+      if (S.view === "hardware" && window.HardwareLens) { window.HardwareLens.acceptAudio(event.detail); return; }
+      if (S.busy) { toast("上一条还在处理中，稍后再提交录音"); return; }
+      if (S.meeting.status === "paused") { toast("请先恢复会议记录，再提交录音"); return; }
+      S.meetingHadAudio = true;
+      const r = await runComposer({text: "请转写会议录音", scene: "meeting", files: [event.detail]});
+      if (r) { toast("录音已转写"); const host = $("#meeting-result"); host.hidden = false; host.innerHTML = resultHtml(r.text, "", r.speech); }
+    });
+    document.addEventListener("exam-photo", (event) => addFiles([event.detail]));
+    $("#exam-album").addEventListener("click", () => pickFiles("image/*"));
     // 播报播放：事件委托，避免每次渲染都重新绑定
     document.addEventListener("click", (e) => {
       const btn = e.target.closest && e.target.closest(".speech-play");
@@ -744,12 +1170,12 @@
     $$("[data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
     // 浏览器前进/后退与手改 hash 都要生效
     window.addEventListener("hashchange", () => {
-      if (urlView() !== S.view) go(urlView(), true);
+      if (urlView() !== S.view || location.hash !== "#" + urlView()) go(urlView(), true);
     });
     window.addEventListener("popstate", () => {
-      if (urlView() !== S.view) go(urlView(), true);
+      if (urlView() !== S.view || location.hash !== "#" + urlView()) go(urlView(), true);
     });
-    $("#nav-toggle").addEventListener("click", () => $("#nav").classList.toggle("is-open"));
+
     $("#ctx-toggle").addEventListener("click", () => {
       const app = $(".app");
       const open = app.classList.toggle("ctx-open");
@@ -796,15 +1222,61 @@
       else addFiles(files);
     });
 
+    // 拖拽：拖到窗口任意位置都算——用户是「从别的地方拖入」，
+    // 不该要求他瞄准某个框；落点统一是输入框，拖拽期间给一层提示。
+    let dragDepth = 0;
+    window.addEventListener("dragenter", (e) => {
+      if (!dtHasFiles(e)) return;
+      e.preventDefault();
+      dragDepth++;
+      showVeil(true);
+    });
+    window.addEventListener("dragover", (e) => {
+      if (!dtHasFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+      showVeil(true);
+    });
+    window.addEventListener("dragleave", (e) => {
+      if (!dtHasFiles(e)) return;
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (!dragDepth) showVeil(false);
+    });
+    window.addEventListener("drop", (e) => {
+      if (!dtHasFiles(e)) return;
+      e.preventDefault();
+      dragDepth = 0;
+      showVeil(false);
+      const files = filesFrom(e.dataTransfer);
+      if (!files.length) { toast("没有读到文件"); return; }
+      addFiles(files);
+    });
+
+    // 粘贴：截图工具/网页里复制的图片直接进输入框
+    document.addEventListener("paste", (e) => {
+      const files = filesFrom(e.clipboardData);
+      if (!files.length) return;      // 纯文本粘贴保留浏览器默认行为
+      e.preventDefault();
+      addFiles(files);
+    });
+
     // Meeting
     $("#meeting-start").addEventListener("click", async () => {
       S.meetingHadAudio = false;
       S.meetingStage = "";
+      S.meetingElapsed = 0;
+      S.meetingStartedAt = null;
       $("#meeting-result").hidden = true;
       await runComposer({ text: "开始会议记录", scene: "meeting" });
       $("#meeting-transcript").focus();
     });
+    $("#meeting-pause").addEventListener("click", async () => {
+      const paused = S.meeting.status === "paused";
+      const r = await runComposer({ text: paused ? "继续会议" : "暂停会议", scene: "meeting" });
+      if (r) toast(paused ? "已恢复会议记录" : "已暂停会议记录");
+    });
     $("#meeting-audio").addEventListener("click", () => {
+      if (S.meeting.status === "paused") { toast("会议记录已暂停，先点「恢复文字记录」继续", 3200); return; }
       pickFiles("audio/*", async (files) => {
         if (!files.length) return;
         if (!AUDIO_EXT.test(files[0].name)) { toast("请选择音频文件"); return; }
@@ -818,6 +1290,7 @@
       });
     });
     $("#meeting-append").addEventListener("click", async () => {
+      if (S.meeting.status === "paused") { toast("会议记录已暂停，先点「恢复文字记录」继续", 3200); return; }
       const v = $("#meeting-transcript").value.trim();
       if (!v) { toast("先粘贴会议转写内容"); return; }
       await runComposer({ text: v, scene: "meeting" });
@@ -840,102 +1313,16 @@
       host.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
     $("#meeting-stop").addEventListener("click", async () => {
+      window.MeetingRecorder?.stop();
       await runComposer({ text: "结束会议", scene: "meeting" });
       toast("已结束会议记录");
     });
 
-    // Vision
-    const frame = $("#vision-frame");
-    $("#vision-pick").addEventListener("click", () => pickFiles("image/*"));
-    frame.addEventListener("click", (e) => { if (e.target === frame) pickFiles("image/*"); });
-    ["dragenter", "dragover"].forEach((ev) =>
-      frame.addEventListener(ev, (e) => { e.preventDefault(); frame.classList.add("is-drag"); }));
-    ["dragleave", "drop"].forEach((ev) =>
-      frame.addEventListener(ev, (e) => { e.preventDefault(); frame.classList.remove("is-drag"); }));
-    frame.addEventListener("drop", (e) => {
-      const imgs = Array.prototype.slice.call(e.dataTransfer.files || []).filter((f) => IMAGE_EXT.test(f.name));
-      if (!imgs.length) { toast("请拖入图片文件"); return; }
-      S.attached = imgs.slice(0, 1);
-      renderAttached();
-      showVisionPreview();
-    });
-
-    $("#vision-solve").addEventListener("click", async () => {
-      const imgs = S.attached.filter((f) => IMAGE_EXT.test(f.name));
-      if (!imgs.length) { toast("先选择一张题目图片"); return; }
-      const btn = $("#vision-solve");
-      btn.disabled = true;
-      btn.textContent = "Solving…";
-      const r = await runComposer({ text: "解这道题", scene: "exam", files: imgs, async: true });
-      btn.disabled = false;
-      btn.textContent = "Solve";
-      if (!r) return;
-      const host = $("#vision-result");
-      host.hidden = false;
-      if (r.status === "error") {
-        host.innerHTML = resultHtml(r.text);
-      } else {
-        const m = r.text.match(/^\*\*答案：(.+?)\*\*/);
-        const answer = m ? m[1] : "";
-        const rest = m ? r.text.replace(m[0], "").trim() : r.text;
-        host.innerHTML = resultHtml(rest, "", r.speech);
-        if (answer) {
-          host.innerHTML =
-            '<div class="answer-block"><span class="answer-kicker">ANSWER</span>' +
-            '<span class="answer-value">' + esc(answer) + "</span></div>" +
-            '<p class="answer-note">已回看原图复核，并用程序工具校验计算</p>' +
-            speechHtml(r.speech, r.text) +
-            '<div class="md">' + renderMd(rest) + "</div>" +
-            (r.artifacts && r.artifacts.length ? exportBar(r.artifacts[0].id, r.scene) : "");
-        }
-        if (r.artifacts && r.artifacts.length) bindExport(host, r.artifacts[0].id);
-      }
-      host.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    });
+    // Vision：页面里不再有取景框/解题按钮——图片走输入框，结果落进对话流
+    bindVisionPick();
     $("#vision-clear").addEventListener("click", () => {
-      S.attached = [];
-      renderAttached();
-      resetVision();
-    });
-
-    // Fitness
-    const fitStart = () => {
-      const v = ($("#fit-exercise").value || "").trim() || "深蹲";
-      stopRest();
-      runComposer({
-        text: "开始" + v, scene: "fitness",
-        event: { semantic_action: "start_exercise" },
-      });
-    };
-    $("#fit-start").addEventListener("click", fitStart);
-    $("#fit-exercise").addEventListener("keydown", (e) => { if (e.key === "Enter") fitStart(); });
-
-    $("#fit-setdone").addEventListener("click", async () => {
-      const r = await runComposer({
-        text: "做完一组", scene: "fitness", event: { semantic_action: "set_done" },
-      });
-      if (!r || r.status !== "ok") return;
-      const rest = parseRest(r.text);
-      if (rest) startRest(rest); else stopRest();
-    });
-    $("#fit-pain").addEventListener("click", async () => {
-      const where = window.prompt("哪个部位不适？例如：膝盖 / 腰 / 肩", "膝盖");
-      if (!where) return;
-      stopRest();
-      await runComposer({
-        text: where + "有点疼", scene: "fitness",
-        event: { semantic_action: "pain_report" },
-      });
-    });
-    $("#fit-end").addEventListener("click", async () => {
-      stopRest();
-      const r = await runComposer({ text: "结束训练", scene: "fitness", event: { semantic_action: "end_workout" } });
-      if (!r) return;
-      const host = $("#fitness-result");
-      host.hidden = false;
-      host.innerHTML = resultHtml(r.text, r.artifacts && r.artifacts.length ? exportBar(r.artifacts[0].id, r.scene) : "", r.speech);
-      if (r.artifacts && r.artifacts.length) bindExport(host, r.artifacts[0].id);
-      host.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      resetThread();
+      toast("已清空对话");
     });
 
     // Memory 筛选
@@ -951,62 +1338,65 @@
     });
   }
 
-  function showVisionPreview() {
-    const img = S.attached.find((f) => IMAGE_EXT.test(f.name));
-    const body = $("#vision-body");
-    const frame = $("#vision-frame");
-    if (!img) { resetVision(); return; }
-
-    const url = URL.createObjectURL(img);
-    frame.classList.add("is-focus");
-    body.innerHTML = '<img src="' + url + '" alt="题目图片">' +
-      '<span class="frame-tag">Image captured</span>';
-    $("#vision-solve").disabled = false;
-    $("#vision-clear").hidden = false;
-    $("#vision-result").hidden = true;
-  }
-
-  function resetVision() {
-    const frame = $("#vision-frame");
-    frame.classList.remove("is-focus");
-    $("#vision-body").innerHTML =
-      '<svg class="frame-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" ' +
-      'stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M4 8V5.6A1.6 1.6 0 0 1 5.6 4H8"/><path d="M16 4h2.4A1.6 1.6 0 0 1 20 5.6V8"/>' +
-      '<path d="M20 16v2.4a1.6 1.6 0 0 1-1.6 1.6H16"/><path d="M8 20H5.6A1.6 1.6 0 0 1 4 18.4V16"/>' +
-      '<circle cx="12" cy="12" r="3"/></svg>' +
-      '<p class="frame-hint">选择或拖入一张题目图片</p>' +
-      '<button class="btn btn-primary" id="vision-pick">Choose Image</button>';
-    $("#vision-pick").addEventListener("click", () => pickFiles("image/*"));
-    $("#vision-solve").disabled = true;
-    $("#vision-clear").hidden = true;
-    $("#vision-pipeline").hidden = true;
-    $("#vision-result").hidden = true;
-  }
-
   async function sendComposer() {
     const input = $("#input");
-    const text = input.value.trim();
-    if (!text && !S.attached.length) return;
-
+    let text = input.value.trim();
     const files = S.attached.slice();
+    const hasImage = files.some((f) => IMAGE_EXT.test(f.name));
+
+    if (!text && !files.length) { toast("先输入问题，或把题目图片拖进输入框"); input.focus(); return; }
+    if (S.busy) { toast("上一条还在处理中，稍等一下"); return; }
+    // 只丢图片不写字：补一句默认请求。实测「只有图片、没有文字」会被路由成
+    // general，模型回一句「你好，需要什么帮助」——图片白传了。
+    if (!text && hasImage) text = "解这道题";
+
     input.value = "";
     input.style.height = "auto";
     S.attached = [];
     renderAttached();
 
-    const r = await runComposer({ text: text, files: files });
-    if (!r) return;
+    // 1) 先把「我」这条放进对话流：点下去必须立刻有东西出现
+    pushMsg(userMsgHtml(text, files), "is-user");
 
-    // 附件是图片 → 同时更新 Vision 预览
-    if (files.some((f) => IMAGE_EXT.test(f.name)) && S.view === "vision") showVisionPreview();
+    // 2) 再放等待卡片：转圈 + 已用时间 +（后端上报的）真实步骤
+    const card = pushMsg(pendingHtml(hasImage), "is-ai is-pending");
+    const stopTimer = startTimer(card);
+    const rid = Math.random().toString(16).slice(2, 14);
 
-    if (r.status === "need_input") { pushLive(resultHtml(r.text, "", r.speech)); return; }
-
-    pushLive(resultHtml(r.text, r.artifacts && r.artifacts.length
-      ? exportBar(r.artifacts[0].id, r.scene) : "", r.speech), (card) => {
-      if (r.artifacts && r.artifacts.length) bindExport(card, r.artifacts[0].id);
+    const r = await runComposer({
+      text: text,
+      files: files,
+      scene: composerScene(),
+      request_id: rid,
+      onProgress: (p) => {
+        const steps = $('[data-role="steps"]', card);
+        if (steps && p.steps && p.steps.length) renderPipeline(steps, p.steps, { numbered: true });
+        const label = $(".think-label", card);
+        const cur = (p.steps || []).find((s) => s.state === "active");
+        if (label && p.batch && Number.isInteger(p.batch.total) && p.batch.total > 0) label.textContent = "已处理 " + Math.min(p.batch.total, Math.max(0, Number(p.batch.done) || 0)) + " / " + p.batch.total + " 道题…";
+        else if (label && cur && EXAM_STEP_CN[cur.id]) label.textContent = "正在" + EXAM_STEP_CN[cur.id] + "…";
+      },
     });
+
+    stopTimer();
+    card.classList.remove("is-pending");
+
+    if (!r) {
+      card.innerHTML = '<div class="msg-error">' + esc(lastError || "请求失败") + "</div>" +
+        '<p class="think-hint">可以直接再发一次；图片和文字还在对话里，不必重新上传。</p>';
+      return;
+    }
+
+    // 3) 答案解析落在同一个位置，替换掉等待卡片
+    card.innerHTML = answerHtml(r);
+    if (r.artifacts && r.artifacts.length) bindExport(card, r.artifacts[0].id);
+    // 会议产出：文字记录挂上「人工改判说话人」面板
+    const trHost = $("#tr-host", card);
+    if (trHost) mountTranscriptEditor(trHost, trHost.dataset.rid);
+    // 对齐卡片**顶部**而不是底部：答案往往比一屏高，对齐底部会把
+    // 「ANSWER」那一行顶出可视区，用户得先往上滚才能看到答案。
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+    renderContext();
   }
 
   /* ── 启动 ───────────────────────────────────────────────────────── */
@@ -1016,15 +1406,13 @@
     $("#stage").appendChild(host);
 
     bind();
-    resetVision();
+    resetThread();
 
     // 问候语按本地时间
     const h = new Date().getHours();
-    $("#greeting").textContent = h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 
     try { applyHealth(await apiJson("/health")); } catch (e) { /* 忽略 */ }
     await refreshState();
-    await loadProfile();
     go(urlView());
   }
 

@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import threading
 import uuid
 from pathlib import Path
@@ -29,10 +30,11 @@ from typing import Any
 
 from flask import Flask, jsonify, make_response, render_template, request, send_file
 
-from .. import config, llm, nodes, profile, progress, store, transcribe
+from .. import config, llm, nodes, progress, store, transcribe, exam_knowledge, public_knowledge
 from ..graph import build_graph, open_checkpointer, run_config, thread_id
 from ..tools import export
 from . import auth
+from ..photo_practice import options as practice_options
 
 SPEECH_MAX_CHARS = config.SPEECH_MAX_CHARS
 
@@ -45,7 +47,7 @@ def _as_int(value: Any) -> Any:
         return value
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
-AUDIO_EXT = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".amr", ".wma"}
+AUDIO_EXT = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".amr", ".wma", ".webm"}
 ALLOWED_EXT = IMAGE_EXT | AUDIO_EXT
 MAX_UPLOAD_MB = 32
 
@@ -72,12 +74,17 @@ def _progress_snapshot(rid: str) -> dict[str, Any] | None:
 # --------------------------------------------------------------------------- #
 _TASKS: dict[str, dict[str, Any]] = {}
 _TASKS_LOCK = threading.RLock()
+_REQUEST_LOCKS = [threading.RLock() for _ in range(64)]
 
 
-def _task_submit(fn) -> str:
+def _task_submit(fn, request_key="") -> str:
     tid = uuid.uuid4().hex[:12]
     with _TASKS_LOCK:
-        _TASKS[tid] = {"id": tid, "status": "pending", "result": None, "error": ""}
+        if request_key:
+            for old in _TASKS.values():
+                if old.get("request_key") == request_key and old["status"] in ("pending", "running"):
+                    return old["id"]
+        _TASKS[tid] = {"id": tid, "status": "pending", "result": None, "error": "", "request_key": request_key}
 
     def run() -> None:
         with _TASKS_LOCK:
@@ -122,11 +129,11 @@ def _parse_chat_form():
     if scene in ("", "auto"):
         scene = None
     rid = (request.form.get("request_id") or "").strip() or uuid.uuid4().hex[:12]
+    exam_backend = (request.form.get("exam_backend") or "original").strip()
+    if exam_backend not in {"original", "jev"}:
+        return None, (jsonify({"error": "请选择原版或 JEV 解题模型"}), 400)
 
     files, rejected = _save_uploads(request.files.getlist("files"))
-    if not text.strip() and not files:
-        return None, (jsonify({"error": "请提供文字，或上传图片/音频"}), 400)
-
     event: dict = {}
     raw_event = (request.form.get("event") or "").strip()
     if raw_event:
@@ -137,12 +144,21 @@ def _parse_chat_form():
         except json.JSONDecodeError:
             return None, (jsonify({"error": "event 不是合法 JSON"}), 400)
 
+    if "practice" in event:
+        try:
+            practice_options(event)
+        except (ValueError, TypeError) as exc:
+            return None, (jsonify({"error": str(exc)}), 400)
+    if not text.strip() and not files and "practice" not in event:
+        return None, (jsonify({"error": "请提供文字，或上传图片/音频"}), 400)
+
     return {
         "owner": owner,
         "session_id": sid,
         "text": text,
         "scene": scene,
         "request_id": rid,
+        "exam_backend": exam_backend,
         "files": files,
         "event": event,
         "rejected": rejected,
@@ -153,6 +169,8 @@ def create_app(app: Any = None) -> Flask:
     """``app`` 为已编译的图；测试可注入桩图。默认自行编译（带 checkpointer）。"""
     config.ensure_dirs()
     store.init()
+    public_knowledge.ensure_bundled()
+    knowledge_catalog = public_knowledge.bundled_catalog()
 
     flask_app = Flask(
         __name__,
@@ -170,11 +188,17 @@ def create_app(app: Any = None) -> Flask:
     compiled = app if app is not None else build_graph(open_checkpointer())
 
     def _run_chat(p: dict) -> dict:
+        key = hashlib.sha256(json.dumps([p["owner"], p["request_id"]]).encode()).hexdigest()
+        with _REQUEST_LOCKS[int(key[:8], 16) % len(_REQUEST_LOCKS)]:
+            return _execute_chat(p)
+
+    def _execute_chat(p: dict) -> dict:
         state = {
             "text": p["text"],
             "owner": p["owner"],
             "session_id": p["session_id"],
             "request_id": p["request_id"],
+            "exam_backend": p["exam_backend"],
             "files": p["files"],
             "event": p["event"],
             "scene_hint": p["scene"],
@@ -186,7 +210,7 @@ def create_app(app: Any = None) -> Flask:
         cached = store.receipt(p["owner"], p["request_id"], "handle")
         if cached:
             out = dict(cached)
-            out["status"] = "duplicate"
+            out["status"] = cached.get("status") if cached.get("status") in ("error", "needs_selection") else "duplicate"
             out["rejected_files"] = p["rejected"]
             return out
 
@@ -198,7 +222,9 @@ def create_app(app: Any = None) -> Flask:
         # 把 request_id 绑到执行线程上，链路里的 progress.mark() 才能写回这条记录
         progress.bind(rid)
         try:
-            result = compiled.invoke(state, cfg)
+            from ..call_metrics import capture
+            with capture() as model_calls:
+                result = compiled.invoke(state, cfg)
         except BaseException:
             _progress_finish(rid, error=True)
             raise
@@ -209,22 +235,32 @@ def create_app(app: Any = None) -> Flask:
 
         rt = result.get("routing") or {}
         res = result.get("result") or {}
+        if model_calls:
+            res["artifacts"] = [*(res.get("artifacts") or []), {"kind": "model_usage", "calls": model_calls, "cost": None}]
         payload = {
             "text": res.get("text") or "",
             "speech": result.get("speech") or res.get("speech") or "",
             "scene": rt.get("scene") or "general",
             "action": rt.get("action") or "",
             "source": rt.get("source") or "",
-            "status": "ok",
+            "status": "error" if res.get("error") else res.get("status") or "ok",
+            "error": res.get("error") or "",
             "backend": res.get("backend") or "",
+            "exam_backend": res.get("exam_backend") or "",
             "note": res.get("note") or "",
             "artifacts": res.get("artifacts") or [],
             "archived_id": result.get("archived_id") or "",
             "rejected_files": p["rejected"],
             "request_id": p["request_id"],
             "notes": result.get("notes") or [],
+            # 各步耗时（毫秒）。解题链的耗时几乎全在模型输出长度上，
+            # 把分解随响应一起返回，调优时不必再靠猜。
+            "timing": progress.timings(p["request_id"]),
         }
-        store.remember(p["owner"], p["request_id"], "handle", payload)
+        if res.get("retryable"):
+            payload["status"] = "pending"
+        else:
+            store.remember(p["owner"], p["request_id"], "handle", payload)
         return payload
 
     # ------------------------------------------------------------------ #
@@ -234,20 +270,42 @@ def create_app(app: Any = None) -> Flask:
 
     @flask_app.get("/health")
     def health():
+        with _TASKS_LOCK:
+            active_tasks = sum(rec.get("status") in {"pending", "running"} for rec in _TASKS.values())
         return jsonify(
             {
                 "ok": True,
+                "active_tasks": active_tasks,
                 "engine": "langgraph",
                 "scenes": list(config.SCENES),
                 "exec_backend": config.EXEC_BACKEND,
                 "model_text": config.MODEL_TEXT,
                 "model_vision": config.MODEL_VISION,
+                "exam_model": config.EXAM_MODEL,
+                "exam_independent_model": config.EXAM_INDEPENDENT_MODEL,
+                "exam_review_model": config.EXAM_REVIEW_MODEL,
+                "exam_batch_enabled": True,
+                "exam_batch_workers": config.EXAM_BATCH_WORKERS,
+                "jev_model": config.JEV_MODEL,
+                "jev_ready": bool(config.DASHSCOPE_API_KEY and config.TYPESAFE_API_KEY),
+                "exam_knowledge_count": knowledge_catalog["count"],
                 "api_key_configured": bool(config.DASHSCOPE_API_KEY),
                 # 不泄露口令本身，只说明是否启用了鉴权
                 "auth_enabled": auth.is_enabled(config.ACCESS_TOKEN),
                 "data_dir": str(config.DATA_DIR),
             }
         )
+
+    @flask_app.get("/api/versions")
+    def available_versions():
+        return jsonify({"versions": [
+            {"id": "original", "label": "原版", "available": bool(config.DASHSCOPE_API_KEY)},
+            {"id": "jev", "label": "JEV", "available": bool(config.DASHSCOPE_API_KEY and config.TYPESAFE_API_KEY)},
+        ]})
+
+    @flask_app.get("/api/exam/public-knowledge")
+    def public_knowledge_catalog():
+        return jsonify(knowledge_catalog)
 
     @flask_app.post("/api/chat")
     def api_chat():
@@ -264,7 +322,8 @@ def create_app(app: Any = None) -> Flask:
         p, err = _parse_chat_form()
         if err:
             return err
-        tid = _task_submit(lambda: _run_chat(p))
+        key = hashlib.sha256(json.dumps([p["owner"], p["request_id"]]).encode()).hexdigest()
+        tid = _task_submit(lambda: _run_chat(p), request_key=key)
         return jsonify({"task_id": tid, "request_id": p["request_id"], "status": "pending"}), 202
 
     @flask_app.get("/api/task")
@@ -273,7 +332,7 @@ def create_app(app: Any = None) -> Flask:
         with _TASKS_LOCK:
             rec = _TASKS.get(tid)
         if not rec:
-            return jsonify({"error": "找不到该任务（可能已过期）"}), 404
+            return jsonify({"error": "找不到该任务。服务可能已重启，本次处理已中断；如已上传照片，可重新提交。"}), 404
         return jsonify(dict(rec))
 
     @flask_app.get("/api/state")
@@ -291,7 +350,6 @@ def create_app(app: Any = None) -> Flask:
                 # 兼容基线 UI：卡片直接读顶层字段，而不是从 values 里取。
                 # 前端是从 assistant-lite 原样复用的，那里这两个键在顶层。
                 "meeting": vals.get("meeting") or {},
-                "fitness": vals.get("fitness") or {},
             }
         )
 
@@ -306,10 +364,12 @@ def create_app(app: Any = None) -> Flask:
             return jsonify({"error": "该会话没有检查点"}), 404
         if not snap.next:
             res = snap.values.get("result") or {}
-            return jsonify({"resumed": False, "reason": "已执行完毕", "text": res.get("text", "")})
+            return jsonify({"resumed": False, "reason": "已执行完毕", "text": res.get("text", ""),
+                            "exam_backend": res.get("exam_backend", "")})
         result = compiled.invoke(None, cfg)
         res = result.get("result") or {}
-        return jsonify({"resumed": True, "text": res.get("text", ""), "speech": result.get("speech", "")})
+        return jsonify({"resumed": True, "text": res.get("text", ""), "speech": result.get("speech", ""),
+                        "exam_backend": res.get("exam_backend", "")})
 
     @flask_app.get("/api/routing-stats")
     def api_routing_stats():
@@ -353,6 +413,7 @@ def create_app(app: Any = None) -> Flask:
             "text": transcribe.format_record(rec),
             "report": transcribe.describe_diarization(report),
             "summary": rec.get("summary") or "",
+            "verification": rec.get("verification") or {},
             "updated": rec.get("updated") or "",
         }
 
@@ -362,6 +423,8 @@ def create_app(app: Any = None) -> Flask:
         content = nodes.meeting_body(
             rec.get("summary") or "", payload["report"], transcribe.format_record(rec)
         )
+        if (rec.get("verification") or {}).get("status") == "stale":
+            content = "> 转写或说话人已修改；以下旧纪要尚未重新核验，请重新生成。\n\n" + content
         store.save_transcript(owner, rid, scene=rec.get("scene") or "meeting", record=rec)
         store.update_resource(owner, rid, content)
         payload["content"] = content
@@ -388,7 +451,12 @@ def create_app(app: Any = None) -> Flask:
         if action == "resummarize":
             text = transcribe.format_record(rec)
             try:
-                rec["summary"] = nodes.resummarize_meeting(text)
+                from ..meeting_graph import summarize_text, render_summary
+                checked = summarize_text(text)
+                if checked.get("error"):
+                    raise llm.LLMError(checked["error"])
+                rec["summary"] = render_summary(checked["summary"], checked["issues"])
+                rec["verification"] = checked["result"]["artifacts"][0]["verification"]
             except llm.LLMError as e:
                 return jsonify({"error": f"重新生成纪要失败：{e}"}), 502
             return jsonify(_persist_transcript(owner, rid, rec))
@@ -405,6 +473,7 @@ def create_app(app: Any = None) -> Flask:
 
         try:
             edited = transcribe.apply_edit(rec, action, **kw)
+            edited["verification"] = {"status": "stale", "reason": "转写或说话人已修改，请重新生成纪要"}
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
         return jsonify(_persist_transcript(owner, rid, edited))
@@ -467,64 +536,81 @@ def create_app(app: Any = None) -> Flask:
         return jsonify({"ok": True})
 
     # ------------------------------------------------------------------ #
-    # 健康档案：**手机端写入，眼镜端只读**
     #
     # 建档问卷有 9 个字段，眼镜端只有麦克风、没有屏幕：用户既看不到还剩
     # 几项，也改不了上一项填错的内容。所以主入口是手机（有屏幕、能改能确认），
-    # 眼镜端只读档案、把它带进训练建议。
     #
     # GET 返回的东西要够前端**直接渲染**：字段清单（fields）由服务端给，
     # 前端不硬编码——否则加一个字段要改两处，迟早对不上。
     # ------------------------------------------------------------------ #
-    def _profile_payload(owner: str) -> dict[str, Any]:
-        data = store.load_profile(owner)
-        return {
-            "profile": data,
-            "summary": profile.summarize(data),
-            "bmi": profile.bmi(data),
-            "risk": profile.risk_notes(data),
-            "fields": profile.field_spec(),
-            "complete": profile.is_complete(data),
-            "missing": profile.missing_keys(data),
-            "meta": store.profile_meta(owner),
-            "note": "" if data else "尚未建立健康档案。",
-        }
 
-    @flask_app.get("/api/profile")
-    def api_profile():
+
+
+
+
+
+    @flask_app.get("/api/exam/knowledge")
+    def api_exam_knowledge_list():
         owner = (request.args.get("owner") or "local").strip() or "local"
-        return jsonify(_profile_payload(owner))
+        return jsonify({"documents": exam_knowledge.documents(owner)})
 
-    @flask_app.post("/api/profile")
-    def api_profile_save():
-        """手机端提交整份档案。
-
-        ``partial=1`` 时允许缺字段（存草稿），默认要求 9 项齐全——
-        免得用户以为存上了、其实眼镜端读到的是一份半成品。
-        """
-        owner = (request.form.get("owner") or "local").strip() or "local"
-        raw = request.form.get("profile") or ""
+    @flask_app.post("/api/exam/knowledge")
+    def api_exam_knowledge_add():
+        data = request.get_json(silent=True) if request.is_json else request.form.to_dict()
+        if not isinstance(data, dict):
+            return jsonify({"error": "请提交资料标题与正文"}), 400
         try:
-            submitted = json.loads(raw) if raw else {}
-        except json.JSONDecodeError as e:
-            return jsonify({"error": f"档案不是合法 JSON：{e}"}), 400
-        if not isinstance(submitted, dict):
-            return jsonify({"error": "档案必须是一个对象"}), 400
+            owner = data.get("owner") or "local"
+            content = data.get("content", "")
+            file = request.files.get("file")
+            if file and file.filename:
+                raw = file.read(2 * 1024 * 1024 + 1)
+                if len(raw) > 2 * 1024 * 1024:
+                    raise ValueError("资料文件最多2MB，请拆分后导入")
+                ext = Path(file.filename).suffix.lower()
+                if ext in {".txt", ".md"}:
+                    try:
+                        content = raw.decode("utf-8-sig")
+                    except UnicodeDecodeError:
+                        raise ValueError("文本文件请保存为 UTF-8 编码后重试")
+                elif ext == ".docx":
+                    from io import BytesIO
+                    from zipfile import ZipFile, BadZipFile
+                    from docx import Document
+                    try:
+                        with ZipFile(BytesIO(raw)) as archive:
+                            if sum(x.file_size for x in archive.infolist()) > 8 * 1024 * 1024:
+                                raise ValueError("文档解压后过大，请拆分")
+                        doc = Document(BytesIO(raw))
+                        content = "\n".join([p.text for p in doc.paragraphs] + [" | ".join(c.text for c in row.cells) for table in doc.tables for row in table.rows])
+                    except (BadZipFile, KeyError):
+                        raise ValueError("无法读取该 Word 文档，请重新保存为 docx 或粘贴正文")
+                    except ValueError:
+                        raise
+                    except Exception:
+                        raise ValueError("Word 文档内容损坏或格式不受支持，请重新保存或粘贴正文") from None
+                else:
+                    raise ValueError("支持 txt、md 和 docx；其他格式请粘贴需要引用的正文")
+            return jsonify(exam_knowledge.add(owner, data.get("title", ""), content, data.get("version", "")))
+        except (ValueError, TypeError) as exc:
+            return jsonify({"error": str(exc)}), 400
 
-        partial = str(request.form.get("partial") or "") in ("1", "true", "yes")
-        data, errors = profile.validate(submitted, partial=partial)
-        if errors:
-            return jsonify({"error": "；".join(errors), "errors": errors}), 400
-
-        store.save_profile(owner, data, source="phone")
-        return jsonify(_profile_payload(owner))
-
-    @flask_app.delete("/api/profile")
-    def api_profile_delete():
+    @flask_app.delete("/api/exam/knowledge/<document_id>")
+    def api_exam_knowledge_delete(document_id):
         owner = (request.args.get("owner") or "local").strip() or "local"
-        return jsonify({"ok": store.delete_profile(owner)})
+        if not exam_knowledge.remove(owner, document_id):
+            return jsonify({"error": "资料不存在"}), 404
+        return jsonify({"ok": True})
+
+    @flask_app.get("/api/exam/knowledge/<document_id>")
+    def api_exam_knowledge_get(document_id):
+        owner = (request.args.get("owner") or "local").strip() or "local"
+        doc = exam_knowledge.document(owner, document_id)
+        return jsonify(doc) if doc else (jsonify({"error": "资料不存在"}), 404)
 
     return flask_app
+
+
 
 
 def run(host: str | None = None, port: int | None = None) -> None:

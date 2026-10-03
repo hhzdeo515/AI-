@@ -12,11 +12,13 @@ import sys
 import tempfile
 import threading
 from pathlib import Path
+from contextlib import ExitStack
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lg_assistant import config, graph, llm, nodes, profile as profile_module, routing, store  # noqa: E402
+from lg_assistant import config, graph, llm, nodes, routing, store  # noqa: E402
 from lg_assistant.ported import calc, grids, speech  # noqa: E402
 from lg_assistant.routing import device_context  # noqa: E402
 
@@ -43,6 +45,10 @@ def _run(**state):
         "notes": [],
     }
     base.update(state)
+    # These legacy cases exercise the objective solver, rather than the new
+    # photo task classifier (covered by test_photo_practice.py).
+    if any(Path(p).suffix.lower() in nodes.IMAGE_EXT for p in base.get("files", [])):
+        base["event"] = {**base.get("event", {}), "practice": {"agent": "ability"}}
     return app.invoke(base, graph.run_config(base["owner"], base["session_id"]))
 
 
@@ -121,18 +127,13 @@ def test_device_gate_boundary() -> None:
     assert device_context({"device": {"intent": "solve", "confidence": 0.74}})["trusted"] is False
 
 
-def test_device_gate_never_downgrades_pain() -> None:
-    d = device_context({"device": {"intent": "train_pain", "confidence": 0.01}})
-    assert d["scene"] == "fitness" and d["trusted"] is True
-
-
 def test_device_gate_ignores_unknown_intent() -> None:
     d = device_context({"device": {"intent": "made_up", "confidence": 0.99}})
     assert d["scene"] == "" and d["trusted"] is False
 
 
 def test_device_gate_accepts_flat_form_and_bad_confidence() -> None:
-    assert device_context({"device_intent": "train_done", "device_confidence": "0.9"})["scene"] == "fitness"
+    assert device_context({"device_intent": "meeting_start", "device_confidence": "0.9"})["scene"] == "meeting"
     assert device_context({"device": {"intent": "solve", "confidence": "abc"}})["trusted"] is False
 
 
@@ -145,8 +146,8 @@ def test_route_event_wins() -> None:
 
 
 def test_route_hint_wins_over_keyword() -> None:
-    r = routing.route(text="这道题怎么做", scene_hint="fitness")
-    assert r["scene"] == "fitness" and r["source"] == "hint"
+    r = routing.route(text="这道题怎么做", scene_hint="meeting")
+    assert r["scene"] == "meeting" and r["source"] == "hint"
 
 
 def test_route_keyword_beats_sticky() -> None:
@@ -187,7 +188,7 @@ def test_route_never_calls_llm_when_rules_hit() -> None:
     called = []
     routing.route(text="帮我生成会议纪要", llm_router=lambda *a: called.append(1) or {})
     routing.route(text="计算 1+1", llm_router=lambda *a: called.append(1) or {})
-    routing.route(text="x", event={"semantic_action": "set_done"}, llm_router=lambda *a: called.append(1) or {})
+    routing.route(text="x", event={"semantic_action": "append_meeting"}, llm_router=lambda *a: called.append(1) or {})
     assert called == [], "规则命中时不应走模型兜底"
 
 
@@ -285,13 +286,13 @@ def test_telemetry_records_device_misjudgement() -> None:
     try:
         # 端侧说 exam，但文本命中 fitness 关键词 -> 云端 reroute
         out = _run(
-            text="我膝盖有点疼，练不下去了",
+            text="请整理这次会议记录",
             event={"device": {"intent": "solve", "confidence": 0.95}},
         )
     finally:
         drop_router()
         restore()
-    assert out["routing"]["scene"] == "fitness", out["routing"]
+    assert out["routing"]["scene"] == "meeting", out["routing"]
     stats = store.routing_stats("u")
     assert stats["samples"] == 1, stats
     assert stats["device_correct"] == 0, stats
@@ -392,16 +393,16 @@ def test_dify_failure_falls_back_to_local_with_explicit_note() -> None:
 def test_dify_not_used_for_attachments_or_sticky() -> None:
     """带附件与粘性会话都在 dispatch 就被拦下，不会走到 dify_scene。"""
     assert graph.dispatch({"files": ["a.png"], "event": {}, "routing": {}}) == "local"
-    assert graph.dispatch({"files": [], "event": {"_sticky": {"fitness": True}}, "routing": {}}) == "local"
+    assert graph.dispatch({"files": [], "event": {"_sticky": {"meeting": True}}, "routing": {}}) == "local"
 
 
 def test_dify_payload_carries_authoritative_scene() -> None:
     from lg_assistant import dify_backend
 
     p = dify_backend.build_payload(
-        text="膝盖疼", scene="fitness", device_intent="solve", device_confidence=0.95
+        text="膝盖疼", scene="meeting", device_intent="solve", device_confidence=0.95
     )
-    assert p["inputs"]["scene_hint"] == "fitness"
+    assert p["inputs"]["scene_hint"] == "meeting"
     assert p["inputs"]["device_intent"] == "solve"
     assert p["inputs"]["device_confidence"] == "0.95"
     assert dify_backend.build_payload(text="x", scene="bogus")["inputs"]["scene_hint"] == ""
@@ -592,73 +593,6 @@ def test_postprocess_speech_is_plain_text() -> None:
 # 迁移到状态图后该字段一度没有来源，卡片恒显示 IDLE。
 # --------------------------------------------------------------------------- #
 
-def test_workout_start_sets_active_with_exercise_name() -> None:
-    """开始训练后卡片要能看到动作名，而不是恒为 IDLE。"""
-    out = nodes.postprocess({
-        "text": "开始训练，做深蹲",
-        "routing": {"scene": "fitness", "action": "start_exercise"},
-    })
-    w = out["fitness"]["workout"]
-    assert w["status"] == "active"
-    assert w["current"] == "深蹲"
-    assert w["total_sets"] == 0
-
-
-def test_workout_set_done_counts_only_while_active() -> None:
-    """训练中「做完一组」+1；没开始训练时不能凭空冒出组数。"""
-    out = nodes.postprocess({
-        "text": "这组做完了",
-        "routing": {"scene": "fitness", "action": "set_done"},
-        "fitness": {"workout": {"status": "active", "current": "深蹲", "total_sets": 2}},
-    })
-    assert out["fitness"]["workout"]["total_sets"] == 3
-
-    idle = nodes.postprocess({
-        "text": "这组做完了",
-        "routing": {"scene": "fitness", "action": "set_done"},
-    })
-    assert idle["fitness"]["workout"]["total_sets"] == 0
-
-
-def test_workout_pain_pauses_without_losing_sets() -> None:
-    """不适暂停保留已完成组数——安全相关状态不该被清掉。"""
-    out = nodes.postprocess({
-        "text": "膝盖有点疼",
-        "routing": {"scene": "fitness", "action": "pain_report"},
-        "fitness": {"workout": {"status": "active", "current": "深蹲", "total_sets": 3}},
-    })
-    assert out["fitness"]["workout"]["status"] == "paused"
-    assert out["fitness"]["workout"]["total_sets"] == 3
-
-
-def test_workout_end_resets_status() -> None:
-    out = nodes.postprocess({
-        "text": "结束训练",
-        "routing": {"scene": "fitness", "action": "end_workout"},
-        "fitness": {"workout": {"status": "paused", "current": "深蹲", "total_sets": 3}},
-    })
-    assert out["fitness"]["workout"]["status"] == "idle"
-
-
-def test_workout_untouched_for_other_scenes() -> None:
-    """非锻炼场景不得写 fitness，避免污染卡片状态。"""
-    out = nodes.postprocess({
-        "text": "你好",
-        "routing": {"scene": "general", "action": "answer"},
-    })
-    assert "fitness" not in out
-
-
-def test_fitness_action_inference_puts_safety_first() -> None:
-    """关键词路由只给场景，动作靠推断；不适必须优先于开始。"""
-    assert routing.infer_fitness_action("开始训练，做深蹲") == "start_exercise"
-    assert routing.infer_fitness_action("这组做完了，下一组") == "set_done"
-    assert routing.infer_fitness_action("膝盖有点疼") == "pain_report"
-    assert routing.infer_fitness_action("结束训练") == "end_workout"
-    # 同时含「疼」与「练」：安全优先，绝不能启动训练
-    assert routing.infer_fitness_action("膝盖疼，今天不练了") == "pain_report"
-    assert routing.infer_fitness_action("今天天气不错") == ""
-
 
 def test_meeting_state_accumulates_transcript() -> None:
     """会议卡片的 LISTENING 态与转写区读 /api/state 的 meeting 字段。"""
@@ -694,6 +628,93 @@ def test_meeting_untouched_for_other_scenes() -> None:
         "routing": {"scene": "general", "action": "answer"},
     })
     assert "meeting" not in out
+
+
+def test_meeting_pause_and_resume_roundtrip() -> None:
+    """暂停后转写不再增长；恢复后接着累计，且不丢暂停前的内容。"""
+    start = nodes.postprocess({
+        "text": "开始会议",
+        "routing": {"scene": "meeting", "action": "start"},
+    })
+    more = nodes.postprocess({
+        "text": "张明说下周交付",
+        "routing": {"scene": "meeting", "action": "append"},
+        "meeting": start["meeting"],
+    })
+
+    paused = nodes.postprocess({
+        "text": "暂停会议",
+        "routing": {"scene": "meeting", "action": "pause"},
+        "meeting": more["meeting"],
+    })
+    assert paused["meeting"]["status"] == "paused"
+
+    blocked = nodes.postprocess({
+        "text": "李红说预算要重批",
+        "routing": {"scene": "meeting", "action": "append"},
+        "meeting": paused["meeting"],
+    })
+    assert blocked["meeting"]["status"] == "paused", "暂停期间不能偷偷改回 collecting"
+    assert "李红" not in blocked["meeting"]["transcript"]
+    assert blocked["meeting"]["transcript"] == paused["meeting"]["transcript"]
+
+    resumed = nodes.postprocess({
+        "text": "继续会议",
+        "routing": {"scene": "meeting", "action": "resume"},
+        "meeting": blocked["meeting"],
+    })
+    assert resumed["meeting"]["status"] == "collecting"
+
+    after = nodes.postprocess({
+        "text": "李红说预算要重批",
+        "routing": {"scene": "meeting", "action": "append"},
+        "meeting": resumed["meeting"],
+    })
+    assert "李红" in after["meeting"]["transcript"]
+    assert "张明说下周交付" in after["meeting"]["transcript"], "恢复后不能丢掉暂停前的内容"
+
+
+def test_start_does_not_clear_paused_session() -> None:
+    """暂停中说「开始会议」不能把已有转写清空。"""
+    paused = {"status": "paused", "transcript": "张三：周五前提交接口文档。"}
+    out = nodes.postprocess({
+        "text": "开始会议",
+        "routing": {"scene": "meeting", "action": "start"},
+        "meeting": paused,
+    })
+    assert out["meeting"]["status"] == "paused"
+    assert out["meeting"]["transcript"] == paused["transcript"]
+
+
+def test_paused_meeting_reply_is_deterministic() -> None:
+    """暂停类指令不能送去写纪要——模型会把「暂停会议」四个字硬凑成一份纪要。"""
+    restore_llm, calls = _stub_llm("【本不该被调用】")
+    restore_router = _no_router()
+    try:
+        kept = {"status": "collecting", "transcript": "张三：周五前提交。"}
+        for action, text, want in (
+            ("pause", "暂停会议", "已暂停会议记录"),
+            ("resume", "继续会议", "已恢复会议记录"),
+        ):
+            out = nodes.local_llm({
+                "text": text,
+                "routing": {"scene": "meeting", "action": action},
+                "meeting": kept,
+            })
+            assert want in out["result"]["text"], out["result"]["text"]
+
+        # 暂停期间贴进来的内容必须被明确拒收，并且说清「没保存」
+        out = nodes.local_llm({
+            "text": "李红：预算要重批。",
+            "routing": {"scene": "meeting", "action": "append"},
+            "meeting": {"status": "paused", "transcript": "张三：周五前提交。"},
+        })
+        assert "没有保存" in out["result"]["text"], out["result"]["text"]
+
+        assert calls == [], "暂停/恢复与暂停期间的拒收都不该发起模型调用"
+    finally:
+        restore_router()
+        restore_llm()
 
 
 def test_same_thread_second_request_does_not_reuse_first_result() -> None:
@@ -757,12 +778,31 @@ def _png(tmp: Path, name: str = "q.png") -> str:
     return str(p)
 
 
+def _stub_exam_inventory():
+    """Keep legacy single-question node tests offline after batch inventory.
+
+    Real cropping and inventory validation are exercised by batch-specific
+    tests; these checks retain their existing solver/tool/source assertions.
+    """
+    stubs = ExitStack()
+    stubs.enter_context(patch("lg_assistant.exam_batch.detect_questions", return_value={
+        "questions": [{"number": "1", "preview": "", "complete": True, "missing": [],
+                       "regions": [{"page": 1, "bbox": [0, 0, 1000, 1000]}], "context_regions": []}],
+        "notes": []}))
+    stubs.enter_context(patch("lg_assistant.exam_batch._crop_images",
+        side_effect=lambda images, question, crop_dir: list(images)))
+    stubs.enter_context(patch("lg_assistant.vision.independent_solution",
+        return_value={"answerable": True, "answer": "A"}))
+    return stubs.close
+
+
 def _stub_vision_chain():
     """打桩 vision.observe / solve / review，并记录调用顺序。"""
     from lg_assistant import vision
 
     order: list[str] = []
     originals = (vision.observe, vision.solve, vision.review)
+    restore_inventory = _stub_exam_inventory()
 
     def fake_observe(text, images):
         order.append("observe")
@@ -796,6 +836,7 @@ def _stub_vision_chain():
         setattr(vision, "observe", originals[0]),
         setattr(vision, "solve", originals[1]),
         setattr(vision, "review", originals[2]),
+        restore_inventory(),
     )
 
 
@@ -803,7 +844,7 @@ def test_dispatch_routes_image_exam_to_vision() -> None:
     """带图片的解题请求必须走本地视觉链，不能盲目转发 Dify。"""
     assert (
         graph.dispatch({"files": ["a.png"], "routing": {"scene": "exam"}, "event": {}})
-        == "vision"
+        == "photo_practice"
     )
     # 图片但不是解题场景 → 留本地（会议白板照片等）
     assert (
@@ -836,7 +877,8 @@ def test_vision_chain_runs_all_four_steps_in_order() -> None:
     assert out["result"]["backend"] == "local"
     assert "B) 4" in out["result"]["text"]
     assert "8/2 = 4" in out["result"]["text"], "程序计算校验必须渲染出来"
-    assert out["speech"] == "答案是 B，4。"
+    assert out["speech"].startswith("识别到1道题，已解答1道。")
+    assert "答案B) 4" in out["speech"], "批次播报必须保留这道题的已核验答案"
 
 
 def test_vision_chain_runs_deterministic_grid_check() -> None:
@@ -925,6 +967,7 @@ def test_vision_failure_is_reported_not_swallowed() -> None:
     from lg_assistant import vision
 
     original = vision.observe
+    restore_inventory = _stub_exam_inventory()
 
     def boom(*a, **kw):
         raise vision.VisionError("模拟识别失败")
@@ -934,6 +977,7 @@ def test_vision_failure_is_reported_not_swallowed() -> None:
         out = nodes.exam_vision({"files": ["a.png"], "text": "解这道题"})
     finally:
         vision.observe = original
+        restore_inventory()
     assert "图片识别失败" in out["result"]["text"]
     assert out["result"]["note"]
 
@@ -955,7 +999,7 @@ def test_dispatch_routes_audio_to_meeting_audio() -> None:
     # 图片走视觉链，不受影响
     assert graph.dispatch(
         {"files": ["a.png"], "routing": {"scene": "exam"}, "event": {}}
-    ) == "vision"
+    ) == "photo_practice"
     # 无附件的会议请求仍走本地 LLM
     assert graph.dispatch(
         {"files": [], "routing": {"scene": "meeting"}, "event": {}}
@@ -1089,211 +1133,6 @@ def _session(owner: str = "u", session: str = "p"):
         return app.invoke(base, cfg)
 
     return turn, app, cfg
-
-
-def test_profile_trigger_routes_to_fitness_profile() -> None:
-    """「建立健康档案」必须零 token 命中 fitness/profile。
-
-    修复前它一个关键词都不命中（KEYWORDS["fitness"] 里没有「建档」「健康档案」），
-    掉到 LLM 兜底被判成 general，拿通用提示词即兴回答——用户以为在填档案，
-    其实什么都没记。
-    """
-    assert routing.keyword_scores("建立健康档案") == {"fitness": 0.8}
-    assert routing.infer_fitness_action("建立健康档案") == "profile"
-    assert routing.infer_fitness_action("建档") == "profile"
-    assert graph.dispatch({"routing": {"action": "profile"}}) == "profile"
-
-
-def test_profile_questionnaire_multiturn_without_model() -> None:
-    """九项问卷全程零 token 走完，且落库的是**正确的**数值。
-
-    这里钉住两个实测 bug：
-    1. 粘性不恢复动作 → 第二轮就掉出问卷（见上面注释）
-    2. 「我178厘米，70公斤」曾把身高体重都填成 178，BMI 算出 56.2
-    """
-    turn, _app, _cfg = _session()
-    restore, calls = _stub_llm("不该被调用")
-    try:
-        out = turn("建立健康档案")
-        assert out["routing"]["scene"] == "fitness"
-        assert out["routing"]["action"] == "profile"
-        assert out["fitness"]["awaiting"] == "age"
-        assert "年龄" in out["result"]["text"]
-
-        # 第二轮：裸数字必须被当作年龄答案 —— 这正是粘性 bug 的暴露点
-        out = turn("28")
-        assert out["routing"]["action"] == "profile", "第二轮掉出了建档问卷"
-        assert out["fitness"]["draft"]["age"] == 28
-
-        # 一句话答两项：按单位就近取数，**不能复用同一个数字**
-        out = turn("我178厘米，70公斤")
-        draft = out["fitness"]["draft"]
-        assert draft["height_cm"] == 178.0
-        assert draft["weight_kg"] == 70.0, f"体重被填错：{draft}"
-        assert draft["height_cm"] != draft["weight_kg"], "身高体重不该是同一个数"
-
-        # 别名要映射到标准选项
-        out = turn("减肥")
-        assert out["fitness"]["draft"]["goal"] == "减脂"
-
-        # 答得不合规 → 原地重问，不推进、不丢
-        out = turn("999")
-        assert out["fitness"]["awaiting"] == "level"
-        assert "没识别出" in out["result"]["text"]
-
-        turn("偶尔运动")
-        out = turn("膝盖、腰")
-        assert out["fitness"]["draft"]["injuries"] == ["膝盖", "腰部"]
-        turn("无")
-        turn("3")
-        out = turn("哑铃、弹力带")
-
-        # 填满 → 落库 + 回显
-        assert out["fitness"]["awaiting"] == ""
-        assert out["fitness"]["draft"] == {}
-        assert "健康档案已建立" in out["result"]["text"]
-    finally:
-        restore()
-
-    data = store.load_profile("u")
-    assert store.profile_meta("u")["source"] == "glasses"
-    assert data["age"] == 28
-    assert data["height_cm"] == 178.0 and data["weight_kg"] == 70.0
-    assert data["conditions"] == ["无"]
-    assert abs(profile_module.bmi(data) - 22.1) < 0.05, "BMI 必须按正确身高体重算"
-    assert calls == [], f"问卷不该调用模型，实际调用 {len(calls)} 次"
-
-
-def test_profile_repeat_trigger_restarts_instead_of_erroring() -> None:
-    """问卷进行中再说一次「建立健康档案」＝重新开始，不是把这句话当答案。
-
-    实测：问到年龄时它被拿去解析成年龄，回「年龄需要是数字，请重新填写」——
-    用户只是重复了最初的请求，完全看不懂这句错误。
-    """
-    turn, _app, _cfg = _session()
-    turn("建立健康档案")
-    out = turn("建立健康档案")
-    assert out["fitness"]["awaiting"] == "age"
-    assert "年龄" in out["result"]["text"]
-    assert "需要是数字" not in out["result"]["text"]
-
-
-def test_profile_cancel_removes_draft_but_keeps_saved_profile() -> None:
-    """「取消建档」＝这次不填了，**不是删除我的健康档案**。
-
-    这个区分很要紧：用户一句「算了」不该把已经建好的档案弄没。
-    """
-    turn, _app, _cfg = _session()
-    store.save_profile("u", {"age": 30, "height_cm": 175.0}, source="phone")
-
-    turn("建立健康档案")
-    out = turn("取消建档")
-    assert out["fitness"]["awaiting"] == ""
-    assert out["fitness"]["draft"] == {}
-    assert "已退出建档" in out["result"]["text"]
-    # 库里那份不能少
-    assert store.load_profile("u")["age"] == 30
-
-
-def test_profile_is_injected_into_fitness_prompt_only() -> None:
-    """档案的唯一用途：把建议落到用户身上。**只进健身场景。**
-
-    档案含伤病与慢性病，是敏感信息，没有理由出现在会议纪要或解题的提示词里。
-    """
-    store.save_profile(
-        "u",
-        {
-            "age": 28, "height_cm": 178.0, "weight_kg": 70.0,
-            "goal": "减脂", "level": "偶尔运动",
-            "injuries": ["膝盖"], "conditions": ["无"],
-            "days_per_week": 3, "equipment": ["哑铃"],
-        },
-        source="phone",
-    )
-
-    captured: dict[str, str] = {}
-
-    def spy(messages, **kw):
-        for m in messages:
-            if m.get("role") == "system":
-                captured["system"] = m.get("content", "")
-        return "桩回复"
-
-    original = llm.chat
-    llm.chat = spy
-    try:
-        # 健身场景 → 必须带上档案与风险提示
-        _run(text="我今天练什么", scene_hint="fitness")
-        sysmsg = captured.get("system", "")
-        assert "【用户健康档案】" in sysmsg, "健身建议没读档案"
-        assert "年龄：28" in sysmsg and "减脂" in sysmsg
-        assert "膝盖" in sysmsg, "伤病必须带进提示词——这正是安全相关的部分"
-        assert "先咨询医生" in sysmsg
-
-        # 其它场景 → 一点都不许出现
-        captured.clear()
-        _run(text="帮我整理这段会议内容", scene_hint="meeting")
-        assert "健康档案" not in captured.get("system", ""), "档案泄露到了非健身场景"
-    finally:
-        llm.chat = original
-
-
-def test_profile_absent_is_stated_not_invented() -> None:
-    """没建档时要明说「尚未建立」，**绝不假设默认值**。
-
-    「假设用户 30 岁、无伤病」会让建议看起来个性化，实际全是凭空来的，
-    而这恰恰是安全相关的字段。
-    """
-    captured: dict[str, str] = {}
-
-    def spy(messages, **kw):
-        for m in messages:
-            if m.get("role") == "system":
-                captured["system"] = m.get("content", "")
-        return "桩回复"
-
-    original = llm.chat
-    llm.chat = spy
-    try:
-        _run(text="我今天练什么", scene_hint="fitness")
-    finally:
-        llm.chat = original
-    sysmsg = captured.get("system", "")
-    assert "尚未建立" in sysmsg
-    assert "不要假设" in sysmsg
-
-
-def test_profile_save_failure_is_reported_not_swallowed() -> None:
-    """落库失败必须说出来。
-
-    用户以为建好了、眼镜端却读不到，这种「以为存上了」的静默失败最难查。
-    """
-    turn, _app, _cfg = _session()
-    turn("建立健康档案")
-    turn("28")
-    turn("我178厘米，70公斤")
-    turn("减脂")
-    turn("偶尔运动")
-    turn("无")
-    turn("无")
-    turn("3")
-
-    original = store.save_profile
-
-    def boom(*a, **kw):
-        raise OSError("磁盘满了")
-
-    store.save_profile = boom
-    try:
-        out = turn("哑铃")
-    finally:
-        store.save_profile = original
-
-    text = out["result"]["text"]
-    assert "保存" in text and "失败" in text, f"落库失败被吞掉了：{text}"
-    assert store.load_profile("u") == {}, "没存上就是没存上"
-    # 草稿要留着，用户重试时不用从头再答一遍
-    assert out["fitness"]["draft"]["age"] == 28
 
 
 def test_audio_node_falls_back_to_plain_asr() -> None:
@@ -1715,6 +1554,41 @@ def test_postprocess_does_not_warn_on_ordinary_answers() -> None:
         assert not out["result"].get("stale_warning"), text
 
 
+def test_postprocess_unresolved_batch_skips_stale_warning_and_keeps_archive() -> None:
+    text = "本次依据未通过复核，尚未确定答案。"
+    with patch.object(store, "archive", return_value="saved") as archive:
+        out = nodes.postprocess({"routing": {"scene": "exam"}, "owner": "u",
+            "result": {"text": text, "artifacts": [{"kind": "exam_batch",
+                "answered_count": 0, "unresolved_count": 1}]}})
+    assert out["result"]["text"] == text
+    assert not out["result"].get("stale_warning")
+    assert out["archived_id"] == "saved"
+    archive.assert_called_once()
+
+
+def test_postprocess_other_batch_results_keep_time_claim_warning() -> None:
+    text = "党的二十届三中全会尚未召开。"
+    for answered, unresolved in ((1, 1), (0, 0)):
+        with patch.object(store, "archive", return_value="saved"):
+            out = nodes.postprocess({"routing": {"scene": "exam"}, "owner": "u",
+                "result": {"text": text, "artifacts": [{"kind": "exam_batch",
+                    "answered_count": answered, "unresolved_count": unresolved}]}})
+        assert out["result"].get("stale_warning")
+        assert "请以官方最新发布为准" in out["result"]["text"]
+        assert out["archived_id"] == "saved"
+
+
+def test_unfinished_photo_status_is_not_a_policy_time_claim() -> None:
+    _fresh()
+    text = "本次尚未完成题目解答。已保留照片与识别题面，请选择学习模式后继续。"
+    for status in ("needs_selection", "error"):
+        out = nodes.postprocess({"routing": {"scene": "exam"},
+            "result": {"text": text, "status": status}, "owner": "u"})
+        assert out["result"]["text"] == text
+        assert not out["result"].get("stale_warning")
+        assert out["archived_id"] == ""
+
+
 # --------------------------------------------------------------------------- #
 # 联网检索（时政类问题的正解）
 # --------------------------------------------------------------------------- #
@@ -1874,10 +1748,11 @@ def test_vision_path_searches_with_observation_not_just_user_text() -> None:
 
     seen: dict = {}
     orig = (search.search_answer, vision.observe, vision.solve, vision.review)
+    restore_inventory = _stub_exam_inventory()
 
     def fake_search(q, **kw):
         seen["query"] = q
-        return {"answer": "该会2024年7月召开", "sources": [], "searched": True}
+        return {"answer": "该会2024年7月召开", "sources": [{"title": "测试来源", "url": "https://example.org/fixture", "site": "fixture"}], "searched": True}
 
     def fake_observe(text, images):
         return "题干：党的二十届三中全会是否已经召开？A 已召开 B 未召开"
@@ -1905,6 +1780,7 @@ def test_vision_path_searches_with_observation_not_just_user_text() -> None:
             vision.solve,
             vision.review,
         ) = orig
+        restore_inventory()
 
     assert "二十届三中全会" in seen.get("query", ""), "检索词必须含题面"
     # 初解与终审都要拿到检索结果，否则终审会把它"纠正"回过期答案
@@ -1912,144 +1788,186 @@ def test_vision_path_searches_with_observation_not_just_user_text() -> None:
     assert seen.get("review_web"), "终审也必须拿到检索结果"
 
 
+def test_search_entity_signal_is_immune_to_model_prose() -> None:
+    """弱措辞（现在/目前/最近）必须与时效性名词共现；实体词可独立判定。
+
+    图形题的观察记录里会写「现在看第三列」「目前无规律」，
+    拿这种散文去匹配「现在/目前」等于随机触发一次 30 秒的联网检索。
+    """
+    from lg_assistant import search
+
+    prose = "现在看第三列：左下、右上、?，目前无规律，最近两幅也看不出旋转。"
+    assert search.needs_search(prose) is False, prose
+    assert search.mentions_time_sensitive_entity(prose) is False, prose
+
+    # 同样的弱措辞配上时效性名词就该查——修误报不能顺手削弱召回
+    assert search.needs_search("最近一次中央经济工作会议有什么重点？") is True
+    assert search.needs_search("现在国家主席是谁") is True
+    assert search.needs_search("目前该政策是否还在实施") is True
+
+    for q in ("党的二十届三中全会是否已经召开？", "中央经济工作会议有什么重点"):
+        assert search.mentions_time_sensitive_entity(q) is True, q
+
+
+def test_vision_search_not_triggered_by_prose_observation() -> None:
+    """回归：观察记录里的散文措辞不得触发检索。
+
+    实测踩过：同一张九宫格题图，一次触发检索（白等 30 秒）一次不触发，
+    题目本身根本不含时效性内容——触发源是模型那段自由发挥。
+    """
+    tmp = _fresh()
+    from lg_assistant import search, vision
+
+    calls: list = []
+    orig = (search.search_answer, vision.observe, vision.solve, vision.review)
+    restore_inventory = _stub_exam_inventory()
+
+    def fake_search(q, **kw):
+        calls.append(q)
+        return {"answer": "x", "sources": [], "searched": True}
+
+    def fake_observe(text, images):
+        return "题干：九宫格选一个。\n现在看第三列：左下、右上、?，目前无规律。"
+
+    def fake_solve(text, observation, images, **kw):
+        return {"answerable": True, "answer": "A", "calculations": [], "binary_grid": None}
+
+    def fake_review(text, draft, tool_result, images, **kw):
+        return {"answerable": True, "answer": "A", "explanation": "x", "review_notes": "y"}
+
+    search.search_answer = fake_search
+    vision.observe = fake_observe
+    vision.solve = fake_solve
+    vision.review = fake_review
+    try:
+        nodes.exam_vision(
+            {"files": [_png(tmp)], "text": "这个选什么", "routing": {"scene": "exam"}}
+        )
+    finally:
+        (
+            search.search_answer,
+            vision.observe,
+            vision.solve,
+            vision.review,
+        ) = orig
+        restore_inventory()
+
+    assert calls == [], f"图形题不该联网，却查了：{calls}"
+
+
+def test_vision_search_still_fires_on_entity_beyond_the_head() -> None:
+    """兜底：题干区被截断时，整段里的时政实体仍要能触发检索。"""
+    tmp = _fresh()
+    from lg_assistant import search, vision
+
+    calls: list = []
+    orig = (search.search_answer, vision.observe, vision.solve, vision.review)
+    restore_inventory = _stub_exam_inventory()
+
+    def fake_search(q, **kw):
+        calls.append(q)
+        return {"answer": "2024年7月召开", "sources": [], "searched": True}
+
+    # 前缀是一大段普通叙述（超过题干区长度），时政实体落在后面
+    def fake_observe(text, images):
+        return "题型：政治理论。\n" + "图形描述。" * 200 + "\n涉及党的二十届三中全会。"
+
+    def fake_solve(text, observation, images, **kw):
+        return {"answerable": True, "answer": "A", "calculations": [], "binary_grid": None}
+
+    def fake_review(text, draft, tool_result, images, **kw):
+        return {"answerable": True, "answer": "A", "explanation": "x", "review_notes": "y"}
+
+    search.search_answer = fake_search
+    vision.observe = fake_observe
+    vision.solve = fake_solve
+    vision.review = fake_review
+    try:
+        nodes.exam_vision(
+            {"files": [_png(tmp)], "text": "这个选什么", "routing": {"scene": "exam"}}
+        )
+    finally:
+        (
+            search.search_answer,
+            vision.observe,
+            vision.solve,
+            vision.review,
+        ) = orig
+        restore_inventory()
+
+    assert calls, "时政实体在整段里出现，必须触发检索"
+
+
+def test_observe_bounds_its_own_output_length() -> None:
+    """精读必须带输出上限——它是整条链最慢的一步，且产物只是中间记录。
+
+    实测：不设上限时同一张九宫格题图，模型写了 6395 字、耗时 107 秒；
+    设上限后 17 秒。**27s 与 100s+ 的波动就是这一步来的。**
+    """
+    from lg_assistant import llm, vision
+    from lg_assistant.vision_prompts import VISION
+
+    seen: dict = {}
+    original = llm.vision
+
+    def fake_vision(prompt, images, system="", model=None, temperature=0.2,
+                    max_tokens=None, **kwargs):
+        seen["max_tokens"] = max_tokens
+        seen["system"] = system
+        return "题干：x"
+
+    llm.vision = fake_vision
+    try:
+        vision.observe("这个选什么", ["a.png"])
+    finally:
+        llm.vision = original
+
+    assert seen["max_tokens"] == vision.OBSERVE_MAX_TOKENS
+    assert seen["max_tokens"], "上限不能是 None（None 等于不限制）"
+    # 提示词**保持原样**：实测往里加字数要求或「写细一点」都会让精读更慢
+    # （压字数会让模型读错图，写细则会让它涨到 2000 字）。
+    assert seen["system"] == VISION + vision.VISION_EXTRA
+    # 反向断言：初解/终审是 JSON，**绝不能**带上限——截断会让整条链报错。
+    import inspect
+
+    from lg_assistant import vision as v
+
+    src = inspect.getsource(v)
+    assert "max_tokens=SOLVER_MAX_TOKENS" not in src
+    assert "max_tokens=REVIEWER_MAX_TOKENS" not in src
+
+
+def test_progress_reports_per_step_timings() -> None:
+    """分步计时：没有分解就只能猜「时间花在哪」（实测误判过一次为"网络慢"）。"""
+    from lg_assistant import progress
+
+    rid = "t-timings-case"
+    progress.begin(rid, "exam", "recognize")
+    progress.mark("solve", rid)
+    progress.mark("verify", rid)
+    progress.finish(rid)
+
+    tm = progress.timings(rid)
+    ids = [s["id"] for s in tm["steps"]]
+    assert ids[0] == "recognize" and "solve" in ids and "verify" in ids, ids
+    assert tm["total_ms"] >= 0
+    assert all(isinstance(s["ms"], int) and s["ms"] >= 0 for s in tm["steps"])
+
+    snap = progress.snapshot(rid)
+    assert snap and "timings" in snap, "快照要带上耗时，前端才能显示"
+    assert progress.timings("没有这条") == {}
+
+
 # --------------------------------------------------------------------------- #
 # 健身场景的三个真 bug（真实链路走查发现）
 # --------------------------------------------------------------------------- #
-def test_fitness_action_start_and_setdone_not_swapped() -> None:
-    """回归一：裸动词「做」把开始与做组判定对调了。
-
-    原词表 FITNESS_START_WORDS 里有裸动词「做」和「练」：
-      - 「做完一组」命中「做」-> 判成 start_exercise
-      - 「开始深蹲」命不中任何词 -> 判成空
-    两者完全对调。后果：状态机被反复重置，**组数一条也记不上**，
-    且训练根本没进入 active。
-    """
-    assert routing.infer_fitness_action("做完一组") == "set_done"
-    assert routing.infer_fitness_action("再来一组") == "set_done"
-    # 具体动作名要能接住——用户说的是「开始深蹲」而不是「开始训练」
-    for t in ("开始深蹲", "开始深蹲 3组10次 60公斤", "深蹲 3组10次", "卧推 4组10次"):
-        assert routing.infer_fitness_action(t) == "start_exercise", t
-    # 不适永远优先于开始（安全顺序不可换）
-    assert routing.infer_fitness_action("膝盖疼，今天不练了") == "pain_report"
-
-
-def test_paused_workout_blocks_set_done_with_explanation() -> None:
-    """回归二：疼痛暂停后仍回「好，休息30秒，准备下一组」。
-
-    实测事故：报告「膝盖有点疼」后状态机已置 paused，用户接着说「做完一组」，
-    回答仍在鼓励他继续练。状态机拒绝了计数，但回答由模型生成、它看不到状态。
-    现在改成确定性安全文案，并且要说明「为什么没记」与「怎样算可以继续」。
-    """
-    _fresh()
-    out = nodes.local_llm(
-        {
-            "text": "做完一组",
-            "routing": {"scene": "fitness", "action": "set_done"},
-            "fitness": {"workout": {"status": "paused", "current": "深蹲", "total_sets": 2}},
-        }
-    )
-    text = out["result"]["text"]
-    assert "没有记录" in text, "必须明确说这一组没被计入"
-    assert "休息30秒" not in text, "不能再出现鼓励继续练的话"
-    assert "继续" in text and "结束训练" in text, "要给出恢复与结束两条出路"
-    assert out["result"]["note"]
-
-
-def test_paused_workout_still_allows_ending() -> None:
-    """回归三：「结束训练」不能被安全闸拦住。
-
-    闸门做完后实测发现，暂停态下发「结束训练」也只会回一句
-    「训练当前处于暂停状态」——用户拿不到训练总结，被卡在暂停态出不来。
-    """
-    _fresh()
-    out = nodes.local_llm(
-        {
-            "text": "结束训练",
-            "routing": {"scene": "fitness", "action": "end_workout"},
-            "fitness": {"workout": {"status": "paused", "current": "深蹲", "total_sets": 2}},
-        }
-    )
-    assert "暂停状态" not in out["result"]["text"], "结束训练不应被安全闸拦截"
 
 
 def test_sticky_flags_come_from_session_state_not_event() -> None:
-    """回归四：``event["_sticky"]`` 从来没有被写入过，粘性是死代码。
-
-    后果：用户说「继续」想从暂停恢复，命不中关键词、粘性又失效，
-    被路由到 general，**训练卡在暂停态出不来**。
-    现在从会话状态推导。
-    """
-    assert nodes.sticky_flags({}) == {"meeting": False, "fitness": False}
-    assert nodes.sticky_flags({"fitness": {"workout": {"status": "active"}}})["fitness"] is True
-    assert nodes.sticky_flags({"fitness": {"workout": {"status": "paused"}}})["fitness"] is True
-    assert nodes.sticky_flags({"fitness": {"awaiting": "age"}})["fitness"] is True
-    assert nodes.sticky_flags({"meeting": {"status": "collecting"}})["meeting"] is True
-    # 已结束的训练不该继续粘住
-    assert nodes.sticky_flags({"fitness": {"workout": {"status": "idle"}}})["fitness"] is False
-
-
-def test_training_skips_llm_router_and_stays_in_fitness() -> None:
-    """训练进行中要跳过模型兜底：那些话大多不含关键词，交给模型既慢又不准。"""
-    _fresh()
-    calls: list = []
-    orig = nodes._ROUTER
-    nodes.set_router(lambda *a, **kw: (calls.append(1), {"scene": "general"})[1])
-    try:
-        # 训练进行中 + 判得出动作 -> 不调模型兜底
-        out = nodes.route_node(
-            {
-                "text": "歇好了",
-                "fitness": {"workout": {"status": "paused"}},
-                "device": {},
-            }
-        )
-        assert out["routing"]["scene"] == "fitness", out["routing"]
-        # 「歇好了」命不中动作，但其本身不是训练事件时会走兜底——
-        # 这里只断言「判得出动作时确实没调模型」
-        calls.clear()
-        out2 = nodes.route_node(
-            {
-                "text": "做完一组",
-                "fitness": {"workout": {"status": "active"}},
-                "device": {},
-            }
-        )
-        assert out2["routing"]["action"] == "set_done"
-        assert calls == [], "判得出动作时不该调模型兜底"
-    finally:
-        nodes.set_router(orig)
-
-
-def test_training_does_not_swallow_unrelated_requests() -> None:
-    """训练中也要能问别的：判不出动作时不粘，避免「帮我算个数」被吞掉。
-
-    这正是基线踩过的坑，路由顺序才定成关键词优先于粘性。
-    """
-    _fresh()
-    out = nodes.route_node(
-        {"text": "计算 (18+24)*3", "fitness": {"workout": {"status": "active"}}, "device": {}}
-    )
-    assert out["routing"]["scene"] == "exam", out["routing"]
-
-
-def test_resume_only_works_from_paused() -> None:
-    """「继续」只能从暂停恢复；idle 时不该凭空开出一场训练。"""
-    _fresh()
-    paused = nodes.next_workout(
-        {
-            "routing": {"scene": "fitness", "action": "resume_workout"},
-            "fitness": {"workout": {"status": "paused", "total_sets": 2}},
-        }
-    )
-    assert paused["status"] == "active" and paused["total_sets"] == 2
-
-    idle = nodes.next_workout(
-        {
-            "routing": {"scene": "fitness", "action": "resume_workout"},
-            "fitness": {"workout": {"status": "idle", "total_sets": 0}},
-        }
-    )
-    assert idle["status"] == "idle", "idle 时说「继续」不应开始训练"
+    assert nodes.sticky_flags({}) == {"meeting": False}
+    assert nodes.sticky_flags({"meeting": {"status": "collecting"}})["meeting"]
+    assert nodes.sticky_flags({"meeting": {"status": "paused"}})["meeting"]
+    assert not nodes.sticky_flags({"event": {"_sticky": {"meeting": True}}})["meeting"]
 
 
 # --------------------------------------------------------------------------- #

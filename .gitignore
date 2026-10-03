@@ -1,49 +1,81 @@
-# ---- 运行时数据与密钥（绝不入库） ----
-assistant-lite/data/
+# Secrets and local runtime data
 .env
-**/.env
-!**/.env.example
-# Dify 控制台令牌是**活凭据**（access / csrf / refresh），绝不能入库。
-# 这些文件曾放在这里且未被忽略，上线前扫描才发现——差一步就推上公开仓库。
-.workbuddy-ai/tmp/
+.env.*
+!.env.example
+*.pem
+*.key
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+/langgraph-app/data/
 
-# ---- 新项目的运行时数据 ----
-dify-multiagent/.build/
-langgraph-app/data/
-
-# ---- Python ----
+# Dependencies, caches and build products
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+node_modules/
 *.log
-
-# ---- 外部工具（安装物不入库，体积大） ----
-# 约定：ffmpeg、独立 Python 包等都装在这里，代码通过 config.TOOLS_DIR 引用
-#
-# 注意前导斜杠：`tools/` 不带斜杠会匹配**任意层级**的同名目录，
-# 把 langgraph-app/lg_assistant/tools/（源码包）一起吞掉——实测三个文件
-# 因此没能入库，别人 clone 后一跑就 ModuleNotFoundError。
-# 加 `/` 锚定到仓库根，只忽略真正的安装物目录。
+*.pid
+*.egg-info/
+build/
+dist/
+# Root tools are installed binaries; lg_assistant/tools is application source.
 /tools/
-/.venv/
-/venv/
-*.sqlite3
-*.sqlite3-wal
-*.sqlite3-shm
 
-# ---- 旧项目（dify-assistant）私有资产 ----
-dify-assistant/.private/
-dify-assistant/.deps/
-dify-assistant/data/
-dify-assistant/*.private.yaml
-dify-assistant/reference-*.yaml
+# Local outputs, media, drafts and assistant state
+/output/
+/outputs/
+/tmp/
+/draft_*_folder/
+/.workbuddy-ai/
+**/.impeccable/
+/langgraph-app/outputs/
+/langgraph-app/evaluation/media/
+.probe_*.txt
+.probe_*.py
+*.prd_q.png
 
-# ---- 编辑器 / 系统 ----
+# Historical prototypes are retained locally, outside the current project.
+/assistant-lite/
+/dify-assistant/
+/dify-multiagent/
+/langgraph-jev/
+/docs/architecture/
+/docs/prd/
+/docs/双场景迭代_*.md
+/docs/端侧适配设计_眼镜.md
+/Dify智能助手搭建方案.md
+/PRD_AI智能助手_眼镜端.md
+/简历-项目描述.md
+/C盘*.ps1
+/C盘*.md
+/C盘*.html
+
+# Machine-specific startup entries
+/langgraph-app/autostart.ps1
+/langgraph-app/autostart.vbs
+
+# One-off experiments; retain supported scripts and evaluators.
+/langgraph-app/scripts/*
+!/langgraph-app/scripts/build_exam_knowledge.py
+!/langgraph-app/scripts/build_north_star_event_cases.py
+!/langgraph-app/scripts/evaluate_exam.py
+!/langgraph-app/scripts/validate_exam_batch_live.py
+/langgraph-app/evaluation/*
+!/langgraph-app/evaluation/__init__.py
+!/langgraph-app/evaluation/database.py
+!/langgraph-app/evaluation/scoring.py
+!/langgraph-app/evaluation/north_star_tracking.py
+
+# Editors and operating systems
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
-
-# ---- 一次性探测脚本的残留 ----
-.probe_*.txt
-.probe_*.py
-*.prd_q.png

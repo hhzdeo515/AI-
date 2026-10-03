@@ -98,24 +98,61 @@ if ($LAN -and -not $accessToken -and -not $AllowNoAuth) {
 }
 
 # ---------------------------------------------------------------- 重启
+$restartPid = Get-RunningPid
+if ($restartPid) {
+    try {
+        $restartHealth = Invoke-RestMethod "http://127.0.0.1:$Port/health" -TimeoutSec 8
+    } catch {
+        Write-Host "[已阻止] 当前服务状态无法确认，未重启。请稍后重试或检查服务状态。" -ForegroundColor Yellow
+        exit 1
+    }
+    if (($restartHealth.PSObject.Properties.Name -contains "active_tasks") -and
+        ([int]$restartHealth.active_tasks -gt 0)) {
+        Write-Host "[已阻止] 当前有 $($restartHealth.active_tasks) 个任务正在处理，重启会中断任务。请等处理结束后再启动。" -ForegroundColor Yellow
+        exit 1
+    }
+}
 Stop-Server | Out-Null
 Start-Sleep -Milliseconds 400
 
-# 先确认 python 可用，否则 Start-Process 会甩一个难懂的 Win32 异常
-$pyCheck = & python -c "import langgraph, flask, openai; print('ok')" 2>$null
-if ($LASTEXITCODE -ne 0 -or "$pyCheck" -notmatch 'ok') {
-    Write-Host "[错误] python 不可用或缺少依赖。" -ForegroundColor Red
+# 找解释器：与 start.ps1 共用同一套候选。
+#
+# 原先这里写死 `python`，正确性全押在 PATH 上——本机同时有 3.11 与 3.13 两套解释器，
+# 依赖只装在其中一个里。PATH 顺序一变，serve.ps1 就报「python 不可用或缺少依赖」，
+# 而 start.ps1 因为有候选兜底照常起得来：同一个仓库给出两种结论，很难排查。
+function Test-PythonCandidate {
+    param([string]$Exe)
+    try {
+        $probe = & $Exe -c "import sys, langgraph, flask, openai; print(sys.version.split()[0])" 2>$null
+        if ($LASTEXITCODE -ne 0) { return $false }
+        return ($probe -match '^3\.')
+    } catch {
+        return $false
+    }
+}
+
+function Find-Python {
+    foreach ($c in @("python.exe", "python3.exe", "F:\python.exe")) {
+        if (Test-PythonCandidate -Exe $c) { return $c }
+    }
+    return ""
+}
+
+$py = Find-Python
+if (-not $py) {
+    Write-Host "[错误] 找不到可用的 Python 解释器（需要 3.9+ 且已装依赖）。" -ForegroundColor Red
     Write-Host "  确认：python run.py check" -ForegroundColor Yellow
     Write-Host "  装依赖：python -m pip install -r requirements.txt" -ForegroundColor Yellow
     exit 1
 }
+Write-Host "解释器: $py" -ForegroundColor DarkGray
 
 # 用 Start-Process 让子进程独立于本会话；关掉终端也继续跑。
 #
 # 注意：**不要用 -RedirectStandardOutput/-RedirectStandardError**。
 # 实测加了那两个参数后本脚本会阻塞不返回（等 300 秒被强杀），进程也起不来。
 # 服务日志不在这里看——需要时用 .\serve.ps1 -Status。
-$proc = Start-Process -FilePath "python" `
+$proc = Start-Process -FilePath $py `
                       -ArgumentList @("run.py", "web", "--host", $bindHost, "--port", "$Port") `
                       -WorkingDirectory $here `
                       -WindowStyle Hidden `

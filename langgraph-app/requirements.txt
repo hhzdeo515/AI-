@@ -11,5 +11,10 @@ grandalf>=0.8
 openai>=1.50
 python-dotenv>=1.0
 pillow>=10.0
+flask>=3.0
+dashscope>=1.20
+requests>=2.31
+python-docx>=1.1
+reportlab>=4.0
 
 # 移植资产未新增依赖：calc 只用 ast/operator，grids 无依赖，speech 只用 re。

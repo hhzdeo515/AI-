@@ -12,12 +12,13 @@ import io
 import json
 import mimetypes
 import re
+import time
 from pathlib import Path
 from typing import Any
 
 from openai import OpenAI
 
-from . import config
+from . import config, call_metrics
 
 
 class LLMError(RuntimeError):
@@ -61,19 +62,20 @@ def to_data_url(path: str | Path, max_edge: int = 2048) -> str:
     if not p.is_file():
         raise LLMError(f"图片不存在：{p}")
     try:
-        from PIL import Image
+        from PIL import Image, ImageOps
 
         with Image.open(p) as im:
-            im = im.convert("RGB")
+            im = ImageOps.exif_transpose(im).convert("RGB")
             w, h = im.size
             longest = max(w, h)
             if longest > max_edge:
                 scale = max_edge / longest
                 im = im.resize((max(1, int(w * scale)), max(1, int(h * scale))))
             buf = io.BytesIO()
-            im.save(buf, format="JPEG", quality=88)
+            # Lossless encoding preserves thin lines, decimal points and grid cells.
+            im.save(buf, format="PNG")
             b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-            return f"data:image/jpeg;base64,{b64}"
+            return f"data:image/png;base64,{b64}"
     except LLMError:
         raise
     except Exception:
@@ -95,6 +97,12 @@ def chat(
     model: str | None = None,
     temperature: float = 0.3,
     max_tokens: int | None = None,
+    *,
+    json_mode: bool = False,
+    thinking: bool | None = None,
+    thinking_budget: int | None = None,
+    timeout: float | None = None,
+    max_retries: int | None = None,
 ) -> str:
     kwargs: dict[str, Any] = {
         "model": model or config.MODEL_TEXT,
@@ -103,10 +111,22 @@ def chat(
     }
     if max_tokens:
         kwargs["max_tokens"] = max_tokens
+    if kwargs["model"].startswith("qwen3"):
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
+        if thinking is not None:
+            kwargs["extra_body"] = {"enable_thinking": thinking}
+            if thinking and thinking_budget:
+                kwargs["extra_body"]["thinking_budget"] = thinking_budget
+    request_options = {k: v for k, v in {"timeout": timeout, "max_retries": max_retries}.items() if v is not None}
+    started = time.perf_counter()
     try:
-        resp = client().chat.completions.create(**kwargs)
+        caller = client().with_options(**request_options) if request_options else client()
+        resp = caller.chat.completions.create(**kwargs)
     except Exception as e:
+        call_metrics.record(kwargs["model"], time.perf_counter() - started, error=e)
         raise LLMError(f"文本模型调用失败：{e}") from e
+    call_metrics.record(kwargs["model"], time.perf_counter() - started, resp)
     return (resp.choices[0].message.content or "").strip()
 
 
@@ -116,7 +136,21 @@ def vision(
     system: str = "",
     model: str | None = None,
     temperature: float = 0.2,
+    max_tokens: int | None = None,
+    *,
+    json_mode: bool = False,
+    thinking: bool | None = None,
+    thinking_budget: int | None = None,
+    timeout: float | None = None,
+    max_retries: int | None = None,
 ) -> str:
+    """视觉调用。
+
+    ``max_tokens`` 必须支持：解题链的耗时**几乎完全由输出长度决定**
+    （实测同一张图，不设上限时精读一步要 104 秒，输出两千多字；
+    设上限后降到十几秒）。以前这个参数只给文本通路，视觉通路漏了，
+    于是「精读」这一步没有任何长度约束——它是整条链最慢的一步。
+    """
     content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
     for img in images:
         content.append({"type": "image_url", "image_url": {"url": to_data_url(img)}})
@@ -126,14 +160,31 @@ def vision(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": content})
 
+    kwargs: dict[str, Any] = {
+        "model": model or config.MODEL_VISION,
+        "messages": messages,
+        "temperature": temperature,
+    }
+    if max_tokens:
+        kwargs["max_tokens"] = max_tokens
+
+    if kwargs["model"].startswith("qwen3"):
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
+        if thinking is not None:
+            kwargs["extra_body"] = {"enable_thinking": thinking}
+            if thinking and thinking_budget:
+                kwargs["extra_body"]["thinking_budget"] = thinking_budget
+
+    request_options = {k: v for k, v in {"timeout": timeout, "max_retries": max_retries}.items() if v is not None}
+    started = time.perf_counter()
     try:
-        resp = client().chat.completions.create(
-            model=model or config.MODEL_VISION,
-            messages=messages,
-            temperature=temperature,
-        )
+        caller = client().with_options(**request_options) if request_options else client()
+        resp = caller.chat.completions.create(**kwargs)
     except Exception as e:
+        call_metrics.record(kwargs["model"], time.perf_counter() - started, error=e)
         raise LLMError(f"视觉模型调用失败：{e}") from e
+    call_metrics.record(kwargs["model"], time.perf_counter() - started, resp)
     return (resp.choices[0].message.content or "").strip()
 
 

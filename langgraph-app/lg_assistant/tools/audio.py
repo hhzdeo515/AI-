@@ -22,8 +22,29 @@ from .. import config
 #: 能被 wave 标准库直接处理的格式
 WAVE_EXT = {".wav"}
 
+
+def normalize_browser_recording(path: str | Path) -> Path:
+    """Convert WebM/Opus to mono WAV before either ASR provider sees it."""
+    src = Path(path)
+    if src.suffix.lower() != ".webm":
+        return src
+    ff = find_ffmpeg()
+    if not ff:
+        raise RuntimeError("浏览器录音转写需要 ffmpeg，请安装后重试；原始录音仍可下载保存")
+    import uuid
+    dest = src.with_name(src.stem + "-" + uuid.uuid4().hex[:8] + ".wav")
+    try:
+        subprocess.run([ff, "-nostdin", "-y", "-i", str(src), "-vn", "-ac", "1", "-ar", "16000", str(dest)],
+                       capture_output=True, timeout=180, check=True)
+        if not dest.is_file() or dest.stat().st_size <= 44:
+            raise RuntimeError("录音没有可识别的音频内容")
+        return dest
+    except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
+        dest.unlink(missing_ok=True)
+        raise RuntimeError("录音转换失败，请下载保留原文件后重试") from exc
+
 #: 交给 ffmpeg 处理的格式
-FFMPEG_EXT = {".mp3", ".m4a", ".aac", ".flac", ".ogg", ".amr", ".wma", ".mp4"}
+FFMPEG_EXT = {".mp3", ".m4a", ".aac", ".flac", ".ogg", ".amr", ".wma", ".webm", ".mp4"}
 
 
 def find_ffmpeg() -> str | None:

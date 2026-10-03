@@ -12,9 +12,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-from . import config, profile
+from . import config
 from .state import DeviceJudgement, Routing
 
 # --------------------------------------------------------------------------- #
@@ -27,11 +28,6 @@ ACTION_MAP: dict[str, tuple[str | None, str]] = {
     "summarize_meeting": ("meeting", "summarize"),
     "stop_meeting": ("meeting", "stop"),
     "solve_captured_question": ("exam", "solve"),
-    "start_exercise": ("fitness", "start_exercise"),
-    "set_done": ("fitness", "set_done"),
-    "pain_report": ("fitness", "pain_report"),
-    "end_workout": ("fitness", "end_workout"),
-    "resume_workout": ("fitness", "resume_workout"),
     "export_resource": ("resource", "export"),
     "list_resources": ("resource", "list"),
     "stop_playback": (None, "stop_playback"),
@@ -45,9 +41,6 @@ DEVICE_INTENT_SCENES: dict[str, str] = {
     "meeting_summarize": "meeting",
     "meeting_stop": "meeting",
     "solve": "exam",
-    "train_start": "fitness",
-    "train_done": "fitness",
-    "train_pain": "fitness",
     "switch_scene": "",
     "stop": "",
     "cancel": "",
@@ -62,19 +55,6 @@ KEYWORDS: dict[str, tuple[str, ...]] = {
         "选项", "公考", "行测", "图形推理", "资料分析", "数量关系",
         "判断推理", "言语理解",
     ),
-    "fitness": (
-        "锻炼", "健身", "运动", "器械", "器材", "深蹲", "卧推", "硬拉",
-        "跑步", "训练", "增肌", "减脂", "热身", "拉伸", "有氧", "疼痛",
-        "受伤", "拉伤",
-        # 建档归 fitness：档案是锻炼场景的输入，不是独立场景。
-        # 这两个词必须进关键词表——否则「建立健康档案」一个词都不命中，
-        # 掉到 LLM 兜底被判成 general，拿通用提示词即兴回答，
-        # 用户以为在填档案，其实什么都没记（实测踩过）。
-        "健康档案", "建档",
-        # 以下是 Dify 阶段实测发现的路由空隙：「练不下去了」当时没能命中，
-        # 只能靠 LLM 兜底才路由对；补上后成为零 token 确定性路由。
-        "练不下去", "不练了", "练不动", "膝盖", "腰疼", "肩膀疼", "脚踝",
-    ),
     "resource": ("资料", "记录", "历史", "查找", "找一下", "有哪些"),
 }
 
@@ -86,6 +66,14 @@ EXPORT_WORDS = ("导出", "下载", "转成", "存成", "生成文件", "给我�
 STICKY_SUMMARIZE_WORDS = ("生成纪要", "生成会议纪要", "总结会议", "整理纪要", "纪要")
 STICKY_START_WORDS = ("开始会议", "开始记录", "新建会议", "开始开会")
 STICKY_STOP_WORDS = ("结束会议", "停止记录", "会议结束", "停止会议")
+
+#: 暂停 / 恢复。**只认明确短语，不放裸「暂停」「恢复」**——
+#: 会议正文里「三季度恢复产能」「项目暂停两周」会被裸词误判成指令。
+STICKY_PAUSE_WORDS = ("暂停会议", "暂停记录", "暂停采集")
+STICKY_RESUME_WORDS = ("继续会议", "恢复会议", "继续记录", "恢复记录", "继续采集", "恢复采集")
+#: 整句就是一个裸动词时才认（用户只打了「暂停」两个字的情形）
+BARE_PAUSE_WORDS = ("暂停", "暂停一下", "先暂停")
+BARE_RESUME_WORDS = ("继续", "恢复", "继续吧", "恢复吧")
 
 
 # --------------------------------------------------------------------------- #
@@ -152,12 +140,14 @@ def route(
     scene_hint: str | None = None,
     sticky: dict[str, bool] | None = None,
     llm_router: Any = None,
+    files: list[str] | None = None,
 ) -> Routing:
     """返回 ``{"scene", "action", "source"}``。
 
     ``sticky`` 由图的会话状态推导（见 ``session.sticky_flags``）；
     ``llm_router`` 是一个可调用对象，签名 ``(text, event, file_count) -> dict``，
     为 None 或抛异常时回落 general。**把模型调用作为参数注入，是为了让本函数可单测。**
+    ``files`` 是本次请求的附件路径——**附件类型本身就是最强的意图信号**，见第 4 步。
     """
     ev = event or {}
 
@@ -182,17 +172,23 @@ def route(
         if scores[scene] >= 0.8:
             return {"scene": scene, "action": "", "source": "keyword"}
 
-    # 4) 粘性场景：进行中的多轮流程
+    # 4) 附件类型：贴了题目图片 / 传了录音，就是最明确的请求类型，
+    #    图片白传了。用户贴图这个动作，比会话里残留的场景状态可信得多。
+    paths = [str(f) for f in (files or [])]
+    if any(Path(p).suffix.lower() in config.IMAGE_EXT for p in paths):
+        return {"scene": "exam", "action": "", "source": "attachment"}
+    if any(Path(p).suffix.lower() in config.AUDIO_EXT for p in paths):
+        return {"scene": "meeting", "action": "", "source": "attachment"}
+
+    # 5) 粘性场景：进行中的多轮流程
     st = sticky or {}
     if st.get("meeting"):
         return {"scene": "meeting", "action": "", "source": "sticky"}
-    if st.get("fitness"):
-        return {"scene": "fitness", "action": "", "source": "sticky"}
 
-    # 5) LLM 兜底
+    # 6) LLM 兜底
     if llm_router is not None:
         try:
-            data = llm_router(text, ev, 0)
+            data = llm_router(text, ev, len(paths))
         except Exception:
             return {"scene": "general", "action": "answer", "source": "llm_failed"}
         scene = str(data.get("scene", "")).strip()
@@ -207,6 +203,11 @@ def route(
 def infer_meeting_action(text: str) -> str:
     """会议动作推断：与 assistant-lite 的 ``_infer_action`` 一致。"""
     t = text or ""
+    bare = t.strip()
+    if bare in BARE_PAUSE_WORDS or any(w in t for w in STICKY_PAUSE_WORDS):
+        return "pause"
+    if bare in BARE_RESUME_WORDS or any(w in t for w in STICKY_RESUME_WORDS):
+        return "resume"
     if any(w in t for w in STICKY_STOP_WORDS):
         return "stop"
     if any(w in t for w in STICKY_SUMMARIZE_WORDS):
@@ -216,87 +217,13 @@ def infer_meeting_action(text: str) -> str:
     return "append"
 
 
-#: 训练动作词表。下面的判定顺序即优先级，理由见 ``infer_fitness_action``。
-FITNESS_PAIN_WORDS = ("疼", "痛", "不舒服", "不适", "拉伤", "扭到", "练不下去", "练不动", "受伤")
-FITNESS_END_WORDS = ("结束训练", "结束锻炼", "不练了", "练完了", "收工", "今天就到这")
-FITNESS_SET_DONE_WORDS = ("做完一组", "做完了", "这组完", "一组做完", "下一组", "完成了", "再来一组")
-
-#: 「开始训练」的显式说法。
-#:
-#: **不能放裸动词「做」「练」**——实测踩过：「做完一组」命中「做」被当成
-#: start_exercise，而「开始深蹲」命不中任何词返回空，两者判定完全对调，
-#: 导致状态机永远停在 idle、组数一条也记不上。
-FITNESS_START_WORDS = (
-    "开始训练", "开始锻炼", "开始练", "开练", "来一组", "第一组",
-    "开始", "带我练", "练一下", "今天练",
-)
-
-#: 具体动作名。用户说的是「开始深蹲」而不是「开始训练」，
-#: 光靠上面的通用说法接不住——这是实测漏掉的主要输入形式。
-#:
-#: 取自 assistant-lite 的器械知识库（15 项）外加常见自由重量动作。
-FITNESS_EXERCISES = (
-    "深蹲", "卧推", "硬拉", "推举", "划船", "引体向上", "高位下拉", "腿举",
-    "弯举", "臂屈伸", "飞鸟", "侧平举", "耸肩", "提踵", "卷腹", "平板支撑",
-    "臀桥", "箭步蹲", "弓步", "俯卧撑", "开合跳", "波比跳", "跳绳",
-    "史密斯机", "卧推架", "深蹲架", "腿举机", "坐姿划船", "哑铃", "杠铃",
-    "龙门架", "跑步机", "椭圆机", "壶铃", "弹力带", "引体向上架", "健腹轮",
-)
-
-
-#: 从暂停恢复。训练因不适暂停后，用户要能明确地说「继续」才恢复记录。
-#: 这条是安全闸的配套：闸门给出「说继续即可恢复」的指引，
-#: 就必须真的存在这个动作，否则用户被卡死在暂停态。
-FITNESS_RESUME_WORDS = ("继续", "接着练", "恢复训练", "没事了", "好了", "可以继续", "不疼了")
-
-
-def infer_fitness_action(text: str) -> str:
-    """训练动作推断。关键词路由只给场景，动作要在这里补。
-
-    **顺序不可换：建档排在最前，不适与结束排在开始之前。**
-
-    建档为什么必须最前：用户答问卷时说「算了，不填了」会同时命中
-    ``profile.CANCEL_WORDS`` 与结束词；说「我膝盖有伤」会命中
-    ``FITNESS_PAIN_WORDS`` 的「膝盖」。此时正在进行的是问卷，不是在训练——
-    若被不适/结束判走，一轮答案就被当成训练事件吞掉，而问卷还停在原地
-    等一个用户以为已经答过的字段。
-
-    「膝盖疼，今天不练了」同时含「疼」和「练」，若先判开始，用户报告不适
-    反而会启动一次训练——安全相关的判定必须排在最前面。
-
-    做组（set_done）也必须排在开始之前：实测踩过「做完一组」因为词表里有
-    裸动词「做」而被判成 start_exercise，于是状态机不断被重置、组数一条都
-    记不上。词表已去掉裸动词，但顺序仍要保证。
-    """
-    t = text or ""
-    if profile.wants_profile(t) or profile.wants_cancel(t):
-        return "profile"
-    if any(w in t for w in FITNESS_PAIN_WORDS):
-        return "pain_report"
-    if any(w in t for w in FITNESS_END_WORDS):
-        return "end_workout"
-    if any(w in t for w in FITNESS_SET_DONE_WORDS):
-        return "set_done"
-    if any(w in t for w in FITNESS_RESUME_WORDS):
-        return "resume_workout"
-    # 具体动作名（「开始深蹲」「卧推4组10次」）也算开始训练
-    if any(w in t for w in FITNESS_EXERCISES):
-        return "start_exercise"
-    if any(w in t for w in FITNESS_START_WORDS):
-        return "start_exercise"
-    return ""
-
-
 ROUTER_PROMPT = """你是智能助手总控，只输出一个 JSON 对象，不要代码围栏。
 字段：scene, action, reason。
-scene 只能取 meeting / exam / fitness / resource / general：
+scene 只能取 meeting / exam / resource / general：
 - 会议记录、会议纪要、会议转写、录音整理 -> meeting
 - 题目、解题、答案、讲解、计算、上传的题目图片 -> exam
-- 健身、锻炼、运动、器械、动作、几组、深蹲、卧推、跑步、身体不适 -> fitness
-- 建立/更新健康档案、建档问卷、填年龄身高体重伤病 -> fitness（action 填 profile）
 - 导出、下载、查找历史资料、我有哪些记录、把刚才的结果转成文件 -> resource
 - 其他日常问答 -> general
-action 只能取 start / append / summarize / stop / solve / start_exercise / set_done /
-pain_report / end_workout / profile / export / list / answer。
+action 只能取 start / append / summarize / stop / solve / export / list / answer。
 拿不准时 scene 填 general、action 填 answer。
 只输出 JSON，例如 {"scene":"meeting","action":"append","reason":"用户在提交会议转写"}"""

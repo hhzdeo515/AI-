@@ -75,13 +75,6 @@ CREATE TABLE IF NOT EXISTS transcripts(
     updated     TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_transcripts_owner ON transcripts(owner, updated DESC);
-CREATE TABLE IF NOT EXISTS profiles(
-    owner      TEXT PRIMARY KEY,
-    data       TEXT NOT NULL,
-    source     TEXT NOT NULL DEFAULT '',
-    created    TEXT NOT NULL,
-    updated    TEXT NOT NULL
-);
 """
 
 
@@ -109,6 +102,8 @@ def init() -> None:
             return
         conn = _connect()
         conn.executescript(_SCHEMA)
+        if "verification" not in {r[1] for r in conn.execute("PRAGMA table_info(transcripts)")}:
+            conn.execute("ALTER TABLE transcripts ADD COLUMN verification TEXT NOT NULL DEFAULT '{}'")
         conn.commit()
         _initialised = True
 
@@ -149,14 +144,14 @@ def remember(owner: str, request_id: str, stage: str, payload: dict[str, Any]) -
 # --------------------------------------------------------------------------- #
 # 资料归档
 # --------------------------------------------------------------------------- #
-def archive(owner: str, scene: str, title: str, content: str, source: str = "") -> str:
+def archive(owner: str, scene: str, title: str, content: str, source: str = "", request_id: str = "") -> str:
     init()
-    rid = uuid.uuid4().hex
+    rid = uuid.uuid5(uuid.NAMESPACE_URL, json.dumps([owner, request_id, scene])).hex if request_id else uuid.uuid4().hex
     with _LOCK:
         conn = _connect()
         conn.execute(
             "INSERT INTO resources(id, owner, scene, title, content, source, created)"
-            " VALUES(?,?,?,?,?,?,?)",
+            " VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET content=excluded.content",
             (rid, owner, scene, title, content, source, _now()),
         )
         conn.commit()
@@ -221,11 +216,11 @@ def save_transcript(
         conn = _connect()
         conn.execute(
             "INSERT INTO transcripts(id, owner, scene, summary, names, utterances,"
-            " original, next_speaker, created, updated)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?)"
+            " original, next_speaker, created, updated, verification)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?)"
             " ON CONFLICT(id) DO UPDATE SET summary=excluded.summary, names=excluded.names,"
             " utterances=excluded.utterances, original=excluded.original,"
-            " next_speaker=excluded.next_speaker, updated=excluded.updated",
+            " next_speaker=excluded.next_speaker, updated=excluded.updated, verification=excluded.verification",
             (
                 rid,
                 owner,
@@ -237,6 +232,7 @@ def save_transcript(
                 int(record.get("next_speaker") or 0),
                 now,
                 now,
+                json.dumps(record.get("verification") or {}, ensure_ascii=False),
             ),
         )
         conn.commit()
@@ -251,7 +247,7 @@ def get_transcript(owner: str, rid: str) -> dict[str, Any] | None:
     if not row:
         return None
     rec = dict(row)
-    for field, fallback in (("names", {}), ("utterances", []), ("original", [])):
+    for field, fallback in (("names", {}), ("utterances", []), ("original", []), ("verification", {})):
         try:
             rec[field] = json.loads(rec[field])
         except (TypeError, json.JSONDecodeError):
@@ -260,6 +256,7 @@ def get_transcript(owner: str, rid: str) -> dict[str, Any] | None:
         "id": rec["id"],
         "scene": rec["scene"],
         "summary": rec["summary"],
+        "verification": rec["verification"],
         "names": rec["names"],
         "utterances": rec["utterances"],
         "original": rec["original"],
@@ -268,74 +265,6 @@ def get_transcript(owner: str, rid: str) -> dict[str, Any] | None:
     }
 
 
-# --------------------------------------------------------------------------- #
-# 健康档案（按 owner 一份，手机端写入、眼镜端只读）
-#
-# 为什么与资料库同库而不是沿用基线的 `data/profiles/<owner>.json`：
-# 线上是单库 SQLite，档案和资料一起备份、一起按 owner 隔离；文件方式还要
-# 自己处理 owner 名清洗和多进程并发写。
-#
-# ``source`` 记这份档案是哪来的（``phone`` / ``glasses``），排查「为什么
-# 眼镜读到的档案和我手机上填的不一样」时，第一眼要看的就是它。
-# --------------------------------------------------------------------------- #
-def save_profile(owner: str, data: dict[str, Any], source: str = "") -> None:
-    """覆盖式写入健康档案。``created`` 只在首次写入时设置。"""
-    init()
-    now = _now()
-    payload = json.dumps(data or {}, ensure_ascii=False)
-    with _LOCK:
-        conn = _connect()
-        row = conn.execute("SELECT created FROM profiles WHERE owner=?", (owner,)).fetchone()
-        created = row["created"] if row else now
-        conn.execute(
-            "INSERT INTO profiles(owner, data, source, created, updated) VALUES(?,?,?,?,?) "
-            "ON CONFLICT(owner) DO UPDATE SET data=excluded.data, source=excluded.source, "
-            "updated=excluded.updated",
-            (owner, payload, source, created, now),
-        )
-        conn.commit()
-
-
-def load_profile(owner: str) -> dict[str, Any]:
-    """读健康档案。没有或损坏都返回 ``{}`` —— **不抛异常**。
-
-    档案是可选输入：读不到就该按「尚未建档」继续，而不是让整条链路失败。
-    """
-    init()
-    with _LOCK:
-        row = _connect().execute(
-            "SELECT * FROM profiles WHERE owner=?", (owner,)
-        ).fetchone()
-    if not row:
-        return {}
-    try:
-        data = json.loads(row["data"])
-    except (TypeError, json.JSONDecodeError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-def profile_meta(owner: str) -> dict[str, Any]:
-    """档案的元信息（来源与时间）。给界面显示「手机上什么时候填的」。"""
-    init()
-    with _LOCK:
-        row = _connect().execute(
-            "SELECT source, created, updated FROM profiles WHERE owner=?", (owner,)
-        ).fetchone()
-    return dict(row) if row else {}
-
-
-def delete_profile(owner: str) -> bool:
-    init()
-    with _LOCK:
-        conn = _connect()
-        cur = conn.execute("DELETE FROM profiles WHERE owner=?", (owner,))
-        conn.commit()
-    return cur.rowcount > 0
-
-
-# --------------------------------------------------------------------------- #
-# 路由遥测（端侧判对率）
 # --------------------------------------------------------------------------- #
 def record_routing(
     *,

@@ -603,7 +603,14 @@ def test_api_resummarize_rebuilds_resource_with_stub_model() -> None:
     client = _client()
     prompts: list = []
     original = llm.chat
-    llm.chat = lambda messages, **kw: (prompts.append(messages), "## 新纪要\n\n- 王浩说了 WAM。")[1]
+    def fake_summary(messages, **kw):
+        prompts.append(messages)
+        if "核对会议纪要" in messages[0]["content"]:
+            return json.dumps({"checked": True, "issues": []})
+        payload = json.loads(messages[-1]["content"])
+        segment = next(x for x in payload["segments"] if "王浩" in x["text"])
+        return json.dumps({"topic": "新纪要", "items": [{"id": "i1", "kind": "point", "text": "王浩发言", "evidence": [{"id": segment["id"], "quote": segment["text"]}]}]})
+    llm.chat = fake_summary
     try:
         client.post("/api/transcript", data={"owner": "local", "id": rid,
                                              "action": "rename", "speaker": 2, "name": "王浩"})
@@ -613,7 +620,9 @@ def test_api_resummarize_rebuilds_resource_with_stub_model() -> None:
         assert "新纪要" in store.get_resource("local", rid)["content"]
         assert "王浩" in store.get_resource("local", rid)["content"]
         # 提示词必须与会议链路一致，否则两份纪要对不上
-        assert nodes.MEETING_INSTRUCTION in prompts[0][-1]["content"]
+        from lg_assistant.meeting_graph import SUMMARY_PROMPT
+        assert SUMMARY_PROMPT == prompts[0][0]["content"]
+        assert body["verification"]["status"] == "reviewed"
         assert "王浩：" in prompts[0][-1]["content"], "重算要用改判后的正文"
     finally:
         llm.chat = original
