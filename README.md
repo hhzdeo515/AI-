@@ -2,7 +2,14 @@
 
 基于 **Next.js + Flask + LangGraph** 的 AI 智能眼镜助手，提供会议纪要、拍照解题，以及电脑端「眼镜 + 戒指」交互。React 前端位于 [frontend/](frontend/)，Python AI 后端位于 [langgraph-app/](langgraph-app/)。
 
-## 当前功能
+## 两个版本
+
+- **[Vercel Demo 演示版](https://ai-vert-theta-44.vercel.app/)**：无需登录、不连接后端、不调用模型；体验眼镜、戒指、拍照、练习和会议流程，结果均为预设示例，历史仅保存在本机浏览器。
+- **完整版（Next.js + Flask + LangGraph）**：真实访问口令、AI 处理、任务恢复与持久数据。Docker 和默认本地开发使用此版本；后端云端托管尚未配置。
+
+共用组件、独立构建，详见 [Demo 与完整版](docs/Demo与完整版.md)。Vercel 配置固定构建 Demo，不会影响 Docker 完整版。
+
+## 完整版功能
 
 - **拍照解题**：识别单题、多题及共用材料，结合资料检索、计算工具和原图复核输出答案；支持原版与 JEV 决策流程切换。
 - **写作与面试练习**：拍照入口可分流至职业能力测试、策论和面试；支持用户草稿批改、实际回答点评及追问。
@@ -12,13 +19,13 @@
 
 眼镜、戒指与传输链路为浏览器模拟；摄像头、麦克风采集以及配置后的模型请求使用真实服务。真实设备接入尚未实现。
 
-## 云端后端
+## 完整版云端后端（可选，付费模板）
 
 [打开 Render 部署配置](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fhhzdeo515%2FAI-)
 
 此入口读取根目录 [render.yaml](render.yaml)，先展示配置供账号持有人确认。配置使用一个付费实例和 5 GB 持久磁盘，费用以 Render 页面为准。登录口令由平台私密生成；只需在 Render 环境变量中填写百炼 DASHSCOPE_API_KEY，密钥不要提交到 GitHub。
 
-后端成功启动后，还需将它的 HTTPS 地址接入 Vercel；仅部署 frontend 目录无法登录或调用 AI。具体步骤见[完整应用部署](docs/部署.md)。
+当前 Vercel 站点发布 Demo，无需使用此付费模板。完整版可通过 Docker 同源部署；如使用独立 Vercel 前端项目，还需接入后端 HTTPS 地址才能登录或调用 AI。具体步骤见[完整应用部署](docs/部署.md)。
 
 ## 快速开始
 

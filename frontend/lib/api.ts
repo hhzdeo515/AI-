@@ -1,12 +1,13 @@
 import type { ChatInput } from "./types";
-
-export class ApiError extends Error {
-  constructor(message: string, public status = 0) { super(message); this.name = "ApiError"; }
-}
+import { IS_DEMO } from "./mode";
+import { demoApi, demoExportUrl } from "./demo";
+import { ApiError } from "./api-error";
+export { ApiError } from "./api-error";
 
 /** Cookie credentials stay same-origin. No access token is stored in browser storage. */
 export async function api<T>(path: string, init: RequestInit = {}, timeoutMs = 20000): Promise<T> {
   if (!path.startsWith("/") || path.startsWith("//")) throw new ApiError("只能访问同源服务");
+  if (IS_DEMO) return demoApi<T>(path, init);
   const controller = new AbortController();
   const cancel = () => controller.abort();
   if (init.signal?.aborted) controller.abort();
@@ -49,5 +50,5 @@ export function chatForm(input: ChatInput): FormData {
 }
 
 export const errorText = (error: unknown) => error instanceof Error ? error.message : "操作未完成，请重试。";
-export const exportUrl = (id: string, format: string) => `/api/export?owner=local&id=${encodeURIComponent(id)}&format=${encodeURIComponent(format)}`;
+export const exportUrl = (id: string, format: string) => IS_DEMO ? demoExportUrl(id, format) : `/api/export?owner=local&id=${encodeURIComponent(id)}&format=${encodeURIComponent(format)}`;
 export const mediaUrl = (value: string) => value.startsWith("/api/task/media?") ? value : "";

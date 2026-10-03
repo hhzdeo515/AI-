@@ -4,7 +4,7 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN npm run build:full
 
 FROM python:3.11-slim-bookworm
 

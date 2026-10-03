@@ -4,8 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node scripts/run-next.mjs full dev",
+    "dev:demo": "node scripts/run-next.mjs demo dev",
+    "build": "node scripts/run-next.mjs full build",
+    "build:full": "node scripts/run-next.mjs full build",
+    "build:demo": "node scripts/run-next.mjs demo build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

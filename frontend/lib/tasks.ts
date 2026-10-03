@@ -1,4 +1,5 @@
 import { ApiError } from "./api";
+import { DEMO_SESSION_KEY, IS_DEMO } from "./mode";
 import type { TaskRecord } from "./types";
 export function taskScene(task: TaskRecord): "meeting" | "exam" | null {
   if (task.scene === "meeting" || task.result?.scene === "meeting" || task.session_id?.endsWith("-meeting")) return "meeting";
@@ -6,7 +7,7 @@ export function taskScene(task: TaskRecord): "meeting" | "exam" | null {
   return null;
 }
 
-export const SESSION_KEY = "glasses.session.v1";
+export const SESSION_KEY = IS_DEMO ? DEMO_SESSION_KEY : "glasses.session.v1";
 export interface SavedSession { sessionId: string; taskId?: string; requestId?: string; readonlyTaskId?: string }
 export function readSavedSession(storage: Pick<Storage, "getItem">): SavedSession | null {
   try {

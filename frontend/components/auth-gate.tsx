@@ -3,8 +3,14 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowRightIcon, EyeglassesIcon, LockKeyIcon } from "@phosphor-icons/react";
 import { api, ApiError, errorText, jsonPost } from "../lib/api";
 import { Studio } from "./studio";
+import { IS_DEMO } from "../lib/mode";
+import { DemoGate } from "./demo-gate";
 
 export function AuthGate() {
+  return IS_DEMO ? <DemoGate /> : <ConnectedAuthGate />;
+}
+
+function ConnectedAuthGate() {
   const [session, setSession] = useState<{ authenticated: boolean; auth_enabled: boolean } | null>(null);
   const [token, setToken] = useState("");
   const [error, setError] = useState("");

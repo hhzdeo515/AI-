@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { BookOpenIcon, FileArrowUpIcon, TrashIcon } from "@phosphor-icons/react";
+import { IS_DEMO } from "../lib/mode";
 import { api, errorText } from "../lib/api";
 import type { KnowledgeDocument } from "../lib/types";
 import { Modal } from "./modal";
@@ -26,7 +27,7 @@ export function Library({ selected, onSelect, onClose }: { selected: string[]; o
     if (file && file.size > 2 * 1024 * 1024) { setError("资料文件最多 2 MB，请拆分后导入。"); return; }
     if (file) data.set("file", file); else data.delete("file");
     setBusy(true); setError(""); setNotice("");
-    try { const doc = await api<KnowledgeDocument>("/api/exam/knowledge", { method: "POST", body: data }); await refresh(); onSelect([...new Set([...selected, doc.id])].slice(0, 20)); form.reset(); setFile(null); setNotice("资料已导入，并选为本轮参考资料。"); }
+    try { const doc = await api<KnowledgeDocument>("/api/exam/knowledge", { method: "POST", body: data }); await refresh(); onSelect([...new Set([...selected, doc.id])].slice(0, 20)); form.reset(); setFile(null); setNotice(IS_DEMO ? "资料已保存在本机，并选为演示参考；示例结果不会引用资料内容。" : "资料已导入，并选为本轮参考资料。"); }
     catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   }
   async function remove(id: string) {
@@ -39,13 +40,13 @@ export function Library({ selected, onSelect, onClose }: { selected: string[]; o
     try { setDetail(await api(`/api/exam/knowledge/${encodeURIComponent(id)}?owner=local`)); } catch (e) { setError(errorText(e)); }
   }
   return <Modal title="参考资料库" onClose={onClose} wide>
-    <p className="muted text-sm leading-6">选中的资料用于本轮题目核对。选择资料后，将依据资料与原图处理，并关闭联网检索。最多选择 20 份。</p>
+    <p className="muted text-sm leading-6">{IS_DEMO ? "演示资料仅保存在当前浏览器，可体验导入、选择和删除。示例结果不会检索或引用资料内容。最多保存 20 份。" : "选中的资料用于本轮题目核对。选择资料后，将依据资料与原图处理，并关闭联网检索。最多选择 20 份。"}</p>
     {error && <p className="error-box mt-4" role="alert">{error}</p>}{notice && <p className="notice mt-4" role="status">{notice}</p>}
     <div className="mt-7 grid gap-8 md:grid-cols-[1.1fr_1fr]">
       <section><div className="flex justify-between items-center mb-4"><h3 className="font-medium">我的资料 <span className="muted text-xs">已选 {selected.length} 份</span></h3><button className="button small" onClick={() => void refresh()} disabled={loading}>刷新</button></div>
         {loading ? <div className="skeleton h-24" /> : !documents.length ? <div className="empty-state"><BookOpenIcon size={30} /><p>还没有参考资料</p><small>导入制度、课程材料或答题依据。</small></div> : <ul className="divide-y divide-line">{documents.map(doc => <li key={doc.id} className="py-4"><div className="flex items-start gap-3"><input type="checkbox" aria-label={`选择 ${doc.title}`} checked={selected.includes(doc.id)} disabled={busy || !selected.includes(doc.id) && selected.length >= 20} onChange={e => onSelect(e.target.checked ? [...selected, doc.id] : selected.filter(id => id !== doc.id))} /><button className="flex-1 text-left" onClick={() => void open(doc.id)}><span className="text-sm">{doc.title}</span><span className="block muted text-xs mt-1">{doc.version || "未标注版本"}</span></button><button className="icon-button" aria-label={`删除 ${doc.title}`} disabled={busy} onClick={() => setDeleting(doc.id)}><TrashIcon size={17} /></button></div>{deleting === doc.id && <div className="notice mt-3 text-sm">确认永久删除这份资料？<div className="mt-3 flex gap-2"><button className="button small" disabled={busy} onClick={() => void remove(doc.id)}>确认删除</button><button className="button small" onClick={() => setDeleting("")}>保留</button></div></div>}</li>)}</ul>}
       </section>
-      <form onSubmit={add} className="grid content-start gap-4"><h3 className="font-medium">导入新资料</h3><label className="field">资料标题<input name="title" required maxLength={200} placeholder="例如：课程重点或单位制度" /></label><label className="field">版本 / 年份<input name="version" maxLength={80} placeholder="选填" /></label><label className="field">资料正文<textarea name="content" rows={5} required={!file} placeholder="粘贴原文，或选择下面的文件" /></label><label className="file-button button"><FileArrowUpIcon size={18} />{file?.name || "选择 TXT、Markdown 或 Word"}<input type="file" name="file" accept=".txt,.md,.docx" onChange={e => setFile(e.target.files?.[0] || null)} /></label><p className="muted text-xs">文件最多 2 MB；文本需使用 UTF-8 编码。</p><button className="button primary justify-center" disabled={busy} type="submit">{busy ? "正在保存…" : "导入并选用"}</button></form>
+      <form onSubmit={add} className="grid content-start gap-4"><h3 className="font-medium">导入新资料</h3><label className="field">资料标题<input name="title" required maxLength={200} placeholder="例如：课程重点或单位制度" /></label><label className="field">版本 / 年份<input name="version" maxLength={80} placeholder="选填" /></label><label className="field">资料正文<textarea name="content" rows={5} required={!file} placeholder="粘贴原文，或选择下面的文件" /></label><label className="file-button button"><FileArrowUpIcon size={18} />{file?.name || (IS_DEMO ? "选择 TXT 或 Markdown" : "选择 TXT、Markdown 或 Word")}<input type="file" name="file" accept={IS_DEMO ? ".txt,.md" : ".txt,.md,.docx"} onChange={e => setFile(e.target.files?.[0] || null)} /></label><p className="muted text-xs">{IS_DEMO ? "文件最多 100 KB，正文最多 5 万字；使用 UTF-8 编码。" : "文件最多 2 MB；文本需使用 UTF-8 编码。"}</p><button className="button primary justify-center" disabled={busy} type="submit">{busy ? "正在保存…" : "导入并选用"}</button></form>
     </div>
     {detail && <section className="mt-8 border-t border-line pt-6"><h3 className="text-lg mb-4">{detail.title}</h3><div className="max-h-80 overflow-auto"><Markdown text={detail.content || "暂无正文"} /></div></section>}
   </Modal>;

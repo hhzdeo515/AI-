@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
+  "buildCommand": "npm run build:full",
   "rewrites": [
     { "source": "/api/:path*", "destination": "https://YOUR-CLOUD-BACKEND.example/api/:path*" },
     { "source": "/health", "destination": "https://YOUR-CLOUD-BACKEND.example/health" },
