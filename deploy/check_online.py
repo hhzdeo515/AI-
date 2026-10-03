@@ -80,7 +80,7 @@ def check(base, token, *, allow_http=False, wait_idle=0):
                 "original glasses workbench served")
         assets = Assets()
         assets.feed(page.text)
-        required_assets = {"/static/hardware.css", "/static/hardware.js", "/static/hardware-engine.js", "/static/smart-ring.js"}
+        required_assets = {"/static/hardware.css", "/static/hardware.js", "/static/hardware-engine.js", "/static/smart-ring.js", "/static/live-translation.js", "/static/live-translation.css", "/static/lens-imu.js", "/static/lens-map.js", "/static/lens-map.css"}
         require(required_assets <= {urlparse(path).path for path in assets.paths},
                 "glasses and ring static assets referenced")
         for path in sorted(assets.paths):

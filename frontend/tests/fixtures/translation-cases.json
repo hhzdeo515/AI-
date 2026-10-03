@@ -1,0 +1,24 @@
+{
+  "languages": ["zh-CN", "en", "ja", "ko", "fr", "de", "es", "pt", "it", "ru", "ar", "hi", "th", "vi", "id"],
+  "inputs": [
+    { "text": "你好，世界", "source": "zh-CN", "target": "en", "translation": "Hello, world" },
+    { "text": "مرحبا بالعالم", "source": "ar", "target": "zh-CN", "translation": "你好，世界" },
+    { "text": "こんにちは 🌍", "source": "ja", "target": "fr", "translation": "Bonjour le monde" }
+  ],
+  "invalid": [
+    { "payload": null, "status": 400 },
+    { "payload": [], "status": 400 },
+    { "payload": { "text": 12, "source": "en", "target": "ja" }, "status": 400 },
+    { "payload": { "text": "  ", "source": "en", "target": "ja" }, "status": 400 },
+    { "payload": { "text": "Hello", "source": "auto", "target": "ja" }, "status": 400 },
+    { "payload": { "text": "Hello", "source": "en", "target": "xx" }, "status": 400 },
+    { "payload": { "text": "Hello", "source": null, "target": "en" }, "status": 400 }
+  ],
+  "upstreamErrors": [
+    { "body": { "responseStatus": 429, "quotaFinished": true, "responseData": { "translatedText": "limit" } }, "status": 429 },
+    { "body": { "responseStatus": 200, "quotaFinished": true, "responseData": { "translatedText": "limit" } }, "status": 429 },
+    { "body": { "responseStatus": 403, "responseDetails": "MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS FOR TODAY", "responseData": { "translatedText": "limit" } }, "status": 429 },
+    { "body": { "responseStatus": 400, "responseData": { "translatedText": "invalid" } }, "status": 502 },
+    { "body": { "responseStatus": 200, "responseData": { "translatedText": "" } }, "status": 502 }
+  ]
+}

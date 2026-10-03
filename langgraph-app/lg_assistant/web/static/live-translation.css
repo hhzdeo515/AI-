@@ -1,0 +1,24 @@
+/* Translation stays within the original lens, with one scrollable content area. */
+#hw-translation-panel .hw-translation-content{display:flex;flex-direction:column;gap:8px}
+#hw-translation-panel .hw-translation-toolbar{position:sticky;top:0;z-index:1;display:flex;flex-direction:column;gap:7px;flex:none;padding-bottom:5px;background:#0b2119;box-shadow:0 5px 8px #0b2119}
+#hw-translation-panel .hw-translation-languages{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:end}
+#hw-translation-panel .hw-translation-languages label,#hw-translation-panel .hw-translation-text-label{display:grid;gap:5px;font-size:11px;color:#bddac9;min-width:0}
+#hw-translation-panel .hw-translation-access{display:grid;gap:4px;font-size:11px;color:#bddac9}
+#hw-translation-panel .hw-translation-access[hidden]{display:none}
+#hw-translation-panel .hw-translation-languages select{padding:7px 6px;font-size:11px;color-scheme:dark}
+#hw-translation-panel #hw-translation-swap{font-size:18px;padding:3px 8px;min-height:34px}
+#hw-translation-panel .hw-panel-actions{margin-top:0}
+#hw-translation-panel textarea{resize:vertical;min-height:68px;max-height:160px}
+#hw-translation-panel .hw-translation-submit{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#hw-translation-panel #hw-translation-count{font-size:10px;color:#a1bcae}
+#hw-translation-panel .hw-translation-outputs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;flex:none}
+#hw-translation-panel .hw-translation-output{border-top:1px solid #91d8b52b;padding-top:6px;min-width:0}
+#hw-translation-panel .hw-translation-output h3{font-size:11px;font-weight:500;color:#a9f5d5;margin:0 0 3px}
+#hw-translation-panel .hw-translation-output p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}
+#hw-translation-panel #hw-translation-interim{color:#91aa9c;font-style:italic}
+#hw-translation-panel #hw-translation-translation:empty::before{content:"等待译文…";color:#91aa9c}
+#hw-translation-panel #hw-translation-original:empty::before{content:"等待原文…";color:#91aa9c}
+#hw-translation-panel .hw-translation-output .hw-panel-actions{margin-top:9px}
+#hw-translation-panel .hw-translation-note{font-size:10px;color:#98b7a7;border-top:1px solid #91d8b52b;padding-top:9px}
+@media(max-width:760px){#hw-translation-panel .hw-translation-outputs{grid-template-columns:1fr;gap:8px}}
+@media(max-width:480px){#hw-translation-panel .hw-translation-languages{gap:5px}#hw-translation-panel .hw-translation-languages select{padding-inline:4px}#hw-translation-panel .hw-panel-actions{gap:6px}}

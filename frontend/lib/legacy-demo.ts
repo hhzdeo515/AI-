@@ -12,6 +12,7 @@ function requestUrl(input: RequestInfo | URL): URL {
   return new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, window.location.href);
 }
 function businessRoute(url: URL): boolean {
+  if (["/api/translate", "/api/map-config", "/api/amap-proxy"].includes(url.pathname)) return false;
   return url.origin === window.location.origin && (url.pathname === "/health" || url.pathname === "/api" || url.pathname.startsWith("/api/"));
 }
 function meetingText(text: string): string {

@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
-const {HardwareNavigation,HardwareSimulator,HardwareMediaSession}=require('../lg_assistant/web/static/hardware-engine.js');
+const {HardwareNavigation,HardwareSimulator,HardwareMediaSession,modes}=require('../lg_assistant/web/static/hardware-engine.js');
 
 // Exercise real lens callbacks without browser permissions or an AI request.
 const nodes=new Map(),docEvents=new Map();let operate,blockTransport=false,transportResume,captureResolve,decodeResolve,stopped=0,requests=0,cameraAcquisitions=0,reply={text:'answer'},renderedReply,renderedOptions,requestFailure=false;
@@ -46,7 +46,7 @@ class Recorder{
   stop(){this.state='inactive';queueMicrotask(()=>{this.listeners.dataavailable({data:new Blob(['voice'],{type:'audio/webm'})});this.listeners.stop();});}
 }
 class ImageProbe{constructor(){this.naturalWidth=1500;this.naturalHeight=1200;}decode(){return new Promise(resolve=>decodeResolve=resolve);}}
-const window={HardwareNavigation,HardwareMediaSession,
+const window={HardwareNavigation,HardwareMediaSession,HardwareModes:modes,
   HardwareSimulator:class extends HardwareSimulator{constructor(options){super({...options,wait:()=>blockTransport?new Promise(resolve=>transportResume=resolve):Promise.resolve()});}},
   SmartRing:{mount:()=>null,bindInput:(_element,options)=>{operate=options.action;return {cancel(){}};}},
   HardwareAssistant:{run:async options=>{

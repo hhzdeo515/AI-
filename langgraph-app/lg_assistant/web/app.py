@@ -34,7 +34,7 @@ from .. import config, llm, nodes, progress, store, transcribe, exam_knowledge, 
 from ..graph import build_graph, open_checkpointer, run_config, thread_id
 from ..jobs import TaskConflictError, TaskManager
 from ..tools import export
-from . import auth, frontend, media
+from . import auth, frontend, maps, media, translation
 from ..photo_practice import options as practice_options
 
 SPEECH_MAX_CHARS = config.SPEECH_MAX_CHARS
@@ -159,6 +159,8 @@ def create_app(app: Any = None, *, secure_cookie: bool = False,
     # 访问口令：设了 ACCESS_TOKEN 才启用，留空则保持本地零摩擦
     frontend.install(flask_app)
     auth.install(flask_app, config.ACCESS_TOKEN, secure_cookie=secure_cookie)
+    flask_app.register_blueprint(translation.blueprint)
+    flask_app.register_blueprint(maps.blueprint)
 
     compiled = app if app is not None else build_graph(open_checkpointer())
 

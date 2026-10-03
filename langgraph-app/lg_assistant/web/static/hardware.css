@@ -162,6 +162,15 @@ body:has([data-view="hardware"].is-on) .composer{display:none}
 #hw-nav-options button:disabled{cursor:wait}
 @media(max-width:760px){.hw-nav-menu{inset:63px 9% 50px;gap:18px}.hw-nav-heading>strong{font-size:21px}#hw-nav-options{grid-template-columns:1fr}#hw-nav-options button{min-height:47px;padding:9px 12px;flex-direction:row;align-items:center;justify-content:space-between}#hw-nav-options button>span{font-size:12px}#hw-nav-options.is-home button{min-height:78px;flex-direction:column;align-items:flex-start;justify-content:center}#hw-nav-options.is-carousel button{width:58%;min-height:100px;padding:16px 12px;flex-direction:column;align-items:center;justify-content:center}#hw-nav-options.is-carousel button>span{font-size:clamp(13px,4vw,16px)}#hw-nav-description{font-size:10px;min-height:36px}}
 @media(prefers-reduced-motion:reduce){#hw-nav-options button,#hw-nav-options.is-carousel button{transition:none}}
+/* Four scenes share the original lens as a compact two-by-two home menu. */
+.hw-nav-menu:has(#hw-nav-options.is-home){gap:10px}
+#hw-nav-options.is-home button{min-height:72px}
+@media(max-width:760px){
+  .hw-nav-menu:has(#hw-nav-options.is-home){inset:52px 8% 43px;gap:8px}
+  #hw-nav-options.is-home{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+  #hw-nav-options.is-home button{min-height:56px;padding:8px 10px}
+  #hw-nav-options.is-home button>span{font-size:13px}
+}
 /* The whole ring stage is a continuous, direct manipulation surface. */
 .hw-ring-panel .hw-ring{touch-action:none;cursor:ns-resize}
 .hw-ring-panel .hw-ring.is-touching{cursor:ns-resize}

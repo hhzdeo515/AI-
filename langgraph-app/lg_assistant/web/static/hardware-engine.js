@@ -1,10 +1,12 @@
 /* Device contract simulator and lens navigation. Media capture stays in the browser. */
 (function (root) {
   "use strict";
-  const modes = ["拍照解题", "会议纪要"];
+  const modes = ["拍照解题", "会议纪要", "实时翻译", "地图"];
   const menuOptions = [
     ["拍照解题", "导入图片", "查看上次答案", "重新拍照", "解题设置", "重新解答当前图片"],
-    ["开启录音", "导入录音", "生成会议纪要", "查看上次纪要"]
+    ["开启录音", "导入录音", "生成会议纪要", "查看上次纪要"],
+    ["打开实时翻译"],
+    ["打开地图"]
   ];
   const actions = ["press", "next", "previous", "wake", "back", "navigate"];
   class HardwareNavigation {
@@ -28,7 +30,7 @@
       else if (action==="rerun" && next.mode===0) {
         effect=hasFile?"run":"missing";message=hasFile?"重新解答当前图片":"还没有题目图片，请先拍照或导入图片";
       }
-      else if (action==="read" && hasResult) { next.screen="result";effect="read";message="继续阅读上次结果"; }
+      else if (action==="read" && next.mode<2 && hasResult) { next.screen="result";effect="read";message="继续阅读上次结果"; }
       else if (["previous","next","up","down"].includes(action)) {
         const direction=action==="previous"||action==="up"?-1:1;
         if(next.screen==="result") { effect=direction<0?"scrollUp":"scrollDown";message=direction<0?"向上阅读":"向下阅读"; }
@@ -41,6 +43,8 @@
         else if(next.screen==="recording") {effect="recordToggle";message="控制会议录音";}
         else if(next.screen==="settings") {effect="settingsSelect";message="确认当前设置";}
         else if(next.screen==="practice") {effect="practiceSelect";message="确认当前练习操作";}
+        else if(next.screen==="feature") {effect="featureSelect";message="确认当前场景操作";}
+        else if(next.mode>=2) {next.screen="feature";effect="featureOpen";message=`打开${modes[next.mode]}`;}
         else if((next.mode===0&&next.focus===2)||(next.mode===1&&next.focus===3)) {
           if(hasResult){next.screen="result";effect="read";message="继续阅读上次结果";}else{effect="missing";message="还没有处理结果，请先完成一次处理";}
         }
@@ -96,6 +100,9 @@
       this.emit();
     }
     setFault(value) { this.state.fault = value; this.emit(); }
+    cancel() {
+      this.generation++; this.state.busy=false; this.state.phase=-1; this.emit();
+    }
     async send(action, {execute, label}={}) {
       if (!actions.includes(action)) throw new Error("Unknown ring action");
       const s = this.state;
@@ -141,13 +148,15 @@
         result = "助手已就绪（模拟）。可打开实际助手继续对话";
       } else if (s.mode === 0) {
         s.photos++; result = `拍照指令已执行，已截取当前导入画面`;
-      } else {
+      } else if (s.mode === 1) {
         result = "会议指令已执行，准备处理导入音频";
+      } else {
+        result = `${modes[s.mode]}场景已就绪（模拟）`;
       }
       s.phase = 3; s.busy = false; s.feedback = result;
       this.log("回执", result, request.id); this.emit(); return true;
     }
   }
   if (typeof module !== "undefined" && module.exports) module.exports = {HardwareSimulator, HardwareNavigation, HardwareMediaSession, modes};
-  else { root.HardwareSimulator = HardwareSimulator; root.HardwareNavigation = HardwareNavigation; root.HardwareMediaSession=HardwareMediaSession; }
+  else { root.HardwareSimulator = HardwareSimulator; root.HardwareNavigation = HardwareNavigation; root.HardwareMediaSession=HardwareMediaSession; root.HardwareModes=modes; }
 })(typeof window !== "undefined" ? window : globalThis);

@@ -9,6 +9,39 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
+it("passes real translation through while keeping neighbouring business routes local", async () => {
+  const network = vi.fn(async () => new Response(JSON.stringify({ translation: "Bonjour", provider: "MyMemory" })));
+  vi.stubGlobal("fetch", network);
+  const { installLegacyDemoTransport } = await import("../lib/legacy-demo");
+  const restore = installLegacyDemoTransport();
+  try {
+    const response = await fetch("/api/translate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: "Hello", source: "en", target: "fr" }) });
+    expect(await response.json()).toMatchObject({ translation: "Bonjour", provider: "MyMemory" });
+    expect(network).toHaveBeenCalledTimes(1);
+    expect((await fetch("/api/translate/extra")).status).toBe(404);
+    expect((await fetch("/api/resources")).status).toBe(200);
+    expect(network).toHaveBeenCalledTimes(1);
+  } finally { restore(); }
+});
+
+it("passes exact Amap configuration and proxy requests through without altering authentication or errors", async () => {
+  const network = vi.fn(async () => new Response(JSON.stringify({code:"map_not_configured"}),{status:503}));
+  vi.stubGlobal("fetch",network);
+  const { installLegacyDemoTransport } = await import("../lib/legacy-demo");
+  const restore=installLegacyDemoTransport();
+  try {
+    const options={headers:{Authorization:"Bearer test-only-map-access"},credentials:"same-origin" as const};
+    for (const path of ["/api/map-config","/api/amap-proxy?path=v3/place/text","/_AMapService/v3/place/text"]) {
+      const result=await fetch(path,options);
+      expect(result.status).toBe(503);
+      expect(await result.json()).toEqual({code:"map_not_configured"});
+      expect(network).toHaveBeenLastCalledWith(path,options);
+    }
+    for (const path of ["/api/map-config/extra","/api/amap-proxy/extra"]) expect((await fetch(path)).status).toBe(404);
+    expect(network).toHaveBeenCalledTimes(3);
+  } finally { restore(); }
+});
+
 function chat(scene = "exam", requestId = crypto.randomUUID(), practice?: Record<string, string>) {
   const body = new FormData();
   body.set("scene", scene); body.set("session_id", "legacy-session"); body.set("request_id", requestId);

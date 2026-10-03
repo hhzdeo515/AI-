@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { HardwareSimulator, modes } = require('../lg_assistant/web/static/hardware-engine.js');
 (async () => {
-  assert.deepEqual(modes, ['拍照解题', '会议纪要']);
+  assert.deepEqual(modes, ['拍照解题', '会议纪要', '实时翻译', '地图']);
   const engine = new HardwareSimulator({wait: async () => {}});
   assert.equal(await engine.send('press'), true);
   assert.equal(engine.state.photos, 1);
@@ -19,8 +19,12 @@ const { HardwareSimulator, modes } = require('../lg_assistant/web/static/hardwar
   assert.equal(await engine.send('next'), false);
   assert.equal(engine.state.mode, 0, 'device failure must not switch scenes');
   await engine.send('next'); assert.equal(engine.state.mode, 1);
+  await engine.send('next'); assert.equal(engine.state.mode, 2);
+  await engine.send('next'); assert.equal(engine.state.mode, 3);
   await engine.send('next'); assert.equal(engine.state.mode, 0);
-  await engine.send('previous'); assert.equal(engine.state.mode, 1);
+  await engine.send('previous'); assert.equal(engine.state.mode, 3);
+  await engine.send('press');assert.match(engine.state.feedback,/地图/);assert.equal(engine.state.photos,1,'map commands do not trigger the camera');
+  await engine.send('previous');await engine.send('press');assert.match(engine.state.feedback,/实时翻译/);assert.equal(engine.state.photos,1,'translation commands do not trigger the camera');
   let resume;
   const delayed = new HardwareSimulator({wait: () => new Promise(r => {resume = r;})});
   const pending = delayed.send('press');

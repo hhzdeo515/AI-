@@ -5,6 +5,9 @@ import { readFile, stat } from "node:fs/promises";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import translateHandler from "../api/translate.js";
+import mapConfigHandler from "../api/map-config.js";
+import amapProxyHandler from "../api/amap-proxy.js";
 
 const mode = process.argv[2];
 if (!["demo", "full"].includes(mode)) throw new Error("Expected demo or full");
@@ -18,6 +21,12 @@ if (mode === "demo") {
 }
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
 createServer(async (req, res) => {
+  const pathname = new URL(req.url, "http://localhost").pathname;
+  if (mode === "demo" && pathname === "/api/map-config") { await mapConfigHandler(req,res); return; }
+  if (mode === "demo" && (pathname === "/api/amap-proxy" || pathname.startsWith("/_AMapService/"))) { await amapProxyHandler(req,res); return; }
+  if (mode === "demo" && new URL(req.url, "http://localhost").pathname === "/api/translate") {
+    await translateHandler(req, res); return;
+  }
   if (mode === "full") {
     const target = new URL(req.url, backend);
     if (target.origin !== backend.origin) { res.writeHead(400); res.end("Invalid path"); return; }

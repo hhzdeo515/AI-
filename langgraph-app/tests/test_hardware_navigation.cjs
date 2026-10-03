@@ -12,6 +12,17 @@ const {bindInput,classifyGesture}=require('../lg_assistant/web/static/smart-ring
     apply('back');assert.equal(nav.state.screen,'home');assert.equal(nav.state.mode,mode);
     apply('back');assert.equal(nav.state.screen,'home','return at the root remains on scene selection');
   }
+  for(const [mode,label] of [[2,'打开实时翻译'],[3,'打开地图']]) {
+    apply(`scene${mode}`);
+    assert.deepEqual(nav.options(mode),[label],'new scene menus expose their own feature action');
+    assert.equal(apply('press',{hasFile:true,hasResult:true}),'featureOpen','feature scenes do not reuse retained photo/audio processing');
+    assert.equal(nav.state.screen,'feature');
+    assert.equal(apply('press'),'featureSelect','ring confirmation activates a feature control');
+    assert.equal(apply('next'),'controlNext');assert.equal(apply('previous'),'controlPrevious');
+    assert.equal(apply('read',{hasResult:true}),'none','the old read shortcut cannot open meeting results in a feature scene');
+    apply('back');assert.equal(nav.state.screen,'actions');
+    apply('back');assert.equal(nav.state.screen,'home');assert.equal(nav.state.mode,mode);
+  }
   assert.equal(nav.options(0)[4],'解题设置','adding rerun must not move the existing settings choice');
   assert.equal(nav.options(0)[5],'重新解答当前图片','reusing a retained photo is an explicitly named operation');
   for(const hasPendingPhoto of [false,true]) {
@@ -109,13 +120,14 @@ const {bindInput,classifyGesture}=require('../lg_assistant/web/static/smart-ring
     assert.equal(nav.state.screen,'actions','cycling photo choices never opens the camera or triggers rerun');
   }
   apply('focus6');assert.equal(nav.state.focus,5,'an out-of-range seventh photo choice cannot be selected');
-  nav.reset();assert.deepEqual(nav.drag(-44),{focus:1},'first scene wraps upward to last');
+  nav.reset();assert.deepEqual(nav.drag(-44),{focus:3},'first scene wraps upward to last');
   assert.deepEqual(nav.drag(-43),{focus:0},'small movements do not change selection');
-  assert.deepEqual(nav.drag(-220),{focus:1},'one continuous drag can pass the scene boundary repeatedly');
+  assert.deepEqual(nav.drag(-220),{focus:3},'one continuous drag can pass the scene boundary repeatedly');
   assert.deepEqual(nav.drag(220),{focus:1});
-  assert.deepEqual(nav.drag(88),{focus:0},'a full loop returns to the starting option');
+  assert.deepEqual(nav.drag(176),{focus:0},'a full loop returns to the starting option');
   assert.equal(nav.state.focus,0,'drag preview does not commit before release');
-  apply('focus1');assert.equal(nav.state.mode,1);assert.deepEqual(nav.drag(44),{focus:0},'last scene wraps downward to first');
+  apply('focus3');assert.equal(nav.state.mode,3);assert.deepEqual(nav.drag(44),{focus:0},'last scene wraps downward to first');
+  apply('focus1');assert.equal(nav.state.mode,1);
   apply('press');assert.deepEqual(nav.drag(-44),{focus:3},'first action wraps upward to last');
   assert.deepEqual(nav.drag(-528),{focus:0},'three complete upward action loops return to the start');
   assert.deepEqual(nav.drag(528),{focus:0},'three complete downward action loops return to the start');

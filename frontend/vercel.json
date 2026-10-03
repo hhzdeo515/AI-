@@ -2,5 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": "npm run build:demo",
-  "outputDirectory": "out"
+  "outputDirectory": "out",
+  "rewrites": [
+    { "source": "/_AMapService/:path*", "destination": "/api/amap-proxy?path=:path*" }
+  ],
+  "functions": {
+    "api/translate.js": { "maxDuration": 20 },
+    "api/amap-proxy.js": { "maxDuration": 20 }
+  }
 }

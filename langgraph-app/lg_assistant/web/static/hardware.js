@@ -18,6 +18,8 @@
           <section class="hw-lens-panel" id="hw-record-panel" hidden aria-label="镜片内会议录音"><header><strong>会议纪要 · 采集内容</strong><button type="button" data-hw-back>收起</button></header><div class="hw-panel-scroll"><p id="hw-record-status" role="status">录音尚未开启</p><button type="button" class="hw-primary" id="hw-record-toggle">开启录音</button><audio id="hw-audio-player" controls hidden></audio><p id="hw-audio-name" class="hw-file-name">可录制会议，也可导入已有音频。</p><div class="hw-panel-actions"><button type="button" id="hw-record-import">导入录音</button><button type="button" id="hw-record-use" disabled>生成纪要</button><a id="hw-record-download" hidden>下载录音</a><button type="button" id="hw-record-delete" disabled>删除录音</button></div><details class="hw-meeting-notes"><summary>会议文字</summary><textarea id="hw-meeting-text" rows="3" placeholder="输入会议内容，单独生成文字纪要"></textarea><button type="button" id="hw-meeting-summarize">生成文字纪要</button></details></div></section>
           <section class="hw-lens-panel" id="hw-settings-panel" hidden aria-label="镜片内解题设置"><header><strong>拍照解题 · 设置与资料</strong><button type="button" data-hw-back>收起</button></header><div class="hw-panel-scroll" id="hw-settings-content"><section class="hw-learning-settings"><h3>学习模式</h3><div id="hw-practice-modes" class="hw-practice-modes" role="group" aria-label="选择学习模式"><button type="button" data-practice-agent="auto" aria-pressed="true">自动分类</button><button type="button" data-practice-agent="ability" aria-pressed="false">职业能力测试</button><button type="button" data-practice-agent="essay" aria-pressed="false">策论</button><button type="button" data-practice-agent="interview" aria-pressed="false">面试</button></div><p id="hw-practice-mode-note">拍照后先识别题面，再进入对应学习流程。</p><button type="button" id="hw-practice-resume" class="hw-primary" hidden>按所选模式继续</button><label id="hw-practice-topic-wrap" hidden>练习题目或主题<textarea id="hw-practice-topic" rows="3" maxlength="4000" placeholder="输入策论题目或面试主题，也可以返回后拍照导入题面"></textarea></label><button type="button" id="hw-practice-start-text" class="hw-primary" hidden>从文字开始练习</button></section></div></section>
           <section class="hw-lens-panel hw-practice-panel" id="hw-practice-panel" hidden aria-label="镜片内学习练习"><header><strong id="hw-practice-title">学习练习</strong><button type="button" data-hw-back>返回结果</button></header><div class="hw-panel-scroll"><p id="hw-practice-source" class="hw-practice-source"></p><p id="hw-practice-question"></p><div id="hw-practice-stages" class="hw-practice-stages" role="tablist" aria-label="学习步骤"></div><section id="hw-practice-stage-body" class="md" role="tabpanel" tabindex="0" aria-label="当前学习步骤"></section><div id="hw-practice-answer-wrap" hidden><label>我的作答<textarea id="hw-practice-answer" rows="4" maxlength="20000" placeholder="写下你的真实回答，或先录音作答"></textarea></label><div class="hw-panel-actions"><button type="button" id="hw-practice-record">开启录音作答</button><button type="button" id="hw-practice-audio-clear" hidden>删除本轮录音</button></div><p id="hw-practice-record-status" role="status">录音或文字作答均可，提交后显示点评与追问。</p><audio id="hw-practice-audio" controls hidden></audio></div><label id="hw-practice-draft-wrap" hidden>我的草稿<textarea id="hw-practice-draft" rows="5" maxlength="40000" placeholder="填写你自己写的策论草稿，再提交批改；上方范文仅供参考"></textarea></label><details id="hw-practice-transcript-wrap" hidden><summary>上一轮作答</summary><p id="hw-practice-transcript"></p></details><div id="hw-practice-actions" class="hw-panel-actions"></div><p class="hw-practice-back">长按返回完整结果，再长按返回选择操作。</p></div></section>
+          <section class="hw-lens-panel hw-feature-panel" id="hw-translation-panel" hidden aria-label="镜片内实时翻译"></section>
+          <section class="hw-lens-panel hw-feature-panel" id="hw-map-panel" hidden aria-label="镜片内地图"></section>
           <input type="file" id="hw-image-file" accept="image/jpeg,image/png,image/webp" hidden><input type="file" id="hw-audio-file" accept=".wav,.mp3,.m4a,.aac,.flac,.ogg,.amr,.wma,.webm" hidden>
           <div class="hw-processing" id="hw-processing" role="status" aria-live="polite" hidden><span></span>正在识别照片中的题目</div>
           <div class="hw-notice" role="status" aria-live="polite" id="hw-notice" hidden></div>
@@ -33,6 +35,11 @@
       </aside>
     </div>`;
   const $ = id => document.getElementById(id);
+  window.LensFeatures?.translation?.mount($("hw-translation-panel"));
+  window.LensFeatures?.map?.mount($("hw-map-panel"));
+  const featureFor=mode=>mode===2?window.LensFeatures?.translation:mode===3?window.LensFeatures?.map:null;
+  const featurePanel=mode=>mode===2?"hw-translation-panel":mode===3?"hw-map-panel":null;
+  const closeFeatures=()=>{window.LensFeatures?.translation?.close();window.LensFeatures?.map?.close();};
   let imageFile = null, audioFile = null, imageUrl = "", audioUrl = "", working = false, workingProgress = "";
   let photoPending = false;
   let resultText = ["", ""], resultModel = ["", ""], resultReply = [null, null], importGeneration = 0;
@@ -44,7 +51,7 @@
   const camera = new window.HardwareMediaSession(captureMedia), microphone = new window.HardwareMediaSession(captureMedia);
   const practiceMicrophone=new window.HardwareMediaSession(captureMedia);
   let session = `hardware-${Date.now()}`;
-  const modeNames = ["拍照解题", "会议纪要"];
+  const modeNames = window.HardwareModes;
   const navigation = new window.HardwareNavigation();
   let ringView = null, inspecting = false, ringInput = null, flowDrag = null;
   const engine = new window.HardwareSimulator({onChange: render});
@@ -91,6 +98,8 @@
     $("hw-record-panel").hidden = nav.screen!=="recording" || working;
     $("hw-settings-panel").hidden = nav.screen!=="settings" || working;
     $("hw-practice-panel").hidden = nav.screen!=="practice";
+    $("hw-translation-panel").hidden = nav.screen!=="feature" || s.mode!==2;
+    $("hw-map-panel").hidden = nav.screen!=="feature" || s.mode!==3;
     host.querySelector(".hw-viewport").classList.toggle("has-menu",menuScreen);
     host.querySelector(".hw-viewport").classList.toggle("has-panel",!menuScreen&&!reading);
     host.querySelector(".hw-viewport").classList.toggle("is-exam-reading",reading&&s.mode===0);
@@ -99,7 +108,7 @@
     $("hw-nav-back-hint").hidden = home;
     const options = home ? modeNames : navigation.options();
     const photoHint = imageFile && photoPending ? `当前画面：${imageFile.name}。轻点开始解题。` : "打开摄像头，拍摄新的题目后解答。" + (resultText[0] ? "上次答案仍可查看。" : "");
-    const descriptions = home ? ["拍照或导入题目，在镜片中阅读答案。", "录制或导入会议，在镜片中阅读纪要。"] : s.mode===0 ? [photoHint,"导入一张 JPG、PNG 或 WebP 图片，最大 20 MB。","继续阅读本场景上一次的处理结果。","打开摄像头，拍摄新的题目画面。","选择考试场景、知识范围与参考资料。",imageFile ? `重新解答保留的图片：${imageFile.name}。` : "请先拍照或导入题目图片。"] : ["在镜片内开启麦克风；轻点停止并保存录音。","导入已有会议录音，最大 32 MB。",audioFile ? `当前录音：${audioFile.name}。轻点生成会议纪要。` : "先录制会议或导入录音，也可输入会议文字。","继续阅读本场景上一次的处理结果。"];
+    const descriptions = home ? ["拍照或导入题目，在镜片中阅读答案。", "录制或导入会议，在镜片中阅读纪要。", "实时识别语音，在镜片中查看翻译。", "查看当前位置、搜索地点与路线。"] : s.mode===0 ? [photoHint,"导入一张 JPG、PNG 或 WebP 图片，最大 20 MB。","继续阅读本场景上一次的处理结果。","打开摄像头，拍摄新的题目画面。","选择考试场景、知识范围与参考资料。",imageFile ? `重新解答保留的图片：${imageFile.name}。` : "请先拍照或导入题目图片。"] : s.mode===1 ? ["在镜片内开启麦克风；轻点停止并保存录音。","导入已有会议录音，最大 32 MB。",audioFile ? `当前录音：${audioFile.name}。轻点生成会议纪要。` : "先录制会议或导入录音，也可输入会议文字。","继续阅读本场景上一次的处理结果。"] : s.mode===2 ? ["打开实时翻译，用戒指选择语言、开始或停止。"] : ["打开地图，用戒指定位、搜索地点与查看路线。"];
     const menu=$("hw-nav-options"), menuKey=home?"home":`actions-${s.mode}`;
     menu.classList.toggle("is-home",home); menu.classList.toggle("is-carousel",!home);
     if(menu.dataset.menu!==menuKey) {
@@ -112,7 +121,7 @@
     selectOption(nav.focus,flowDrag?.position??nav.focus,flowDrag?.position!=null);
     $("hw-empty-title").textContent = s.mode === 0 ? "把题目放到眼前" : audioFile ? "会议录音已就绪" : "让会议内容进入镜片";
     $("hw-empty-copy").textContent = s.mode === 0 ? "拍照或导入图片，用戒指开始解题。" : audioFile ? audioFile.name : "录制或导入会议，用戒指生成会议纪要。";
-    $("hw-lens-status").textContent = working ? "AI 处理中" : home ? `${nav.focus+1} / 2` : reading ? "正在阅读" : nav.screen==="practice"?`${practiceNames[practiceArtifact()?.agent]||"学习"}练习`:recordPhase!=="off" ? "会议录音中" : nav.screen==="camera" ? "摄像头画面" : nav.screen==="settings" ? "设置与资料" : (s.mode === 0 ? imageFile : audioFile) ? "素材已就绪" : "等待采集";
+    $("hw-lens-status").textContent = working ? "AI 处理中" : home ? `${nav.focus+1} / ${modeNames.length}` : reading ? "正在阅读" : nav.screen==="feature" ? modeNames[s.mode] : nav.screen==="practice"?`${practiceNames[practiceArtifact()?.agent]||"学习"}练习`:recordPhase!=="off" ? "会议录音中" : nav.screen==="camera" ? "摄像头画面" : nav.screen==="settings" ? "设置与资料" : s.mode>=2 ? "等待打开" : (s.mode === 0 ? imageFile : audioFile) ? "素材已就绪" : "等待采集";
     $("hw-ring").disabled=working||s.busy||recordPhase==="stopping"||practiceRecordPhase==="stopping";
     host.querySelectorAll("[data-hw-back]").forEach(b=>{b.disabled=working||s.busy||recordPhase==="stopping";});
     host.querySelectorAll("#hw-camera-import,#hw-record-import,#hw-meeting-summarize").forEach(b=>{b.disabled=working||s.busy||recordPhase!=="off";});
@@ -314,10 +323,10 @@
   $("hw-question-next").addEventListener("click",()=>selectQuestion(questionIndex + 1));
   $("hw-question-select").addEventListener("change",event=>selectQuestion(Number(event.target.value)));
   async function operate(action) {
-    if (working || engine.state.busy || inspecting || flowDrag) return;
+    if (working || engine.state.busy || inspecting || flowDrag || !lensVisible() || document.hidden) return;
     rememberQuestionScroll();
     note("");
-    const mode = engine.state.mode, file = mode === 0 ? imageFile : audioFile;
+    const mode = engine.state.mode, file = mode === 0 ? imageFile : mode===1 ? audioFile : null;
     const plan = navigation.plan(action,{hasFile:!!file||mode===1&&!!$("hw-meeting-text").value.trim(),hasResult:!!resultText[mode],hasPendingPhoto:photoPending});
     // Open the native picker within the input event, before asynchronous transport.
     if(plan.effect==="import" && engine.state.connected && engine.state.fault==="none") {
@@ -328,11 +337,21 @@
       return plan.message || "操作已完成";
     }});
     if (!success) return;
+    if (!lensVisible() || document.hidden) {closeFeatures();return;}
+    if(mode>=2&&(plan.next.screen!=="feature"||plan.next.mode!==mode))featureFor(mode)?.close();
     if(plan.next.screen!=="camera"&&camera.active)closeCamera();
     if(plan.next.screen!=="recording"&&recordPhase!=="off")stopRecording();
     if(plan.next.screen!=="practice"&&practiceRecordPhase!=="off")stopPracticeRecording();
     if(action==="back"||action==="home") {
       importGeneration++;closeCamera();stopRecording("录音已关闭，麦克风已释放。");stopPracticeRecording();window.HardwareAssistant.stopSpeech?.();
+    }
+    if(plan.effect==="featureOpen") {
+      controlFocus=0;
+      const feature=featureFor(plan.next.mode);
+      if(!feature){note("当前场景暂不可用，请刷新页面后重试。");return;}
+      try {await feature.open();} catch(error) {feature.close();note(error.message||"场景打开失败，请重试。");}
+      if(!lensVisible()||document.hidden||navigation.state.screen!=="feature"||navigation.state.mode!==plan.next.mode)feature.close();
+      markControl();return;
     }
     if(plan.effect==="camera") {await openCamera();return;}
     if(plan.effect==="capture") {await activateControl();return;}
@@ -340,7 +359,7 @@
     if(plan.effect==="recordToggle") {await activateControl();return;}
     if(plan.effect==="settings") {openSettings();return;}
     if(["controlPrevious","controlNext"].includes(plan.effect)) {focusControl(plan.effect==="controlPrevious"?-1:1);return;}
-    if(plan.effect==="settingsSelect"||plan.effect==="practiceSelect") {await activateControl();return;}
+    if(plan.effect==="settingsSelect"||plan.effect==="practiceSelect"||plan.effect==="featureSelect") {await activateControl();return;}
     if(plan.effect==="scrollUp" || plan.effect==="scrollDown") {
       const body=$("hw-result-body"), amount=Math.max(80,body.clientHeight*.72)*(plan.effect==="scrollUp"?-1:1);
       body.scrollBy({top:amount,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'}); updateReading();return;
@@ -437,7 +456,7 @@
     } catch(error) {microphone.stop();recorder=null;recordPhase="off";$("hw-record-status").textContent=error.name==="NotAllowedError"?"麦克风权限未开启。请在浏览器中允许访问，或导入录音。":error.message?.includes("localhost")?error.message:"麦克风不可用，请检查权限和设备，或导入录音。";render(engine.state);}
   }
   function panelControls() {
-    const id=navigation.state.screen==="camera"?"hw-camera-panel":navigation.state.screen==="recording"?"hw-record-panel":navigation.state.screen==="settings"?"hw-settings-panel":navigation.state.screen==="practice"?"hw-practice-panel":null;
+    const id=navigation.state.screen==="camera"?"hw-camera-panel":navigation.state.screen==="recording"?"hw-record-panel":navigation.state.screen==="settings"?"hw-settings-panel":navigation.state.screen==="practice"?"hw-practice-panel":navigation.state.screen==="feature"?featurePanel(engine.state.mode):null;
     if(!id)return [];
     return [...$(id).querySelectorAll("button:not([data-hw-back]),a[href],input:not([type=file]),select,textarea,summary")].filter(control=>!control.disabled&&control.getClientRects().length&&!control.closest("[hidden]"));
   }
@@ -464,10 +483,11 @@
   }
   function openSettings(returnScreen) {
     if(working||engine.state.busy||recordPhase!=="off"||practiceRecordPhase!=="off")return;
-    closeCamera();navigation.state={screen:"settings",mode:0,focus:0,...(returnScreen==="result"?{returnScreen}: {})};engine.state.mode=0;controlFocus=0;note("");render(engine.state);window.Exam?.refresh("local");markControl();
+    closeFeatures();closeCamera();navigation.state={screen:"settings",mode:0,focus:0,...(returnScreen==="result"?{returnScreen}: {})};engine.state.mode=0;controlFocus=0;note("");render(engine.state);window.Exam?.refresh("local");markControl();
   }
   async function runCurrent(textOverride,practiceRequest) {
     if(working||engine.state.busy||recordPhase!=="off"||practiceRecordPhase!=="off"||!lensVisible()||document.hidden)return;
+    if(engine.state.mode>=2)return;
     const mode=engine.state.mode,file=mode===0?imageFile:audioFile,notes=$("hw-meeting-text").value.trim();
     if(!file&&!textOverride&&!(mode===1&&notes)){note(mode===0?"请先拍照或导入题目图片。":"请先录制或导入会议，也可输入会议文字。");return;}
     // Retrying a submitted picture is explicit, including after a failed solve.
@@ -591,7 +611,7 @@
         const label=drag.screen==="home"?modeNames[preview.focus]:navigation.options()[preview.focus];
         $("hw-ring-purpose").textContent=`当前选中：${label}`;
         announce(`已滑到 · ${label}`);
-        if(drag.screen==="home")$("hw-lens-status").textContent=`${preview.focus+1} / 2`;
+        if(drag.screen==="home")$("hw-lens-status").textContent=`${preview.focus+1} / ${modeNames.length}`;
       }
       return;
     }
@@ -636,7 +656,7 @@
     try { await probe.decode(); if (ticket !== importGeneration || working || engine.state.busy || recordPhase!=="off") { URL.revokeObjectURL(url); return false; } }
     catch (_) { URL.revokeObjectURL(url); note("图片无法读取，请换一张图片。"); return false; }
     if (imageUrl) URL.revokeObjectURL(imageUrl);
-    closeCamera();window.HardwareAssistant.stopSpeech?.();
+    closeFeatures();closeCamera();window.HardwareAssistant.stopSpeech?.();
     imageFile = file; imageUrl = url; sourcePhoto = probe; photoPending = true; resultText[0] = "";resultModel[0]="";resultReply[0]=null;
     questionIndex = 0; questionScroll = []; questionPhotos.clear();
     practiceStage=0;practiceLastAnswer="";["hw-practice-answer","hw-practice-draft","hw-practice-topic"].forEach(id=>$(id).value="");clearPracticeAudio();
@@ -651,7 +671,7 @@
     audioFile = file; audioUrl = URL.createObjectURL(file); resultText[1] = "";resultReply[1]=null;
     $("hw-audio-player").src = audioUrl; $("hw-audio-name").textContent = file.name;
     $("hw-record-download").href=audioUrl;$("hw-record-download").download=file.name;$("hw-record-download").hidden=false;
-    if(!stay){closeCamera();navigation.state={screen:"actions",mode:1,focus:2};engine.state.mode=1;}
+    if(!stay){closeFeatures();closeCamera();navigation.state={screen:"actions",mode:1,focus:2};engine.state.mode=1;}
     note("");render(engine.state);return true;
   }
   $("hw-image-file").addEventListener("change",event=>{const file=event.target.files[0];event.target.value="";acceptImage(file);});
@@ -698,7 +718,7 @@
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",relocateSettings,{once:true});else relocateSettings();
   $("hw-settings-content").addEventListener("change",markControl);
   $("hw-camera-silent").addEventListener("change",()=>{const checked=$("hw-camera-silent").checked;$("exam-camera-silent").checked=checked;try{localStorage.setItem("assistant.exam.camera.silent",String(checked));}catch(_){};});
-  window.HardwareLens={acceptImage,acceptAudio,openSettings,closeSettings:()=>operate("back"),stop:()=>{importGeneration++;closeCamera();stopRecording();stopPracticeRecording();$("hw-audio-player").pause();$("hw-practice-audio").pause();}};
+  window.HardwareLens={acceptImage,acceptAudio,openSettings,closeSettings:()=>operate("back"),stop:()=>{importGeneration++;closeFeatures();if(navigation.state.screen==="feature")navigation.state.screen="actions";closeCamera();stopRecording();stopPracticeRecording();$("hw-audio-player").pause();$("hw-practice-audio").pause();engine.cancel();}};
   document.addEventListener("keydown", e => {
     if (!lensVisible() || e.repeat || e.ctrlKey || e.altKey || e.metaKey || /INPUT|TEXTAREA|SELECT|AUDIO/.test(e.target.tagName) || e.target.isContentEditable || e.target.closest("#hw-result-body")) return;
     if (e.target.tagName === "BUTTON" && (e.key === " " || e.key === "Enter")) return;
