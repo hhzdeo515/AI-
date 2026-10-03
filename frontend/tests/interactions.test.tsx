@@ -48,9 +48,21 @@ describe("任务恢复与提交保护", () => {
     localStorage.setItem(SESSION_KEY, JSON.stringify({ sessionId: "s", taskId: "meeting", requestId: "r" }));
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ id: "meeting", session_id: "s-meeting", status: "interrupted", request_id: "r" })));
     render(<Studio authEnabled={false} onLogout={vi.fn()} />);
-    await waitFor(() => expect(screen.getByRole("button", { name: "会议纪要" }).getAttribute("aria-pressed")).toBe("true"));
+    await screen.findByRole("heading", { name: "任务已中断" });
     fireEvent.click(screen.getByRole("button", { name: "继续输入" }));
     expect(screen.getByLabelText("会议文字或补充说明")).toBeTruthy();
+  });
+  it("切换场景不会把上一场景的结果当作本轮结果", async () => {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ sessionId: "s", taskId: "exam", requestId: "r" }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ id: "exam", session_id: "s-exam", scene: "exam", status: "done", request_id: "r", result: { text: "原题答案", scene: "exam" } })));
+    render(<Studio authEnabled={false} onLogout={vi.fn()} />);
+    await screen.findByText("原题答案");
+    fireEvent.click(screen.getByRole("button", { name: "返回眼镜视野" }));
+    fireEvent.click(screen.getByRole("button", { name: "会议纪要" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成会议纪要" }));
+    expect(screen.getByLabelText("会议文字或补充说明")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "返回上次结果" })).toBeNull();
+    expect(screen.queryByText("原题答案")).toBeNull();
   });
   it("刷新后读取已保存任务，绝不重新 POST", async () => {
     localStorage.setItem(SESSION_KEY, JSON.stringify({ sessionId: "s", taskId: "existing", requestId: "r" }));
