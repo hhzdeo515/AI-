@@ -280,9 +280,6 @@ def create_app(app: Any = None, *, secure_cookie: bool = False,
     # ------------------------------------------------------------------ #
     @flask_app.get("/")
     def index():
-        exported = frontend.page("index")
-        if exported is not None:
-            return exported
         return render_template("index.html", scenes=config.SCENES)
 
     @flask_app.get("/legacy")

@@ -1,4 +1,4 @@
-"""Real Flask requests against an isolated exported frontend, without models."""
+"""The original workbench remains the default even with a Next.js export."""
 from pathlib import Path
 import sys
 import threading
@@ -68,19 +68,35 @@ def test_unicode_wrong_password_is_rejected_without_server_error(setup_app):
     assert c.get("/api/tasks", headers={"Authorization": "Bearer 错误的访问口令"}).status_code == 401
 
 
-def test_export_serves_login_and_assets_then_protected_index(setup_app):
+def test_original_login_remains_available_with_exported_frontend(setup_app):
     c, _ = setup_app
     assert c.get("/").status_code == 302
-    assert "Next.js" in c.get("/login").get_data(as_text=True)
+    login = c.get("/login")
+    assert login.status_code == 200
+    assert '<form class="card" method="post" action="/login">' in login.get_data(as_text=True)
+    assert "Next.js" not in login.get_data(as_text=True)
+    accepted = c.post("/login", data={"token": TOKEN}, base_url="https://localhost")
+    assert accepted.status_code == 302 and accepted.headers["Location"] == "/"
+    assert "HttpOnly" in accepted.headers["Set-Cookie"] and "Secure" in accepted.headers["Set-Cookie"]
+
+
+def test_original_workbench_is_default_with_exported_frontend(setup_app):
+    c, _ = setup_app
     asset = c.get("/_next/static/test.js")
     assert asset.status_code == 200
     assert "immutable" in asset.headers["Cache-Control"]
     c.post("/api/login", json={"token": TOKEN}, base_url="https://localhost")
     index = c.get("/", base_url="https://localhost")
-    assert "眼镜视野 Next.js" in index.get_data(as_text=True)
+    assert index.status_code == 200
+    body = index.get_data(as_text=True)
+    assert 'id="hardware-demo"' in body
+    assert '/static/hardware.js' in body and '/static/smart-ring.js' in body
+    assert "Next.js" not in body
     assert "no-store" in index.headers["Cache-Control"]
+    for path in ("/static/hardware.js", "/static/smart-ring.js", "/static/hardware.css"):
+        assert c.get(path, base_url="https://localhost").status_code == 200
     legacy = c.get("/legacy", base_url="https://localhost")
-    assert legacy.status_code == 200 and "hardware-demo" in legacy.get_data(as_text=True)
+    assert legacy.status_code == 200 and legacy.get_data(as_text=True) == body
 
 
 def test_asset_path_cannot_read_outside_build(setup_app):

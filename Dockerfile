@@ -3,6 +3,8 @@ WORKDIR /frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
+COPY langgraph-app/lg_assistant/web/templates/ /langgraph-app/lg_assistant/web/templates/
+COPY langgraph-app/lg_assistant/web/static/ /langgraph-app/lg_assistant/web/static/
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build:full
 

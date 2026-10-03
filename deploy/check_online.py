@@ -64,8 +64,10 @@ def check(base, token, *, allow_http=False, wait_idle=0):
                 "anonymous business API rejected")
         require(call("GET", "api/tasks", allow_redirects=False).status_code == 401,
                 "anonymous tasks rejected")
+        require(call("POST", "api/chat/async", allow_redirects=False).status_code == 401,
+                "anonymous task submission rejected")
         login_page = call("GET", "login")
-        require(login_page.status_code == 200 and ("口令" in login_page.text or "_next/" in login_page.text),
+        require(login_page.status_code == 200 and "口令" in login_page.text and 'action="/login"' in login_page.text,
                 "login page available")
         login = call("POST", "api/login", json={"token": token})
         require(login.status_code == 200 and login.json().get("authenticated"), "valid login succeeds")
@@ -74,15 +76,21 @@ def check(base, token, *, allow_http=False, wait_idle=0):
         if parsed.scheme == "https":
             require("Secure" in cookie, "HTTPS cookie is Secure")
         page = call("GET", "")
-        require(page.status_code == 200 and "_next/" in page.text, "Next.js application served")
-        require("眼镜" in page.text and "戒指" in page.text, "glasses and ring application shell")
+        require(page.status_code == 200 and 'id="hardware-demo"' in page.text,
+                "original glasses workbench served")
         assets = Assets()
         assets.feed(page.text)
-        require(bool(assets.paths), "application assets referenced")
-        for path in assets.paths:
+        required_assets = {"/static/hardware.css", "/static/hardware.js", "/static/hardware-engine.js", "/static/smart-ring.js"}
+        require(required_assets <= {urlparse(path).path for path in assets.paths},
+                "glasses and ring static assets referenced")
+        for path in sorted(assets.paths):
             if urlparse(urljoin(base, path)).netloc != parsed.netloc:
                 raise RuntimeError("unexpected external script or stylesheet")
-            require(call("GET", path).status_code == 200, "static asset available")
+            asset = call("GET", path)
+            require(asset.status_code == 200, "static asset available")
+            if urlparse(path).path == "/static/hardware.js":
+                require("眼镜镜片视图" in asset.text and "戒指操控窗口" in asset.text,
+                        "glasses and ring interface available")
         require(call("GET", "api/resources").status_code == 200, "authenticated business API available")
         require(call("POST", "api/logout").status_code == 200, "logout succeeds")
         require(call("GET", "api/resources").status_code == 401, "logout revokes browser access")

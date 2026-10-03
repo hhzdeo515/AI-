@@ -4,32 +4,35 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/run-next.mjs full dev",
-    "dev:demo": "node scripts/run-next.mjs demo dev",
-    "build": "node scripts/run-next.mjs full build",
-    "build:full": "node scripts/run-next.mjs full build",
-    "build:demo": "node scripts/run-next.mjs demo build",
+    "dev": "node scripts/serve-legacy.mjs full",
+    "dev:demo": "node scripts/serve-legacy.mjs demo",
+    "build": "node scripts/build-legacy.mjs full",
+    "build:full": "node scripts/build-legacy.mjs full",
+    "build:demo": "node scripts/build-legacy.mjs demo",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "engines": { "node": ">=20.9.0" },
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "next": "16.3.8",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "@phosphor-icons/react": "^2.1.10",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
+    "@tailwindcss/postcss": "^4.1.0",
+    "@testing-library/react": "^16.3.0",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@tailwindcss/postcss": "^4.1.0",
-    "tailwindcss": "^4.1.0",
-    "vitest": "^4.0.0",
+    "esbuild": "^0.28.2",
     "jsdom": "^27.0.0",
-    "@testing-library/react": "^16.3.0"
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
   }
 }

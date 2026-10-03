@@ -7,7 +7,7 @@
 - **[Vercel Demo 演示版](https://ai-vert-theta-44.vercel.app/)**：无需登录、不连接后端、不调用模型；体验眼镜、戒指、拍照、练习和会议流程，结果均为预设示例，历史仅保存在本机浏览器。
 - **完整版（Next.js + Flask + LangGraph）**：真实访问口令、AI 处理、任务恢复与持久数据。Docker 和默认本地开发使用此版本；后端云端托管尚未配置。
 
-共用组件、独立构建，详见 [Demo 与完整版](docs/Demo与完整版.md)。Vercel 配置固定构建 Demo，不会影响 Docker 完整版。
+使用原版眼镜与 3D 戒指界面、独立构建，详见 [Demo 与完整版](docs/Demo与完整版.md)。Vercel 配置固定构建 Demo，不会影响 Docker 完整版。
 
 ## 完整版功能
 

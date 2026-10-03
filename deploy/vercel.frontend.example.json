@@ -1,8 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
+  "framework": null,
   "buildCommand": "npm run build:full",
+  "outputDirectory": "out",
   "rewrites": [
+    { "source": "/", "destination": "https://YOUR-CLOUD-BACKEND.example/" },
+    { "source": "/login/:path*", "destination": "https://YOUR-CLOUD-BACKEND.example/login" },
+    { "source": "/logout", "destination": "https://YOUR-CLOUD-BACKEND.example/logout" },
     { "source": "/api/:path*", "destination": "https://YOUR-CLOUD-BACKEND.example/api/:path*" },
     { "source": "/health", "destination": "https://YOUR-CLOUD-BACKEND.example/health" },
     { "source": "/legacy", "destination": "https://YOUR-CLOUD-BACKEND.example/legacy" },

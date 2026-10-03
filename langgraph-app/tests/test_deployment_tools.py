@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import sqlite3
 import tarfile
+import threading
 
 import pytest
 
@@ -14,6 +15,69 @@ def load_backup():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module.backup
+
+
+def load_online_check():
+    spec = importlib.util.spec_from_file_location("assistant_check_online", ROOT / "deploy/check_online.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.check
+
+
+@pytest.fixture
+def original_site():
+    from flask import Flask, jsonify, render_template
+    from lg_assistant.web import auth
+    from werkzeug.serving import make_server
+
+    web = ROOT / "langgraph-app/lg_assistant/web"
+    app = Flask(__name__, template_folder=str(web / "templates"), static_folder=str(web / "static"))
+    token = "local-online-check-test-token"
+    auth.install(app, token)
+
+    @app.get("/")
+    def index():
+        return render_template("index.html")
+
+    @app.get("/health")
+    def health():
+        return jsonify({"ok": True, "auth_enabled": True, "active_tasks": 0})
+
+    @app.get("/api/resources")
+    def resources():
+        return jsonify({"resources": []})
+
+    @app.get("/api/tasks")
+    def tasks():
+        return jsonify({"tasks": []})
+
+    server = make_server("127.0.0.1", 0, app)
+    worker = threading.Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}", token, app
+    finally:
+        server.shutdown()
+        worker.join(timeout=5)
+
+
+def test_online_check_accepts_original_workbench_and_real_static_assets(original_site):
+    url, token, _ = original_site
+    load_online_check()(url, token, allow_http=True)
+
+
+def test_online_check_rejects_missing_ring_asset(original_site):
+    from flask import request
+
+    url, token, app = original_site
+
+    @app.before_request
+    def unavailable_ring():
+        if request.path == "/static/smart-ring.js":
+            return "missing ring", 404
+
+    with pytest.raises(RuntimeError, match="static asset"):
+        load_online_check()(url, token, allow_http=True)
 
 
 def test_backup_preserves_records_files_and_original(tmp_path):

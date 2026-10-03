@@ -173,10 +173,6 @@ def install(app: Any, token: str, *, secure_cookie: bool = False) -> None:
             # 已登录就别停在登录页
             if token_ok(request, token):
                 return redirect("/")
-            from .frontend import page
-            exported = page("login")
-            if exported is not None:
-                return exported
             return login_page()
 
         submitted = (request.form.get("token") or "").strip()
