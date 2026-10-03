@@ -4,10 +4,9 @@ import { ArrowRightIcon, EyeglassesIcon, LockKeyIcon } from "@phosphor-icons/rea
 import { api, ApiError, errorText, jsonPost } from "../lib/api";
 import { Studio } from "./studio";
 import { IS_DEMO } from "../lib/mode";
-import { DemoGate } from "./demo-gate";
 
 export function AuthGate() {
-  return IS_DEMO ? <DemoGate /> : <ConnectedAuthGate />;
+  return IS_DEMO ? <Studio authEnabled={false} onLogout={async () => {}} /> : <ConnectedAuthGate />;
 }
 
 function ConnectedAuthGate() {

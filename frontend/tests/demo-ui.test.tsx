@@ -5,11 +5,15 @@ import { AuthGate } from "../components/auth-gate";
 vi.mock("../lib/mode", () => ({ IS_DEMO: true, DEMO_STORE_KEY: "glasses.demo.data.v1", DEMO_SESSION_KEY: "glasses.demo.session.v1" }));
 afterEach(() => { cleanup(); localStorage.clear(); vi.unstubAllGlobals(); });
 
-it("opens the real demo workspace without login, runs a sample and restores it on refresh", async () => {
+it("opens directly into the demo workspace without an entry or exit gate, runs a sample and restores it on refresh", async () => {
   vi.stubGlobal("fetch", vi.fn(() => { throw new Error("No backend in demo"); }));
   const first = render(<AuthGate />);
   expect(screen.queryByLabelText("访问口令")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "进入工作空间" }));
+  expect(screen.queryByRole("button", { name: "进入工作空间" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "退出工作空间" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "退出登录" })).toBeNull();
+  expect(screen.getByRole("region", { name: "眼镜镜片" })).toBeTruthy();
+  expect(screen.getByRole("complementary", { name: "戒指控制器" })).toBeTruthy();
   expect(screen.queryByText(/AI 处理使用真实服务/)).toBeNull();
   fireEvent.click(await screen.findByRole("button", { name: "填入示例题目" }));
   fireEvent.click(screen.getByRole("button", { name: "开始处理" }));
@@ -20,9 +24,10 @@ it("opens the real demo workspace without login, runs a sample and restores it o
   expect(download.getAttribute("download")).toMatch(/\.md$/);
   first.unmount();
   render(<AuthGate />);
-  fireEvent.click(screen.getByRole("button", { name: "进入工作空间" }));
   await screen.findByText("答案：126");
-  fireEvent.click(screen.getByRole("button", { name: "退出工作空间" }));
-  await screen.findByRole("button", { name: "进入工作空间" });
+  expect(screen.queryByRole("button", { name: "进入工作空间" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "退出工作空间" })).toBeNull();
+  expect(screen.getByRole("region", { name: "眼镜镜片" })).toBeTruthy();
+  expect(screen.getByRole("complementary", { name: "戒指控制器" })).toBeTruthy();
   expect(fetch).not.toHaveBeenCalled();
 }, 10000);

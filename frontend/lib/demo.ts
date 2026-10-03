@@ -20,11 +20,11 @@ function read(): DemoStore {
       if (task.transcript?.content) task.transcript.content = task.transcript.content.replace(`> ${legacyNote}\n\n`, "");
     }
     return data;
-  } catch { throw new ApiError("无法读取本机记录。请允许浏览器存储，或返回入口清除损坏的记录。", 400); }
+  } catch { throw new ApiError("无法读取本机记录。请允许浏览器存储，或在浏览器设置中清除此网站的数据后重试。", 400); }
 }
 function write(data: DemoStore) {
   try { localStorage.setItem(DEMO_STORE_KEY, JSON.stringify(data)); }
-  catch { throw new ApiError("浏览器存储不可用或已满。请返回入口清除本机记录后重试。", 507); }
+  catch { throw new ApiError("浏览器存储不可用或已满。请检查浏览器存储权限，或在浏览器设置中清除此网站的数据后重试。", 507); }
 }
 function required<T>(value: T | undefined): T {
   if (!value) throw new ApiError("本机没有这条记录，请开始新任务。", 404);
