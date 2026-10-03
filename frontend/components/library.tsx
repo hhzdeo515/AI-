@@ -27,7 +27,7 @@ export function Library({ selected, onSelect, onClose }: { selected: string[]; o
     if (file && file.size > 2 * 1024 * 1024) { setError("资料文件最多 2 MB，请拆分后导入。"); return; }
     if (file) data.set("file", file); else data.delete("file");
     setBusy(true); setError(""); setNotice("");
-    try { const doc = await api<KnowledgeDocument>("/api/exam/knowledge", { method: "POST", body: data }); await refresh(); onSelect([...new Set([...selected, doc.id])].slice(0, 20)); form.reset(); setFile(null); setNotice(IS_DEMO ? "资料已保存在本机，并选为演示参考；示例结果不会引用资料内容。" : "资料已导入，并选为本轮参考资料。"); }
+    try { const doc = await api<KnowledgeDocument>("/api/exam/knowledge", { method: "POST", body: data }); await refresh(); onSelect([...new Set([...selected, doc.id])].slice(0, 20)); form.reset(); setFile(null); setNotice(IS_DEMO ? "资料已保存在本机，并选用。" : "资料已导入，并选为本轮参考资料。"); }
     catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   }
   async function remove(id: string) {
@@ -40,7 +40,7 @@ export function Library({ selected, onSelect, onClose }: { selected: string[]; o
     try { setDetail(await api(`/api/exam/knowledge/${encodeURIComponent(id)}?owner=local`)); } catch (e) { setError(errorText(e)); }
   }
   return <Modal title="参考资料库" onClose={onClose} wide>
-    <p className="muted text-sm leading-6">{IS_DEMO ? "演示资料仅保存在当前浏览器，可体验导入、选择和删除。示例结果不会检索或引用资料内容。最多保存 20 份。" : "选中的资料用于本轮题目核对。选择资料后，将依据资料与原图处理，并关闭联网检索。最多选择 20 份。"}</p>
+    <p className="muted text-sm leading-6">{IS_DEMO ? "资料保存在当前浏览器，最多保存 20 份。" : "选中的资料用于本轮题目核对。选择资料后，将依据资料与原图处理，并关闭联网检索。最多选择 20 份。"}</p>
     {error && <p className="error-box mt-4" role="alert">{error}</p>}{notice && <p className="notice mt-4" role="status">{notice}</p>}
     <div className="mt-7 grid gap-8 md:grid-cols-[1.1fr_1fr]">
       <section><div className="flex justify-between items-center mb-4"><h3 className="font-medium">我的资料 <span className="muted text-xs">已选 {selected.length} 份</span></h3><button className="button small" onClick={() => void refresh()} disabled={loading}>刷新</button></div>

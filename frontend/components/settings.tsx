@@ -10,5 +10,5 @@ export function Settings({ value, onChange, count, onLibrary, onClose }: { value
     <label className="check-field"><input type="checkbox" checked={internal || value.require_knowledge} disabled={internal} onChange={e => onChange({ ...value, require_knowledge: e.target.checked })} />只在有资料依据时作答</label>
     <label className="check-field"><input type="checkbox" checked={!internal && !value.require_knowledge && value.use_public_knowledge} disabled={internal || value.require_knowledge} onChange={e => onChange({ ...value, use_public_knowledge: e.target.checked })} />使用内置公开知识</label>
     <label className="check-field"><input type="checkbox" checked={!internal && value.allow_web} disabled={internal} onChange={e => onChange({ ...value, allow_web: e.target.checked })} />允许联网核对公开信息</label>
-    <p className="notice text-sm">{IS_DEMO ? "这些设置仅用于体验操作，不会触发联网检索或改变预设示例结果。" : internal ? "使用所选资料与原图核对。缺少依据时会提示补充，不进行联网检索。" : "依据题目所述日期处理。缺失的信息会明确标注。"}</p><button className="button primary justify-center" onClick={onClose}>完成设置</button></div></Modal>;
+    {!IS_DEMO && <p className="notice text-sm">{internal ? "使用所选资料与原图核对。缺少依据时会提示补充，不进行联网检索。" : "依据题目所述日期处理。缺失的信息会明确标注。"}</p>}<button className="button primary justify-center" onClick={onClose}>完成设置</button></div></Modal>;
 }

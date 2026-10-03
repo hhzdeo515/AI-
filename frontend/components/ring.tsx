@@ -25,7 +25,7 @@ export function Ring({ lens, onBack }: { lens: React.RefObject<HTMLElement | nul
   }
   const back = () => { index.current = -1; onBack(); setHint("已返回输入视野"); };
   return <aside className="ring-panel" aria-label="戒指控制器">
-    <div className="flex items-center justify-between"><h2 className="text-sm font-medium">戒指控制</h2><span className="eyebrow">模拟</span></div>
+    <div className="flex items-center justify-between"><h2 className="text-sm font-medium">戒指控制</h2></div>
     <button type="button" className="ring-device" aria-label="智能戒指：上下滑动选择，轻点确认，长按返回" onKeyDown={e => {
       if (["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight", "Enter", " ", "Escape"].includes(e.key)) e.preventDefault();
       if (["ArrowUp", "ArrowLeft"].includes(e.key)) move(-1);
@@ -41,6 +41,6 @@ export function Ring({ lens, onBack }: { lens: React.RefObject<HTMLElement | nul
     </button>
     <p className="ring-hint" aria-live="polite">{hint}</p>
     <div className="grid grid-cols-2 gap-2 mt-5"><button className="button justify-center" onClick={() => move(-1)} aria-label="戒指上滑"><ArrowUpIcon size={17} />上滑</button><button className="button justify-center" onClick={() => move(1)} aria-label="戒指下滑"><ArrowDownIcon size={17} />下滑</button><button className="button primary justify-center" onClick={press}><CheckIcon size={17} />确认</button><button className="button justify-center" onClick={back}><ArrowUUpLeftIcon size={17} />返回</button></div>
-    <div className="mt-6 border-t border-line pt-4 text-xs leading-6 muted"><p>方向键选择 · Enter 确认</p><p>长按 0.7 秒 · Esc 返回</p><p className="mt-3">设备连接与传输为模拟。<br />{IS_DEMO ? "处理结果为预设示例。" : "AI 处理使用真实服务。"}</p></div>
+    <div className="mt-6 border-t border-line pt-4 text-xs leading-6 muted"><p>方向键选择 · Enter 确认</p><p>长按 0.7 秒 · Esc 返回</p>{!IS_DEMO && <p className="mt-3">AI 处理使用真实服务。</p>}</div>
   </aside>;
 }

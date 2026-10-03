@@ -25,7 +25,7 @@ it("demo tasks complete and survive module reload without backend requests or re
   const reloaded = await import("../lib/api");
   const result = await reloaded.api<TaskRecord>(`/api/task?task_id=${started.task_id}`);
   expect(result.status).toBe("done");
-  expect(result.result?.note).toContain("示例");
+  expect(result.result?.note).toBeUndefined();
   expect(result.result?.artifacts?.[0].questions?.length).toBeGreaterThan(1);
   expect(decodeURIComponent(reloaded.exportUrl(result.result!.archived_id!, "md"))).toContain("示例");
   expect((await reloaded.api<{ tasks: TaskRecord[] }>("/api/tasks")).tasks).toHaveLength(1);
@@ -74,5 +74,31 @@ it("demo library supports local import, reading and deletion; unknown endpoints 
   await api(`/api/exam/knowledge/${doc.id}`, { method: "DELETE" });
   expect((await api<{ documents: KnowledgeDocument[] }>("/api/exam/knowledge")).documents).toEqual([]);
   await expect(api("/api/unknown")).rejects.toThrow();
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it("removes retired notices from old tasks and exports without changing saved user documents", async () => {
+  vi.useFakeTimers();
+  const { api, started } = await start("meeting");
+  vi.setSystemTime(Date.now() + 5000);
+  const key = "glasses.demo.data.v1";
+  const stored = JSON.parse(localStorage.getItem(key)!);
+  const notice = "演示模式：以下为预设示例，不是对输入内容、图片或录音的真实 AI 分析。";
+  const content = stored.tasks[0].result.text;
+  stored.tasks[0].result.note = notice;
+  stored.tasks[0].result.text = `> ${notice}\n\n${content}`;
+  stored.tasks[0].transcript.content = stored.tasks[0].result.text;
+  const document = { id: "user-doc", title: "My notes", content: notice, created: "2026-10-03" };
+  stored.documents.push(document);
+  localStorage.setItem(key, JSON.stringify(stored));
+  const result = await api<TaskRecord>(`/api/task?task_id=${started.task_id}`);
+  expect(result.result?.note).toBeUndefined();
+  expect(result.result?.text).toBe(content);
+  expect((await api<Resource>(`/api/resource?id=${started.task_id}`)).content).toBe(content);
+  expect((await api<Transcript>(`/api/transcript?id=${started.task_id}`)).content).toBe(content);
+  const { exportUrl } = await import("../lib/api");
+  expect(decodeURIComponent(exportUrl(started.task_id, "md")).split(",").slice(1).join(",")).toBe(content);
+  expect((await api<{ documents: KnowledgeDocument[] }>("/api/exam/knowledge")).documents).toEqual([document]);
+  expect(JSON.parse(localStorage.getItem(key)!).tasks).toHaveLength(1);
   expect(fetch).not.toHaveBeenCalled();
 });
