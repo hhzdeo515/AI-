@@ -12,6 +12,14 @@
 
 眼镜、戒指与传输链路为浏览器模拟；摄像头、麦克风采集以及配置后的模型请求使用真实服务。真实设备接入尚未实现。
 
+## 云端后端
+
+[打开 Render 部署配置](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fhhzdeo515%2FAI-)
+
+此入口读取根目录 [render.yaml](render.yaml)，先展示配置供账号持有人确认。配置使用一个付费实例和 5 GB 持久磁盘，费用以 Render 页面为准。登录口令由平台私密生成；只需在 Render 环境变量中填写百炼 DASHSCOPE_API_KEY，密钥不要提交到 GitHub。
+
+后端成功启动后，还需将它的 HTTPS 地址接入 Vercel；仅部署 frontend 目录无法登录或调用 AI。具体步骤见[完整应用部署](docs/部署.md)。
+
 ## 快速开始
 
 新前端开发与构建见[架构与开发](docs/架构与开发.md)。生产镜像自动构建 Next.js 并与 Python API 同源运行；下面命令单独启动后端，未配置 FRONTEND_DIR 时提供兼容界面。
@@ -46,6 +54,7 @@ langgraph-app/
   requirements.txt   运行依赖
 docs/                功能说明和指标设计
 deploy/              托管配置、线上验证、数据备份
+render.yaml          Render 后端一键部署入口
 ```
 
 运行数据默认写入 `langgraph-app/data/`。密钥、上传文件、数据库、评测结果、模型文件、第三方安装包、个人资料及旧版原型均不纳入当前版本。

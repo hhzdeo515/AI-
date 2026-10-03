@@ -1,14 +1,15 @@
-# Import this Blueprint from the repository. A persistent disk is required.
-# This paid service is a template; creating it requires selecting a paid plan.
+# Review the paid compute and disk charges in Render before creating this service.
+# New services receive a private generated login token; existing tokens are retained.
 services:
   - type: web
     name: ai-assistant
     runtime: docker
-    plan: starter
+    plan: 0.5c-512mb
     region: singapore
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health
+    maxShutdownDelaySeconds: 300
     autoDeployTrigger: "off"
     numInstances: 1
     disk:
@@ -17,14 +18,12 @@ services:
       sizeGB: 5
     envVars:
       - key: ACCESS_TOKEN
-        sync: false
+        generateValue: true
       - key: DASHSCOPE_API_KEY
-        sync: false
-      - key: TYPESAFE_API_KEY
         sync: false
       - key: PUBLIC_SCHEME
         value: https
       - key: DATA_DIR
         value: /var/lib/ai-assistant
       - key: TASK_WORKERS
-        value: "2"
+        value: "1"
