@@ -110,7 +110,7 @@
     const photoHint = imageFile && photoPending ? `当前画面：${imageFile.name}。轻点开始解题。` : "打开摄像头，拍摄新的题目后解答。" + (resultText[0] ? "上次答案仍可查看。" : "");
     const descriptions = home ? ["拍照或导入题目，在镜片中阅读答案。", "录制或导入会议，在镜片中阅读纪要。", "实时识别语音，在镜片中查看翻译。", "查看当前位置、搜索地点与路线。"] : s.mode===0 ? [photoHint,"导入一张 JPG、PNG 或 WebP 图片，最大 20 MB。","继续阅读本场景上一次的处理结果。","打开摄像头，拍摄新的题目画面。","选择考试场景、知识范围与参考资料。",imageFile ? `重新解答保留的图片：${imageFile.name}。` : "请先拍照或导入题目图片。"] : s.mode===1 ? ["在镜片内开启麦克风；轻点停止并保存录音。","导入已有会议录音，最大 32 MB。",audioFile ? `当前录音：${audioFile.name}。轻点生成会议纪要。` : "先录制会议或导入录音，也可输入会议文字。","继续阅读本场景上一次的处理结果。"] : s.mode===2 ? ["打开实时翻译，用戒指选择语言、开始或停止。"] : ["打开地图，用戒指定位、搜索地点与查看路线。"];
     const menu=$("hw-nav-options"), menuKey=home?"home":`actions-${s.mode}`;
-    menu.classList.toggle("is-home",home); menu.classList.toggle("is-carousel",!home);
+    menu.classList.toggle("is-home",home); menu.classList.add("is-carousel");
     if(menu.dataset.menu!==menuKey) {
       menu.dataset.menu=menuKey;
       delete menu.dataset.position;
@@ -127,6 +127,7 @@
     host.querySelectorAll("#hw-camera-import,#hw-record-import,#hw-meeting-summarize").forEach(b=>{b.disabled=working||s.busy||recordPhase!=="off";});
     updatePracticeControls(s);
     if(!working)updateRecording();
+    window.LensNavigation?.refresh();
   }
   function selectOption(focus,position=focus,dragging=false) {
     const menu=$("hw-nav-options"), buttons=menu.querySelectorAll("[data-hw-option]"), count=buttons.length;
@@ -324,6 +325,7 @@
   $("hw-question-select").addEventListener("change",event=>selectQuestion(Number(event.target.value)));
   async function operate(action) {
     if (working || engine.state.busy || inspecting || flowDrag || !lensVisible() || document.hidden) return;
+    window.LensNavigation?.stopVoice();
     rememberQuestionScroll();
     note("");
     const mode = engine.state.mode, file = mode === 0 ? imageFile : mode===1 ? audioFile : null;
@@ -593,10 +595,12 @@
     const body=$("hw-result-body"), ring=$("hw-ring");
     const announce=text=>{if($("hw-ring-state").textContent!==text)$("hw-ring-state").textContent=text;};
     if(event.phase==="start") {
-      flowDrag={screen:navigation.state.screen,startTop:body.scrollTop,maxTop:Math.max(0,body.scrollHeight-body.clientHeight),previewFocus:["home","actions"].includes(navigation.state.screen)?navigation.state.focus:null,controlStart:controlFocus,controlPreview:controlFocus,allowed:engine.state.connected&&!engine.state.busy&&!working};
+      if(flowDrag)return;
+      window.LensNavigation?.stopVoice();
+      flowDrag={source:event.source||"ring",screen:navigation.state.screen,startTop:body.scrollTop,maxTop:Math.max(0,body.scrollHeight-body.clientHeight),previewFocus:["home","actions"].includes(navigation.state.screen)?navigation.state.focus:null,controlStart:controlFocus,controlPreview:controlFocus,allowed:engine.state.connected&&!engine.state.busy&&!working};
       ring.classList.add("is-flowing");return;
     }
-    const drag=flowDrag;if(!drag)return;
+    const drag=flowDrag;if(!drag||drag.source!==(event.source||"ring"))return;
     if(event.phase==="move") {
       ring.style.setProperty("--flow-thumb",`${Math.max(-42,Math.min(42,event.total*.55))}px`);
       ring.style.setProperty("--flow-ticks",`${event.total%16}px`);
@@ -720,7 +724,12 @@
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",relocateSettings,{once:true});else relocateSettings();
   $("hw-settings-content").addEventListener("change",markControl);
   $("hw-camera-silent").addEventListener("change",()=>{const checked=$("hw-camera-silent").checked;$("exam-camera-silent").checked=checked;try{localStorage.setItem("assistant.exam.camera.silent",String(checked));}catch(_){};});
-  window.HardwareLens={acceptImage,acceptAudio,openSettings,closeSettings:()=>operate("back"),stop:()=>{importGeneration++;window.LensOptics?.stop();closeFeatures();if(navigation.state.screen==="feature")navigation.state.screen="actions";closeCamera();stopRecording();stopPracticeRecording();$("hw-audio-player").pause();$("hw-practice-audio").pause();engine.cancel();}};
+  window.HardwareLens={acceptImage,acceptAudio,openSettings,closeSettings:()=>operate("back"),stop:()=>{importGeneration++;window.LensNavigation?.stop();window.LensOptics?.stop();closeFeatures();if(navigation.state.screen==="feature")navigation.state.screen="actions";closeCamera();stopRecording();stopPracticeRecording();$("hw-audio-player").pause();$("hw-practice-audio").pause();engine.cancel();}};
+  window.HardwareLens.menu={
+    state:()=>({...navigation.state,options:[...(navigation.state.screen==="home"?modeNames:navigation.options())],available:lensVisible()&&!document.hidden&&!working&&!engine.state.busy&&!inspecting&&!flowDrag&&engine.state.connected&&recordPhase==="off"&&practiceRecordPhase==="off"&&["home","actions"].includes(navigation.state.screen)}),
+    act:operate,
+    slide:event=>followFlow({...event,source:"lens"})
+  };
   document.addEventListener("keydown", e => {
     if (!lensVisible() || e.repeat || e.ctrlKey || e.altKey || e.metaKey || /INPUT|TEXTAREA|SELECT|AUDIO/.test(e.target.tagName) || e.target.isContentEditable || e.target.closest("#hw-result-body")) return;
     if (e.target.tagName === "BUTTON" && (e.key === " " || e.key === "Enter")) return;

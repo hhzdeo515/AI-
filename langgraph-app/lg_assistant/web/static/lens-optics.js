@@ -64,7 +64,7 @@
   let pitch = -3, yaw = -8, zoom = 1, drag = null, suppressClick = false;
   let stream = null, opening = false, generation = 0, captureActive = false;
   // Reading and form controls keep their normal click, selection and scroll behavior.
-  const interactive = target => target.closest("button,a,input,textarea,select,label,summary,video,audio,[role=slider],.hw-panel-scroll,#hw-result-body,.hw-question-nav,.hw-map-canvas");
+  const interactive = target => target.closest("button,a,input,textarea,select,label,summary,video,audio,[role=slider],.hw-panel-scroll,#hw-result-body,.hw-question-nav,.hw-map-canvas,#hw-nav-options");
   const update = () => {
     model.style.setProperty("--lens-pitch", `${pitch}deg`);
     model.style.setProperty("--lens-yaw", `${yaw}deg`);

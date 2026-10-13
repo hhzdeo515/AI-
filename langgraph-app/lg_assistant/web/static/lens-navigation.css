@@ -1,0 +1,35 @@
+/* One horizontal track for both scenes and their actions. */
+.has-waveguide .hw-nav-menu,.has-waveguide .hw-nav-menu:has(#hw-nav-options.is-home){inset:62px 12% 48px 11%;justify-content:center;gap:8px}
+#hw-nav-options.is-carousel,#hw-nav-options.is-home.is-carousel{display:block;position:relative;height:133px;min-height:133px;overflow:hidden;touch-action:none;cursor:grab;user-select:none}
+#hw-nav-options.is-carousel button,#hw-nav-options.is-home.is-carousel button{top:12px;left:50%;width:59%;min-height:108px;padding:16px 14px;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:grab}
+#hw-nav-options.is-home.is-carousel button>span{font-size:19px;letter-spacing:.025em}
+#hw-nav-options.is-carousel button>small{font-size:10px}
+#hw-nav-options.is-carousel.is-dragging,#hw-nav-options.is-carousel.is-dragging button{cursor:grabbing}
+.is-lens-swiping .hw-ring{pointer-events:none}
+.has-waveguide .hw-nav-heading>strong{font-size:21px}
+.hw-menu-hint{margin:0;text-align:center;font-size:9px;letter-spacing:.06em;color:#b9dfcc}
+.hw-menu-controls{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.hw-menu-paging{display:flex;align-items:center;gap:12px}
+.hw-menu-controls button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:30px;padding:4px 11px;border:1px solid #c3ffe650;border-radius:7px;background:#082a2066;color:#d8ffeb;cursor:pointer;font:11px/1.5 var(--sans);backdrop-filter:blur(8px)}
+.hw-menu-controls button:hover{border-color:#d1ffebae;background:#c1ffe31a}
+.hw-menu-controls button:focus-visible{outline:2px solid #d1ffeb;outline-offset:2px}
+.hw-menu-controls button:disabled{opacity:.4;cursor:default}
+.hw-menu-controls button[aria-pressed=true]{background:#b2ffe530;box-shadow:0 0 14px #bbffdf21}
+#hw-menu-prev,#hw-menu-next{font-size:22px;line-height:1;min-width:32px}
+#hw-menu-position{font-size:10px;font-variant-numeric:tabular-nums;color:#d5f8e4;min-width:30px;text-align:center}
+#hw-menu-voice svg{width:13px;height:15px;fill:none;stroke:currentColor;stroke-width:1.5}
+.has-waveguide #hw-nav-description{font-size:10px;line-height:1.5;min-height:15px}
+#hw-menu-voice-status{font-size:10px;line-height:1.5;color:#d3f8e4;margin:0;max-height:32px;overflow:auto}
+.hw-menu-voice-note{font-size:8px;line-height:1.5;color:#b4d5c3;margin:0}
+@media(max-width:760px){
+  .has-waveguide .hw-nav-menu,.has-waveguide .hw-nav-menu:has(#hw-nav-options.is-home){inset:54px 10% 44px;gap:6px}
+  .has-waveguide .hw-nav-heading>strong{font-size:17px}
+  .hw-nav-back-hint{font-size:9px;line-height:1.4}
+  #hw-nav-options.is-carousel,#hw-nav-options.is-home.is-carousel{height:107px;min-height:107px}
+  #hw-nav-options.is-carousel button,#hw-nav-options.is-home.is-carousel button{top:8px;min-height:90px;padding:12px 9px;width:67%}
+  #hw-nav-options.is-home.is-carousel button>span,#hw-nav-options.is-carousel button>span{font-size:15px}
+  #hw-nav-options.is-carousel button>small{font-size:9px}
+  .hw-menu-controls button{padding:4px 8px;font-size:10px}.hw-menu-paging{gap:8px}
+  .hw-menu-voice-note{font-size:8px}#hw-menu-voice-status{font-size:9px}
+  .has-waveguide #hw-nav-description{font-size:9px;min-height:14px}
+}
