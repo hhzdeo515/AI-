@@ -370,9 +370,11 @@
   }
   function closeCamera() {
     camera.stop();cameraTaking=false;$("hw-camera-video").srcObject=null;$("hw-camera-shoot").disabled=true;
+    window.LensOptics?.setCaptureActive(false);
   }
   async function openCamera() {
     if(working)return;
+    window.LensOptics?.setCaptureActive(true);
     navigation.state.screen="camera";controlFocus=0;note("");render(engine.state);
     $("hw-camera-status").textContent="正在打开摄像头…";
     try {
@@ -718,7 +720,7 @@
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",relocateSettings,{once:true});else relocateSettings();
   $("hw-settings-content").addEventListener("change",markControl);
   $("hw-camera-silent").addEventListener("change",()=>{const checked=$("hw-camera-silent").checked;$("exam-camera-silent").checked=checked;try{localStorage.setItem("assistant.exam.camera.silent",String(checked));}catch(_){};});
-  window.HardwareLens={acceptImage,acceptAudio,openSettings,closeSettings:()=>operate("back"),stop:()=>{importGeneration++;closeFeatures();if(navigation.state.screen==="feature")navigation.state.screen="actions";closeCamera();stopRecording();stopPracticeRecording();$("hw-audio-player").pause();$("hw-practice-audio").pause();engine.cancel();}};
+  window.HardwareLens={acceptImage,acceptAudio,openSettings,closeSettings:()=>operate("back"),stop:()=>{importGeneration++;window.LensOptics?.stop();closeFeatures();if(navigation.state.screen==="feature")navigation.state.screen="actions";closeCamera();stopRecording();stopPracticeRecording();$("hw-audio-player").pause();$("hw-practice-audio").pause();engine.cancel();}};
   document.addEventListener("keydown", e => {
     if (!lensVisible() || e.repeat || e.ctrlKey || e.altKey || e.metaKey || /INPUT|TEXTAREA|SELECT|AUDIO/.test(e.target.tagName) || e.target.isContentEditable || e.target.closest("#hw-result-body")) return;
     if (e.target.tagName === "BUTTON" && (e.key === " " || e.key === "Enter")) return;

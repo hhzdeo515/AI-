@@ -19,7 +19,7 @@ if (mode === "demo") {
   const result = spawnSync(process.execPath, [fileURLToPath(new URL("build-legacy.mjs", import.meta.url)), mode], { stdio: "inherit" });
   if (result.status !== 0) process.exit(result.status || 1);
 }
-const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
+const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp" };
 createServer(async (req, res) => {
   const pathname = new URL(req.url, "http://localhost").pathname;
   if (mode === "demo" && pathname === "/api/map-config") { await mapConfigHandler(req,res); return; }

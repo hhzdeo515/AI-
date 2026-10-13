@@ -1,0 +1,82 @@
+/* The scene, projected interface and optical schematic share one curved lens. */
+/* Keep the WebGL canvas's intrinsic pixel size out of the ring's grid sizing. */
+.hw-ring-panel .hw-ring-stage{grid-template-rows:minmax(0,1fr);grid-template-columns:minmax(0,1fr)}
+.hw-ring.has-model{min-height:0;min-width:0}
+.hw-optical-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px;padding:12px 0;border-block:1px solid #9bcab51c}
+.hw-view-source{display:flex;align-items:center;gap:10px;font-size:10px;color:#8fae9d}
+#hw-view-source{display:flex;align-items:center;gap:6px;color:#d0e7d9}
+#hw-view-source::before{content:"";width:5px;height:5px;border-radius:50%;background:#b2efcf;box-shadow:0 0 8px #b2efcf60}
+.hw-optical-actions{display:flex;gap:6px;flex-wrap:wrap}
+.hw-optical-actions button,.hw-view-controls button{border:1px solid #9ed7b82e;border-radius:6px;background:#9cdbb608;color:#b8d9c6;padding:7px 10px;font:11px/1.4 var(--sans);cursor:pointer;min-height:32px}
+.hw-optical-actions button:hover,.hw-view-controls button:hover{background:#9cdbb619;border-color:#9ed7b866}
+.hw-optical-actions button[aria-pressed=true]{border-color:#afffd46b;background:#94e8b41a;color:#d9ffea}
+.hw-optical-actions button:disabled,.hw-view-controls button:disabled{opacity:.4;cursor:default}
+.hw-optical-actions button:focus-visible,.hw-view-controls button:focus-visible{outline:2px solid #bdffe1;outline-offset:3px}
+.hw-optics.has-waveguide{padding:0;margin-top:0;display:flex;flex-direction:column;flex:1;min-height:0}
+.hw-optical-stage{position:relative;display:flex;align-items:center;justify-content:center;min-height:530px;flex:1;perspective:1200px;overflow:hidden;isolation:isolate;cursor:grab;touch-action:none;border-radius:18px;background:radial-gradient(ellipse at 48% 45%,#83c7a410,transparent 65%)}
+.hw-optical-stage::after{content:"";position:absolute;left:17%;right:17%;bottom:26px;height:25px;border-radius:50%;background:#0008;filter:blur(17px);z-index:-1;pointer-events:none}
+.hw-optical-stage:focus-visible{outline:1px solid #b1e4c971;outline-offset:-3px}
+.hw-optical-model{position:relative;width:91%;flex:none;transform:scale(var(--lens-zoom,1)) rotateX(var(--lens-pitch,-3deg)) rotateY(var(--lens-yaw,-8deg));transform-style:preserve-3d;will-change:transform}
+.hw-optical-stage.is-dragging,.hw-optical-stage.is-dragging *{cursor:grabbing!important;user-select:none}
+.has-waveguide .hw-lens-frame{display:block;padding:8px 9px 11px;background:linear-gradient(157deg,#9aa79f,#303e36 6%,#101b15 22%,#39483f 65%,#a0b1a6 82%,#17231c 92%);box-shadow:0 20px 35px -10px #000a,inset 0 1px 2px #e2f5e9,inset 0 -3px 3px #07110b,3px 5px 0 #34463b,6px 9px 0 #111d16}
+.has-waveguide .hw-lens-frame::after{border-color:#dcfff450}
+.has-waveguide .hw-hinge{top:94px;left:-21px;width:39px;height:29px;transform:rotate(-8deg) translateZ(-4px)}
+.has-waveguide .hw-bridge{right:-27px;top:136px;transform:rotate(18deg) translateZ(-5px)}
+.has-waveguide .hw-viewport{height:450px;min-height:0;flex:none;isolation:isolate;background:#294238;box-shadow:inset 0 0 30px #00120e55}
+.has-waveguide .hw-viewport::after{z-index:6;border-color:#caffde55;background:linear-gradient(112deg,transparent 20%,#eefff216 30%,transparent 39%,#b5ffe507 65%,transparent 78%),radial-gradient(ellipse at var(--glint-x,45%) 0%,#d9fff929,transparent 62%)}
+.hw-world-view{position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.hw-world-demo{position:absolute;inset:-18px;background:url('/static/lens-world.svg') center/cover no-repeat;transform:translate(var(--world-x,0px),var(--world-y,0px));filter:saturate(.63) brightness(.76)}
+.hw-world-view video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.85)}
+.hw-world-view.is-live .hw-world-demo{visibility:hidden}
+.hw-world-shade{position:absolute;inset:0;background:linear-gradient(0deg,#061a1baa,transparent 28%,#02151333 72%,#061a1b66),linear-gradient(90deg,#0b242533,#04161922);box-shadow:inset 0 0 80px #0025226b}
+.hw-waveguide{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.84;transition:opacity .2s}
+.hw-light-path{position:absolute;width:100%;height:100%;overflow:visible;stroke:#abffe5;stroke-width:1;vector-effect:non-scaling-stroke}
+.hw-light-path circle{fill:#d8fff0;stroke:none;filter:drop-shadow(0 0 5px #80ffcf)}
+.hw-light-halo{stroke:#5fffc0;stroke-width:8;opacity:.17;filter:blur(4px)}
+.hw-light-ray{stroke-width:1.4;stroke-dasharray:45 9 2 9;animation:hw-light-travel 12s linear infinite;filter:drop-shadow(0 0 3px #8affdd)}
+.hw-light-output{stroke-width:1;opacity:.7;stroke-dasharray:3 5}
+.hw-grating{position:absolute;border:1px solid #b2ffec50;box-shadow:0 0 17px #88ffe42b,inset 0 0 13px #b2ffdd1a;background:repeating-linear-gradient(117deg,#baffea61 0 .7px,transparent .7px 3px);mix-blend-mode:screen}
+.hw-grating-in{left:4%;top:13%;width:11%;height:13%;border-radius:8px;transform:skewY(-16deg)}
+.hw-grating-out{right:7%;top:36%;width:8%;height:38%;border-radius:12px;transform:skewY(-8deg);background:repeating-linear-gradient(12deg,#baffea63 0 .8px,transparent .8px 3px)}
+.hw-optical-tag{position:absolute;font-size:8px;letter-spacing:.08em;color:#d2ffed;text-shadow:0 1px 6px #082920}
+.hw-tag-in{left:5%;top:29%}.hw-tag-out{right:5%;top:76%;writing-mode:vertical-rl}
+.hw-projector{position:absolute;top:25%;left:-8px;width:13px;height:24px;border:2px solid #344e44;border-radius:5px;background:#d6ffee;box-shadow:0 0 14px #81ffd58c,inset 0 0 4px #156e50;pointer-events:none}
+.hide-optical-path .hw-waveguide,.hide-optical-path .hw-projector{opacity:0}
+.hide-optical-path .hw-light-ray{animation-play-state:paused}
+.has-waveguide .hw-nav-menu{inset:68px 16% 67px 13%;text-shadow:0 0 12px #aaffd33d,0 1px 5px #05271c}
+.has-waveguide .hw-nav-heading>strong{font-size:23px;color:#e1ffed;letter-spacing:.02em;font-weight:400}
+.has-waveguide #hw-nav-options button{background:#052b2357;border-color:#b8ffe64a;backdrop-filter:blur(7px);box-shadow:inset 0 0 16px #aaffd708;color:#e0ffee}
+.has-waveguide #hw-nav-options button[aria-pressed=true]{background:#b7ffdf28;border-color:#c6ffeabf;color:#edfff6;box-shadow:0 0 16px #b7ffdf1c,inset 0 0 24px #b7ffdf17;text-shadow:0 0 9px #afffd775}
+.has-waveguide #hw-nav-options button[aria-pressed=true]>small{color:#c7f9dd}
+.has-waveguide #hw-nav-description{color:#d4efe2}
+.has-waveguide .hw-hud{z-index:2;padding:27px 39px 25px;text-shadow:0 0 9px #91f7c877}
+.has-waveguide .hw-hud-top>span,.has-waveguide .hw-hud-bottom{background:#05251c66;backdrop-filter:blur(5px);color:#d4f5e4}
+.has-waveguide .hw-lens-panel,.has-waveguide .hw-lens-result{background:#071f1acf;backdrop-filter:blur(12px);border-color:#b2ffe554;box-shadow:0 0 22px #a7ffd910}
+.has-waveguide .hw-viewport.is-exam-reading{height:450px;max-height:none}
+.has-waveguide .hw-viewport.is-exam-reading #hw-lens-result{background:#071f1abd;padding:10px;border-radius:10px;backdrop-filter:blur(10px)}
+.has-waveguide .hw-viewport.is-exam-reading:has(.hw-lens-result:not([hidden]))>img{z-index:2}
+.has-waveguide .hw-optics-caption{margin:10px 8px 0;align-items:center;gap:12px;flex-wrap:wrap}
+.hw-optics-caption>div:first-child{display:flex;flex-direction:column;gap:7px}
+.hw-optical-eyebrow{font-size:8px;letter-spacing:.2em;color:#92bba5}
+.hw-optics-caption strong{font-size:17px;font-weight:400;color:#d5eadd;letter-spacing:.04em}
+#hw-optical-help{font-size:10px;line-height:1.7;color:#9bb3a5}
+.hw-view-controls{display:flex;align-items:center;gap:7px}
+.hw-view-controls output{min-width:38px;text-align:center;font:11px var(--mono);font-variant-numeric:tabular-nums;color:#cee5d8}
+.hw-view-controls button{padding:5px 9px}
+.hw-optical-legend{display:flex;align-items:center;flex-wrap:wrap;gap:9px 18px;margin:19px 8px 0;padding-top:13px;border-top:1px solid #9bcab51c;color:#b1c9bb;font-size:10px}
+.hw-optical-legend span{display:flex;gap:5px;align-items:center}.hw-optical-legend i{display:inline-block;width:4px;height:4px;background:#baffdd;border-radius:50%;box-shadow:0 0 6px #baffdd}
+.hw-optical-legend small{font-size:9px;color:#88a08f;margin-left:auto}
+.hw-view-status{font-size:10px;line-height:1.7;color:#9cb7a7;margin:10px 8px 0;min-height:17px}
+@keyframes hw-light-travel{to{stroke-dashoffset:-260}}
+@media(min-width:761px){.hw-layout{min-height:680px}.hw-ring-panel{margin-top:0}}
+@media(max-width:760px){
+  .hw-optical-toolbar{margin-top:16px;gap:8px;flex-wrap:wrap}.hw-optical-actions button{font-size:10px;padding:6px 8px}.hw-view-source{font-size:9px;gap:7px}
+  .hw-optical-stage{min-height:435px}.hw-optical-model{width:94%}.has-waveguide .hw-viewport{height:385px;min-height:385px}
+  .has-waveguide .hw-nav-menu{inset:63px 12% 58px 11%}.has-waveguide .hw-nav-menu:has(#hw-nav-options.is-home){inset:62px 12% 58px 11%;gap:12px}
+  .has-waveguide #hw-nav-options.is-home button{min-height:63px;padding:9px 8px}.has-waveguide #hw-nav-options.is-home button>span{font-size:14px}
+  .has-waveguide .hw-nav-heading>strong{font-size:19px}.has-waveguide .hw-hud{padding:27px 24px 23px}.has-waveguide .hw-hud-top{font-size:9px}
+  .has-waveguide .hw-viewport.is-exam-reading{height:500px}.hw-optical-stage:has(.is-exam-reading){min-height:555px}
+  .has-waveguide .hw-optics-caption{margin-top:7px}.hw-optics-caption strong{font-size:16px}#hw-optical-help{font-size:9px}
+  .hw-optical-legend{gap:8px 12px}.hw-optical-legend small{margin-left:0;width:100%}.hw-tag-in{font-size:7px}.hw-tag-out{right:3%;font-size:7px}
+}
+@media(prefers-reduced-motion:reduce){.hw-light-ray{animation:none}.hw-waveguide{transition:none}}
