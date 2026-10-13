@@ -34,7 +34,7 @@ from .. import config, llm, nodes, progress, store, transcribe, exam_knowledge, 
 from ..graph import build_graph, open_checkpointer, run_config, thread_id
 from ..jobs import TaskConflictError, TaskManager
 from ..tools import export
-from . import auth, frontend, maps, media, translation
+from . import auth, frontend, intent_cloud, maps, media, translation
 from ..photo_practice import options as practice_options
 
 SPEECH_MAX_CHARS = config.SPEECH_MAX_CHARS
@@ -160,6 +160,7 @@ def create_app(app: Any = None, *, secure_cookie: bool = False,
     frontend.install(flask_app)
     auth.install(flask_app, config.ACCESS_TOKEN, secure_cookie=secure_cookie)
     flask_app.register_blueprint(translation.blueprint)
+    flask_app.register_blueprint(intent_cloud.blueprint)
     flask_app.register_blueprint(maps.blueprint)
 
     compiled = app if app is not None else build_graph(open_checkpointer())

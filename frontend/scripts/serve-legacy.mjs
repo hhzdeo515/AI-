@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process";
 import translateHandler from "../api/translate.js";
 import mapConfigHandler from "../api/map-config.js";
 import amapProxyHandler from "../api/amap-proxy.js";
+import intentCloudHandler from "../api/intent-cloud.js";
 
 const mode = process.argv[2];
 if (!["demo", "full"].includes(mode)) throw new Error("Expected demo or full");
@@ -22,6 +23,7 @@ if (mode === "demo") {
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp" };
 createServer(async (req, res) => {
   const pathname = new URL(req.url, "http://localhost").pathname;
+  if (mode === "demo" && pathname === "/api/intent-cloud") { await intentCloudHandler(req,res); return; }
   if (mode === "demo" && pathname === "/api/map-config") { await mapConfigHandler(req,res); return; }
   if (mode === "demo" && (pathname === "/api/amap-proxy" || pathname.startsWith("/_AMapService/"))) { await amapProxyHandler(req,res); return; }
   if (mode === "demo" && new URL(req.url, "http://localhost").pathname === "/api/translate") {
