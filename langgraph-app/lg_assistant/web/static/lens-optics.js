@@ -20,16 +20,20 @@
   }
   stage.append(model);
   optics.prepend(stage);
-  optics.classList.add("has-waveguide");
+  optics.classList.add("has-waveguide", "has-camera-view", "hide-optical-path");
   const toolbar = document.createElement("div");
   toolbar.className = "hw-optical-toolbar";
-  toolbar.innerHTML = `<div class="hw-view-source"><span id="hw-view-source">模拟视野</span><span>第一人称</span></div>
-    <div class="hw-optical-actions"><button type="button" id="hw-view-camera" aria-pressed="false">开启摄像头</button><button type="button" id="hw-optical-toggle" aria-pressed="true">光路示意</button></div>`;
+  toolbar.innerHTML = `<div class="hw-view-source"><span id="hw-view-source">模拟取景</span><span>眼镜摄像头视角</span></div>
+    <div class="hw-optical-actions"><button type="button" id="hw-view-camera" aria-pressed="false">开启摄像头</button><button type="button" id="hw-optical-toggle" aria-pressed="false">光路示意</button></div>`;
   optics.before(toolbar);
   const scene = document.createElement("div");
   scene.className = "hw-world-view";
   scene.innerHTML = `<div class="hw-world-demo" aria-hidden="true"></div><video id="hw-world-video" autoplay playsinline muted hidden aria-label="第一人称摄像头实时画面"></video><div class="hw-world-shade"></div>`;
   viewport.prepend(scene);
+  const cameraHud = document.createElement("div");
+  cameraHud.className = "hw-camera-hud";
+  cameraHud.innerHTML = `<div class="hw-camera-top"><span class="hw-camera-source"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6l1-2h6l1 2h4v14H4V6z"/><circle cx="12" cy="12" r="4"/></svg><span id="hw-camera-source-label">模拟取景 · 示例画面</span></span><span id="hw-camera-feed-label">未开启摄像头</span></div><div class="hw-camera-focus" aria-hidden="true"><i></i><i></i><i></i><i></i><span>＋</span></div>`;
+  viewport.append(cameraHud);
   const light = document.createElement("div");
   light.className = "hw-waveguide";
   light.setAttribute("aria-hidden", "true");
@@ -46,17 +50,18 @@
   emitter.setAttribute("aria-hidden", "true");
   frame.append(emitter);
   const caption = optics.querySelector(".hw-optics-caption");
-  caption.innerHTML = `<div><span class="hw-optical-eyebrow">OPTICAL WAVEGUIDE</span><strong>让信息浮现在眼前</strong><span id="hw-optical-help">拖动镜框或空白处旋转 · 滚轮缩放 · 双击空白处复位</span></div>
+  caption.innerHTML = `<div><span class="hw-optical-eyebrow">CAMERA VIEW</span><strong>眼前画面，随时取景</strong><span id="hw-optical-help">拖动镜框或空白处旋转 · 滚轮缩放 · 双击空白处复位</span></div>
     <div class="hw-view-controls"><button type="button" id="hw-view-out" aria-label="缩小眼镜">−</button><output id="hw-view-scale" aria-label="眼镜缩放比例">100%</output><button type="button" id="hw-view-in" aria-label="放大眼镜">＋</button><button type="button" id="hw-view-reset">复位</button></div>`;
   const legend = document.createElement("div");
   legend.className = "hw-optical-legend";
+  legend.hidden = true;
   legend.innerHTML = `<span><i></i>光机入耦</span><span>↗ 波导内反射</span><span>▥ 表面浮雕光栅出耦</span><small>光路与光栅为放大示意</small>`;
   optics.append(legend);
   const status = document.createElement("p");
   status.id = "hw-view-status";
   status.className = "hw-view-status";
   status.setAttribute("role", "status");
-  status.textContent = "开启摄像头，用你的眼前画面体验镜片投影。";
+  status.textContent = "当前为写实取景示例。开启摄像头后，镜片显示你的实时画面。";
   optics.append(status);
   const $ = id => document.getElementById(id);
   const video = $("hw-world-video"), cameraButton = $("hw-view-camera");
@@ -137,7 +142,7 @@
     event.currentTarget.setAttribute("aria-pressed", String(!hidden));
     legend.hidden = hidden;
   });
-  function stop(message = "摄像头已关闭，当前为模拟视野。") {
+  function stop(message = "摄像头已关闭，当前为模拟取景示例。") {
     generation++;
     opening = false;
     stream?.getTracks().forEach(track => track.stop());
@@ -146,7 +151,9 @@
     scene.classList.remove("is-live");
     cameraButton.textContent = "开启摄像头";
     cameraButton.setAttribute("aria-pressed", "false");
-    $("hw-view-source").textContent = "模拟视野";
+    $("hw-view-source").textContent = "模拟取景";
+    $("hw-camera-source-label").textContent = "模拟取景 · 示例画面";
+    $("hw-camera-feed-label").textContent = "未开启摄像头";
     status.textContent = message;
   }
   async function toggleCamera() {
@@ -162,7 +169,7 @@
       if (current !== generation) { acquired.getTracks().forEach(track => track.stop()); return; }
       stream = acquired;
       acquired.getVideoTracks().forEach(track => track.addEventListener("ended", () => {
-        if (stream === acquired) stop("摄像头已断开，已恢复模拟视野。可重新开启摄像头。");
+        if (stream === acquired) stop("摄像头已断开，已恢复模拟取景示例。可重新开启摄像头。");
       }));
       video.srcObject = acquired;
       await video.play();
@@ -172,10 +179,12 @@
       cameraButton.textContent = "关闭摄像头";
       cameraButton.setAttribute("aria-pressed", "true");
       $("hw-view-source").textContent = "摄像头实时视野";
+      $("hw-camera-source-label").textContent = "摄像头 · 实时画面";
+      $("hw-camera-feed-label").textContent = "本地预览";
       status.textContent = "摄像头已开启 · 仅本地预览，不录制、不上传。";
     } catch (error) {
       if (current !== generation) return;
-      stop(error.name === "NotAllowedError" ? "摄像头权限未开启，仍可体验模拟视野。允许权限后可重试。" : "摄像头暂不可用，仍可体验模拟视野。检查设备后可重试。");
+      stop(error.name === "NotAllowedError" ? "摄像头权限未开启，当前为模拟取景示例。允许权限后可重试。" : "摄像头暂不可用，当前为模拟取景示例。检查设备后可重试。");
     }
   }
   cameraButton.addEventListener("click", toggleCamera);

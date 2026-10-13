@@ -1,0 +1,29 @@
+/* Camera-first lens: a photographic sample until the user enables local video. */
+.has-camera-view .hw-world-demo{background-image:url('/static/lens-camera-scene.png');filter:none}
+.has-camera-view .hw-world-view video{filter:none}
+.has-camera-view .hw-world-shade{background:linear-gradient(180deg,#030b1266,transparent 24%,transparent 47%,#040d1670 70%,#02080de0);box-shadow:inset 0 0 28px #0003}
+.has-camera-view .hw-viewport::after{background:linear-gradient(115deg,transparent 28%,#fff1 30%,transparent 36%);box-shadow:none;border-color:#ffffff38}
+.hw-camera-hud{display:none;position:absolute;inset:0;z-index:1;pointer-events:none;color:#fff;text-shadow:0 1px 4px #0008;font:10px/1.5 var(--sans)}
+.has-camera-view .hw-viewport:has(.hw-nav-menu:not([hidden])) .hw-camera-hud{display:block}
+.has-camera-view .hw-viewport:has(.hw-nav-menu:not([hidden])) .hw-hud{display:none}
+.hw-camera-top{position:absolute;top:29px;left:8%;right:8%;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hw-camera-source{display:flex;align-items:center;gap:7px}.hw-camera-source svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.5}
+#hw-camera-feed-label{font-size:9px;color:#f0f4f7}
+.hw-camera-focus{position:absolute;top:20%;left:39%;width:22%;height:24%;color:#e7ffeeb0}
+.hw-camera-focus i{position:absolute;width:17px;height:17px;border:1.5px solid currentColor}.hw-camera-focus i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}.hw-camera-focus i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}.hw-camera-focus i:nth-child(3){bottom:0;left:0;border-top:0;border-right:0}.hw-camera-focus i:nth-child(4){bottom:0;right:0;border-top:0;border-left:0}.hw-camera-focus>span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:18px sans-serif;color:#ffffff75}
+.has-camera-view .hw-nav-menu,.has-camera-view .hw-nav-menu:has(#hw-nav-options.is-home){inset:auto 11% 35px;justify-content:flex-end;gap:5px;text-shadow:0 1px 4px #000b}
+.has-camera-view .hw-nav-heading{align-items:center;gap:8px}.has-camera-view .hw-nav-heading>strong{font-size:12px;font-weight:500;letter-spacing:.02em;color:#f3fff8}.has-camera-view .hw-nav-back-hint{font-size:8px}
+.has-camera-view #hw-nav-options.is-carousel,.has-camera-view #hw-nav-options.is-home.is-carousel{height:67px;min-height:67px}
+.has-camera-view #hw-nav-options.is-carousel button,.has-camera-view #hw-nav-options.is-home.is-carousel button{top:3px;width:54%;min-height:59px;padding:8px 10px;gap:3px;backdrop-filter:blur(4px);border-radius:9px;background:#06120d52;border-color:#ffffff35;box-shadow:none}
+.has-camera-view #hw-nav-options.is-carousel button[aria-pressed=true]{background:#162b21a6;border-color:#d1fbe2b0;box-shadow:inset 0 0 14px #c5ffdd08;text-shadow:0 1px 5px #0008}
+.has-camera-view #hw-nav-options.is-carousel button>span,.has-camera-view #hw-nav-options.is-home.is-carousel button>span{font-size:14px;letter-spacing:0}.has-camera-view #hw-nav-options.is-carousel button>small{font-size:8px}
+.has-camera-view .hw-menu-hint{font-size:8px;color:#f4fff7b8}.has-camera-view #hw-nav-description{display:none}
+.has-camera-view .hw-menu-controls button{min-height:27px;padding:3px 9px;font-size:10px;background:#05130d66;backdrop-filter:blur(4px)}
+.has-camera-view #hw-menu-prev,.has-camera-view #hw-menu-next{font-size:19px;min-width:28px}.has-camera-view #hw-menu-voice-status{font-size:9px;line-height:1.4;max-height:26px;color:#f0fff7}.has-camera-view .hw-menu-voice-note{display:none}
+@media(max-width:760px){
+  .hw-camera-top{top:31px;left:9%;right:9%;gap:5px;font-size:8px}#hw-camera-feed-label{font-size:7px}.hw-camera-source{gap:4px}.hw-camera-source svg{width:12px;height:12px}
+  .hw-camera-focus{top:22%;left:35%;width:30%;height:19%}
+  .has-camera-view .hw-nav-menu,.has-camera-view .hw-nav-menu:has(#hw-nav-options.is-home){inset:auto 10% 33px;gap:5px}
+  .has-camera-view #hw-nav-options.is-carousel button,.has-camera-view #hw-nav-options.is-home.is-carousel button{width:65%}
+  .has-camera-view .hw-nav-heading>strong{font-size:11px}.has-camera-view #hw-menu-voice-status{font-size:8px}
+}

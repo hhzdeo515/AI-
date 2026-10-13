@@ -34,16 +34,20 @@ afterEach(() => { win.LensOptics.stop(); dom.window.close(); });
 
 it("does not request camera access until clicked and releases it on stop", async () => {
   expect(media).not.toHaveBeenCalled();
+  expect(doc.getElementById("hw-camera-source-label").textContent).toContain("示例画面");
+  expect(doc.getElementById("hw-camera-feed-label").textContent).toBe("未开启摄像头");
   const stream = feed(); media.mockResolvedValue(stream);
   camera.click(); await flush();
   expect(media.mock.calls[0][0].audio).toBe(false);
   expect(doc.getElementById("hw-world-video").srcObject).toBe(stream);
   expect(doc.getElementById("hw-world-video").hidden).toBe(false);
   expect(camera.getAttribute("aria-pressed")).toBe("true");
+  expect(doc.getElementById("hw-camera-source-label").textContent).toBe("摄像头 · 实时画面");
   camera.click();
   expect(stream.track.stop).toHaveBeenCalledOnce();
   expect(doc.getElementById("hw-world-video").srcObject).toBeNull();
   expect(doc.getElementById("hw-world-video").hidden).toBe(true);
+  expect(doc.getElementById("hw-camera-source-label").textContent).toContain("示例画面");
 });
 
 it("releases late permission streams without replacing a newer preview", async () => {
@@ -90,7 +94,7 @@ it("falls back when a camera track disconnects", async () => {
   const stream = feed(); media.mockResolvedValue(stream);
   camera.click(); await flush();
   stream.track.dispatchEvent(new win.Event("ended"));
-  expect(doc.getElementById("hw-view-source").textContent).toBe("模拟视野");
+  expect(doc.getElementById("hw-view-source").textContent).toBe("模拟取景");
   expect(doc.getElementById("hw-view-status").textContent).toContain("已断开");
 });
 
@@ -137,7 +141,12 @@ it("provides keyboard rotation, reset and an optical layer toggle", () => {
   expect(model.style.getPropertyValue("--lens-yaw")).toBe("-5deg");
   stage.dispatchEvent(new win.KeyboardEvent("keydown", {key: "Home", bubbles: true}));
   expect(model.style.getPropertyValue("--lens-yaw")).toBe("-8deg");
-  const button = doc.getElementById("hw-optical-toggle"); button.click();
+  const button = doc.getElementById("hw-optical-toggle");
   expect(button.getAttribute("aria-pressed")).toBe("false");
   expect(doc.querySelector(".hw-optics").classList.contains("hide-optical-path")).toBe(true);
+  expect(doc.querySelector(".hw-optical-legend").hidden).toBe(true);
+  button.click();
+  expect(button.getAttribute("aria-pressed")).toBe("true");
+  expect(doc.querySelector(".hw-optics").classList.contains("hide-optical-path")).toBe(false);
+  expect(doc.querySelector(".hw-optical-legend").hidden).toBe(false);
 });
