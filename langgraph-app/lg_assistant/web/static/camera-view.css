@@ -1,5 +1,10 @@
-/* Camera-first lens: a photographic sample until the user enables local video. */
-.has-camera-view .hw-world-demo{background-image:url('/static/lens-camera-scene.png');filter:none}
+/* The lens only shows the user's actual camera stream, never a sample image. */
+.has-camera-view .hw-world-view{background:#101a1d}
+.hw-camera-empty{position:absolute;top:18%;left:14%;right:14%;display:flex;align-items:center;gap:8px;flex-direction:column;text-align:center;color:#dbe9e5;font:11px/1.7 var(--sans)}
+.hw-camera-empty svg{width:27px;height:27px;fill:none;stroke:#a7c5b6;stroke-width:1.3}.hw-camera-empty strong{font-weight:500;font-size:14px}.hw-camera-empty span{max-width:300px;color:#a8bdb3}
+.hw-world-view.is-live .hw-camera-empty{display:none}
+.has-camera-view .hw-viewport:not(:has(.hw-world-view.is-live)) .hw-camera-focus{display:none}
+#hw-view-device{max-width:180px;min-height:32px;border:1px solid #9ed7b82e;border-radius:6px;padding:5px;background:#14251c;color:#d4eddf;font:11px var(--sans)}
 .has-camera-view .hw-world-view video{filter:none}
 .has-camera-view .hw-world-shade{background:linear-gradient(180deg,#030b1266,transparent 24%,transparent 47%,#040d1670 70%,#02080de0);box-shadow:inset 0 0 28px #0003}
 .has-camera-view .hw-viewport::after{background:linear-gradient(115deg,transparent 28%,#fff1 30%,transparent 36%);box-shadow:none;border-color:#ffffff38}

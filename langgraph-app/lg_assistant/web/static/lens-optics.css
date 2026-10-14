@@ -25,9 +25,7 @@
 .has-waveguide .hw-viewport{height:450px;min-height:0;flex:none;isolation:isolate;background:#294238;box-shadow:inset 0 0 30px #00120e55}
 .has-waveguide .hw-viewport::after{z-index:6;border-color:#caffde55;background:linear-gradient(112deg,transparent 20%,#eefff216 30%,transparent 39%,#b5ffe507 65%,transparent 78%),radial-gradient(ellipse at var(--glint-x,45%) 0%,#d9fff929,transparent 62%)}
 .hw-world-view{position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
-.hw-world-demo{position:absolute;inset:-18px;background:url('/static/lens-world.svg') center/cover no-repeat;transform:translate(var(--world-x,0px),var(--world-y,0px));filter:saturate(.63) brightness(.76)}
 .hw-world-view video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.85)}
-.hw-world-view.is-live .hw-world-demo{visibility:hidden}
 .hw-world-shade{position:absolute;inset:0;background:linear-gradient(0deg,#061a1baa,transparent 28%,#02151333 72%,#061a1b66),linear-gradient(90deg,#0b242533,#04161922);box-shadow:inset 0 0 80px #0025226b}
 .hw-waveguide{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.84;transition:opacity .2s}
 .hw-light-path{position:absolute;width:100%;height:100%;overflow:visible;stroke:#abffe5;stroke-width:1;vector-effect:non-scaling-stroke}

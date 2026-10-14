@@ -23,16 +23,16 @@
   optics.classList.add("has-waveguide", "has-camera-view", "hide-optical-path");
   const toolbar = document.createElement("div");
   toolbar.className = "hw-optical-toolbar";
-  toolbar.innerHTML = `<div class="hw-view-source"><span id="hw-view-source">模拟取景</span><span>眼镜摄像头视角</span></div>
-    <div class="hw-optical-actions"><button type="button" id="hw-view-camera" aria-pressed="false">开启摄像头</button><button type="button" id="hw-optical-toggle" aria-pressed="false">光路示意</button></div>`;
+  toolbar.innerHTML = `<div class="hw-view-source"><span id="hw-view-source">等待摄像头</span><span>眼镜摄像头视角</span></div>
+    <div class="hw-optical-actions"><select id="hw-view-device" aria-label="选择取景摄像头" hidden><option value="">自动选择摄像头</option></select><button type="button" id="hw-view-camera" aria-pressed="false">开启摄像头</button><button type="button" id="hw-optical-toggle" aria-pressed="false">光路示意</button></div>`;
   optics.before(toolbar);
   const scene = document.createElement("div");
   scene.className = "hw-world-view";
-  scene.innerHTML = `<div class="hw-world-demo" aria-hidden="true"></div><video id="hw-world-video" autoplay playsinline muted hidden aria-label="第一人称摄像头实时画面"></video><div class="hw-world-shade"></div>`;
+  scene.innerHTML = `<video id="hw-world-video" autoplay playsinline muted hidden aria-label="第一人称摄像头实时画面"></video><div class="hw-camera-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6l1-2h6l1 2h4v14H4V6z"/><circle cx="12" cy="12" r="4"/></svg><strong id="hw-camera-empty-title">等待摄像头画面</strong><span id="hw-camera-empty-note">请允许浏览器访问摄像头</span></div><div class="hw-world-shade"></div>`;
   viewport.prepend(scene);
   const cameraHud = document.createElement("div");
   cameraHud.className = "hw-camera-hud";
-  cameraHud.innerHTML = `<div class="hw-camera-top"><span class="hw-camera-source"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6l1-2h6l1 2h4v14H4V6z"/><circle cx="12" cy="12" r="4"/></svg><span id="hw-camera-source-label">模拟取景 · 示例画面</span></span><span id="hw-camera-feed-label">未开启摄像头</span></div><div class="hw-camera-focus" aria-hidden="true"><i></i><i></i><i></i><i></i><span>＋</span></div>`;
+  cameraHud.innerHTML = `<div class="hw-camera-top"><span class="hw-camera-source"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6l1-2h6l1 2h4v14H4V6z"/><circle cx="12" cy="12" r="4"/></svg><span id="hw-camera-source-label">摄像头 · 等待连接</span></span><span id="hw-camera-feed-label">未开启摄像头</span></div><div class="hw-camera-focus" aria-hidden="true"><i></i><i></i><i></i><i></i><span>＋</span></div>`;
   viewport.append(cameraHud);
   const light = document.createElement("div");
   light.className = "hw-waveguide";
@@ -61,13 +61,15 @@
   status.id = "hw-view-status";
   status.className = "hw-view-status";
   status.setAttribute("role", "status");
-  status.textContent = "当前为写实取景示例。开启摄像头后，镜片显示你的实时画面。";
+  status.textContent = "正在连接摄像头。允许访问后，镜片会显示摄像头前方的实时画面。";
   optics.append(status);
   const $ = id => document.getElementById(id);
   const video = $("hw-world-video"), cameraButton = $("hw-view-camera");
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   let pitch = -3, yaw = -8, zoom = 1, drag = null, suppressClick = false;
-  let stream = null, opening = false, generation = 0, captureActive = false;
+  let stream = null, opening = false, generation = 0, captureActive = false, previewWanted = true, pageActive = true;
+  const deviceSelect = $("hw-view-device");
+  const visible = () => pageActive && location.hash !== "#memory" && !document.hidden;
   // Reading and form controls keep their normal click, selection and scroll behavior.
   const interactive = target => target.closest("button,a,input,textarea,select,label,summary,video,audio,[role=slider],.hw-panel-scroll,#hw-result-body,.hw-question-nav,.hw-map-canvas,#hw-nav-options");
   const update = () => {
@@ -142,7 +144,7 @@
     event.currentTarget.setAttribute("aria-pressed", String(!hidden));
     legend.hidden = hidden;
   });
-  function stop(message = "摄像头已关闭，当前为模拟取景示例。") {
+  function stop(message = "摄像头已暂停。点击“开启摄像头”恢复实时画面。") {
     generation++;
     opening = false;
     stream?.getTracks().forEach(track => track.stop());
@@ -151,25 +153,29 @@
     scene.classList.remove("is-live");
     cameraButton.textContent = "开启摄像头";
     cameraButton.setAttribute("aria-pressed", "false");
-    $("hw-view-source").textContent = "模拟取景";
-    $("hw-camera-source-label").textContent = "模拟取景 · 示例画面";
+    $("hw-view-source").textContent = "摄像头未连接";
+    $("hw-camera-source-label").textContent = "摄像头 · 未连接";
     $("hw-camera-feed-label").textContent = "未开启摄像头";
+    $("hw-camera-empty-title").textContent = "暂无摄像头画面";
+    $("hw-camera-empty-note").textContent = message;
     status.textContent = message;
   }
-  async function toggleCamera() {
-    if (captureActive) return;
-    if (stream || opening) { stop(); return; }
+  async function startCamera() {
+    if (captureActive || stream || opening || !visible()) return;
     const current = ++generation;
     opening = true;
     cameraButton.textContent = "取消开启";
+    $("hw-view-source").textContent = "正在连接摄像头";
+    $("hw-camera-empty-title").textContent = "正在打开摄像头";
+    $("hw-camera-empty-note").textContent = "请在浏览器提示中允许摄像头访问";
     status.textContent = "请允许摄像头访问，画面仅在当前浏览器预览。";
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("unsupported");
-      const acquired = await navigator.mediaDevices.getUserMedia({audio: false, video: {facingMode: {ideal: "environment"}, width: {ideal: 1920}, height: {ideal: 1080}}});
+      const acquired = await navigator.mediaDevices.getUserMedia({audio: false, video: {...(deviceSelect.value ? {deviceId: {exact: deviceSelect.value}} : {facingMode: {ideal: "environment"}}), width: {ideal: 1920}, height: {ideal: 1080}}});
       if (current !== generation) { acquired.getTracks().forEach(track => track.stop()); return; }
       stream = acquired;
       acquired.getVideoTracks().forEach(track => track.addEventListener("ended", () => {
-        if (stream === acquired) stop("摄像头已断开，已恢复模拟取景示例。可重新开启摄像头。");
+        if (stream === acquired) stop("摄像头已断开，请检查设备后重新开启。");
       }));
       video.srcObject = acquired;
       await video.play();
@@ -182,18 +188,45 @@
       $("hw-camera-source-label").textContent = "摄像头 · 实时画面";
       $("hw-camera-feed-label").textContent = "本地预览";
       status.textContent = "摄像头已开启 · 仅本地预览，不录制、不上传。";
+      // Permission has been granted, so browsers may now expose device labels.
+      try {
+        const devices = (await navigator.mediaDevices.enumerateDevices?.() || []).filter(device => device.kind === "videoinput" && device.deviceId);
+        if (current !== generation) return;
+        const selected = acquired.getVideoTracks()[0]?.getSettings?.().deviceId || deviceSelect.value;
+        deviceSelect.replaceChildren(new Option("自动选择摄像头", ""));
+        devices.forEach((device,index) => deviceSelect.add(new Option(device.label || `摄像头 ${index + 1}`, device.deviceId)));
+        deviceSelect.value = devices.some(device => device.deviceId === selected) ? selected : "";
+        deviceSelect.hidden = devices.length < 2;
+      } catch (_) { /* Device selection is optional; keep the working stream. */ }
     } catch (error) {
       if (current !== generation) return;
-      stop(error.name === "NotAllowedError" ? "摄像头权限未开启，当前为模拟取景示例。允许权限后可重试。" : "摄像头暂不可用，当前为模拟取景示例。检查设备后可重试。");
+      const messages = {NotAllowedError: "摄像头权限未开启。请允许浏览器访问，然后点击“开启摄像头”。", NotFoundError: "未找到摄像头，请连接摄像头后重试。", NotReadableError: "摄像头无法读取，可能被其他应用占用，请关闭占用后重试。", OverconstrainedError: "所选摄像头不可用，请切换摄像头后重试。"};
+      stop(messages[error.name] || "摄像头暂不可用。请检查设备，并使用支持摄像头的浏览器打开此 HTTPS 页面。");
     }
   }
-  cameraButton.addEventListener("click", toggleCamera);
+  cameraButton.addEventListener("click", () => {
+    if (captureActive) return;
+    if (stream || opening) { previewWanted = false; stop("摄像头已关闭。点击“开启摄像头”恢复实时画面。"); }
+    else { previewWanted = true; void startCamera(); }
+  });
+  deviceSelect.addEventListener("change", () => { previewWanted = true; stop("正在切换摄像头…"); void startCamera(); });
   window.LensOptics = {stop, setCaptureActive(active) {
+    const wasActive = captureActive;
     captureActive = active;
-    if (active) stop("正在拍照解题，摄像头由拍照窗口使用。结束后可重新开启实时视野。");
+    if (active) stop("正在拍照解题，摄像头由拍照窗口使用。结束后恢复实时视野。");
     cameraButton.disabled = active;
+    deviceSelect.disabled = active;
+    if (wasActive && !active) queueMicrotask(() => { if (previewWanted && visible()) void startCamera(); });
   }};
-  window.addEventListener("pagehide", () => { endDrag(); stop(); });
+  const syncVisibility = () => {
+    if (!visible()) { if (stream || opening) stop(); }
+    else if (previewWanted) void startCamera();
+  };
+  window.addEventListener("hashchange", syncVisibility);
+  document.addEventListener("visibilitychange", syncVisibility);
+  window.addEventListener("pagehide", () => { pageActive = false; endDrag(); stop(); });
+  window.addEventListener("pageshow", () => { pageActive = true; syncVisibility(); });
   window.addEventListener("blur", () => endDrag());
   update();
+  queueMicrotask(syncVisibility);
 })();
