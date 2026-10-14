@@ -44,12 +44,17 @@ it("automatically opens the actual camera on entry and releases it on manual sto
   expect(media.mock.calls[0][0].audio).toBe(false);
   expect(media.mock.calls[0][0].video.facingMode.ideal).toBe("environment");
   expect(doc.getElementById("hw-world-video").srcObject).toBe(stream);
+  expect(doc.getElementById("hw-companion-video").srcObject).toBe(stream);
+  expect(doc.getElementById("hw-companion-video").hidden).toBe(false);
+  expect(media).toHaveBeenCalledTimes(1);
   expect(doc.getElementById("hw-world-video").hidden).toBe(false);
   expect(camera.getAttribute("aria-pressed")).toBe("true");
   expect(doc.getElementById("hw-camera-source-label").textContent).toBe("摄像头 · 实时画面");
   camera.click();
   expect(stream.track.stop).toHaveBeenCalledOnce();
   expect(doc.getElementById("hw-world-video").srcObject).toBeNull();
+  expect(doc.getElementById("hw-companion-video").srcObject).toBeNull();
+  expect(doc.getElementById("hw-companion-video").hidden).toBe(true);
   expect(doc.getElementById("hw-world-video").hidden).toBe(true);
   expect(doc.getElementById("hw-camera-source-label").textContent).toContain("未连接");
   doc.dispatchEvent(new win.Event("visibilitychange")); await flush();
@@ -165,21 +170,21 @@ it("rotates with bounded drag, cancels cleanly and leaves controls clickable", (
   boot();
   pointer("pointerdown", stage, 100, 100);
   pointer("pointermove", stage, 1000, 1000);
-  expect(model.style.getPropertyValue("--lens-yaw")).toBe("38deg");
-  expect(model.style.getPropertyValue("--lens-pitch")).toBe("-25deg");
+  expect(model.style.getPropertyValue("--lens-yaw")).toBe("75deg");
+  expect(model.style.getPropertyValue("--lens-pitch")).toBe("-40deg");
   pointer("pointercancel", stage, 1000, 1000);
   expect(stage.classList.contains("is-dragging")).toBe(false);
   pointer("pointermove", stage, 0, 0);
-  expect(model.style.getPropertyValue("--lens-yaw")).toBe("38deg");
+  expect(model.style.getPropertyValue("--lens-yaw")).toBe("75deg");
   const button = doc.getElementById("hw-camera-shoot");
   pointer("pointerdown", button, 0, 0);
   pointer("pointermove", stage, 100, 100);
-  expect(model.style.getPropertyValue("--lens-yaw")).toBe("38deg");
+  expect(model.style.getPropertyValue("--lens-yaw")).toBe("75deg");
   const click = new win.MouseEvent("click", {bubbles: true, cancelable: true});
   button.dispatchEvent(click);
   expect(click.defaultPrevented).toBe(false);
   doc.getElementById("hw-view-reset").click();
-  expect(model.style.getPropertyValue("--lens-yaw")).toBe("-8deg");
+  expect(model.style.getPropertyValue("--lens-yaw")).toBe("-18deg");
 });
 
 it("zooms on the lens while preserving answer scrolling, form controls and browser pinch zoom", () => {
@@ -204,9 +209,9 @@ it("zooms on the lens while preserving answer scrolling, form controls and brows
 it("provides keyboard rotation, reset and an optical layer toggle", () => {
   boot();
   stage.dispatchEvent(new win.KeyboardEvent("keydown", {key: "ArrowRight", bubbles: true}));
-  expect(model.style.getPropertyValue("--lens-yaw")).toBe("-5deg");
+  expect(model.style.getPropertyValue("--lens-yaw")).toBe("-15deg");
   stage.dispatchEvent(new win.KeyboardEvent("keydown", {key: "Home", bubbles: true}));
-  expect(model.style.getPropertyValue("--lens-yaw")).toBe("-8deg");
+  expect(model.style.getPropertyValue("--lens-yaw")).toBe("-18deg");
   const button = doc.getElementById("hw-optical-toggle");
   expect(button.getAttribute("aria-pressed")).toBe("false");
   expect(doc.querySelector(".hw-optics").classList.contains("hide-optical-path")).toBe(true);
@@ -215,4 +220,24 @@ it("provides keyboard rotation, reset and an optical layer toggle", () => {
   expect(button.getAttribute("aria-pressed")).toBe("true");
   expect(doc.querySelector(".hw-optics").classList.contains("hide-optical-path")).toBe(false);
   expect(doc.querySelector(".hw-optical-legend").hidden).toBe(false);
+});
+
+it("keeps the whole glasses assembly together when dragging and changing viewing scale", () => {
+  boot();
+  const parts = [".hw-primary-frame", ".hw-secondary-frame", ".hw-bridge", ".hw-temple-left", ".hw-temple-right"];
+  const nodes = parts.map(selector => doc.querySelector(selector));
+  nodes.forEach(node => expect(node.closest(".hw-optical-model")).toBe(model));
+  pointer("pointerdown", nodes[4], 100, 100);
+  pointer("pointermove", stage, 200, 150);
+  pointer("pointerup", stage, 200, 150);
+  expect(model.style.getPropertyValue("--lens-yaw")).toBe("4deg");
+  const button = doc.getElementById("hw-view-detail");
+  button.click();
+  expect(button.getAttribute("aria-pressed")).toBe("true");
+  expect(model.style.getPropertyValue("--lens-yaw")).toBe("0deg");
+  expect(model.style.getPropertyValue("--glasses-offset")).toBe("280px");
+  button.click();
+  expect(button.getAttribute("aria-pressed")).toBe("false");
+  expect(model.style.getPropertyValue("--glasses-offset")).toBe("0px");
+  nodes.forEach((node, index) => expect(doc.querySelector(parts[index])).toBe(node));
 });

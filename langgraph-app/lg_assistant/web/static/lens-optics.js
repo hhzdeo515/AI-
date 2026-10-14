@@ -1,4 +1,4 @@
-/* Interactive optical schematic. Camera preview stays local and never records. */
+/* One complete glasses assembly; both lenses share a local-only camera stream. */
 (() => {
   "use strict";
   const host = document.getElementById("hardware-demo");
@@ -18,13 +18,26 @@
   for (const node of [...optics.children]) {
     if (!node.classList.contains("hw-optics-caption")) model.append(node);
   }
+  frame.classList.add("hw-primary-frame");
+  const secondFrame = document.createElement("div");
+  secondFrame.className = "hw-lens-frame hw-secondary-frame";
+  secondFrame.setAttribute("aria-hidden", "true");
+  secondFrame.innerHTML = `<div class="hw-secondary-glass"><video id="hw-companion-video" autoplay playsinline muted hidden></video><span class="hw-lens-etch">WAVEGUIDE / R</span></div>`;
+  model.append(secondFrame);
+  const hardware = document.createElement("div");
+  hardware.className = "hw-glasses-hardware";
+  hardware.setAttribute("aria-hidden", "true");
+  hardware.innerHTML = `<span class="hw-nose-pad hw-nose-pad-left"></span><span class="hw-nose-pad hw-nose-pad-right"></span><span class="hw-hinge-right"></span><span class="hw-frame-camera"></span>
+    <div class="hw-temple hw-temple-left"><span class="hw-temple-outer">LENS / AI</span><span class="hw-temple-inner"></span><span class="hw-temple-top"></span><span class="hw-temple-bottom"></span><span class="hw-temple-tip"></span></div>
+    <div class="hw-temple hw-temple-right"><span class="hw-temple-outer">LENS / AI</span><span class="hw-temple-inner"></span><span class="hw-temple-top"></span><span class="hw-temple-bottom"></span><span class="hw-temple-tip"></span></div>`;
+  model.append(hardware);
   stage.append(model);
   optics.prepend(stage);
-  optics.classList.add("has-waveguide", "has-camera-view", "hide-optical-path");
+  optics.classList.add("has-waveguide", "has-camera-view", "has-full-glasses", "hide-optical-path");
   const toolbar = document.createElement("div");
   toolbar.className = "hw-optical-toolbar";
   toolbar.innerHTML = `<div class="hw-view-source"><span id="hw-view-source">等待摄像头</span><span>眼镜摄像头视角</span></div>
-    <div class="hw-optical-actions"><select id="hw-view-device" aria-label="选择取景摄像头" hidden><option value="">自动选择摄像头</option></select><button type="button" id="hw-view-camera" aria-pressed="false">开启摄像头</button><button type="button" id="hw-optical-toggle" aria-pressed="false">光路示意</button></div>`;
+    <div class="hw-optical-actions"><button type="button" id="hw-view-detail" aria-pressed="false">放大镜片</button><select id="hw-view-device" aria-label="选择取景摄像头" hidden><option value="">自动选择摄像头</option></select><button type="button" id="hw-view-camera" aria-pressed="false">开启摄像头</button><button type="button" id="hw-optical-toggle" aria-pressed="false">光路示意</button></div>`;
   optics.before(toolbar);
   const scene = document.createElement("div");
   scene.className = "hw-world-view";
@@ -50,7 +63,7 @@
   emitter.setAttribute("aria-hidden", "true");
   frame.append(emitter);
   const caption = optics.querySelector(".hw-optics-caption");
-  caption.innerHTML = `<div><span class="hw-optical-eyebrow">CAMERA VIEW</span><strong>眼前画面，随时取景</strong><span id="hw-optical-help">拖动镜框或空白处旋转 · 滚轮缩放 · 双击空白处复位</span></div>
+  caption.innerHTML = `<div><span class="hw-optical-eyebrow">SMART GLASSES</span><strong>整副眼镜，自由转动</strong><span id="hw-optical-help">拖动镜框、镜腿或空白处旋转整副眼镜 · 滚轮缩放 · 双击复位</span></div>
     <div class="hw-view-controls"><button type="button" id="hw-view-out" aria-label="缩小眼镜">−</button><output id="hw-view-scale" aria-label="眼镜缩放比例">100%</output><button type="button" id="hw-view-in" aria-label="放大眼镜">＋</button><button type="button" id="hw-view-reset">复位</button></div>`;
   const legend = document.createElement("div");
   legend.className = "hw-optical-legend";
@@ -64,9 +77,10 @@
   status.textContent = "正在连接摄像头。允许访问后，镜片会显示摄像头前方的实时画面。";
   optics.append(status);
   const $ = id => document.getElementById(id);
-  const video = $("hw-world-video"), cameraButton = $("hw-view-camera");
+  const video = $("hw-world-video"), companionVideo = $("hw-companion-video"), cameraButton = $("hw-view-camera");
+  const previewVideos = [video, companionVideo];
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-  let pitch = -3, yaw = -8, zoom = 1, drag = null, suppressClick = false;
+  let pitch = -24, yaw = -18, zoom = 1, detail = false, drag = null, suppressClick = false;
   let stream = null, opening = false, generation = 0, captureActive = false, previewWanted = true, pageActive = true;
   const deviceSelect = $("hw-view-device");
   const visible = () => pageActive && location.hash !== "#memory" && !document.hidden;
@@ -76,6 +90,9 @@
     model.style.setProperty("--lens-pitch", `${pitch}deg`);
     model.style.setProperty("--lens-yaw", `${yaw}deg`);
     model.style.setProperty("--lens-zoom", zoom);
+    const fit = stage.clientWidth > 0 ? Math.min(1, stage.clientWidth / (detail ? 570 : 1240)) : .65;
+    model.style.setProperty("--glasses-scale", fit * zoom);
+    model.style.setProperty("--glasses-offset", detail ? "280px" : "0px");
     model.style.setProperty("--glint-x", `${50 + yaw * .8}%`);
     model.style.setProperty("--world-x", `${-yaw * .45}px`);
     model.style.setProperty("--world-y", `${pitch * .35}px`);
@@ -84,7 +101,17 @@
     $("hw-view-in").disabled = zoom >= 1.35;
   };
   function setZoom(value) { zoom = clamp(value, .7, 1.35); update(); }
-  function reset() { pitch = -3; yaw = -8; zoom = 1; update(); }
+  function reset() { pitch = detail ? 0 : -24; yaw = detail ? 0 : -18; zoom = 1; update(); }
+  $("hw-view-detail").addEventListener("click", event => {
+    detail = !detail;
+    event.currentTarget.setAttribute("aria-pressed", String(detail));
+    event.currentTarget.textContent = detail ? "查看整副眼镜" : "放大镜片";
+    optics.classList.toggle("is-lens-detail", detail);
+    reset();
+  });
+  const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(update) : null;
+  resizeObserver?.observe(stage);
+  window.addEventListener("resize", update);
   function endDrag(event) {
     if (!drag || (event && event.pointerId !== drag.id)) return;
     const id = drag.id;
@@ -107,8 +134,8 @@
     if (!drag || drag.id !== event.pointerId) return;
     const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
     if (Math.hypot(dx, dy) > 4) drag.moved = true;
-    yaw = clamp(drag.yaw + dx * .15, -38, 38);
-    pitch = clamp(drag.pitch - dy * .12, -25, 25);
+    yaw = clamp(drag.yaw + dx * .22, -75, 75);
+    pitch = clamp(drag.pitch - dy * .18, -40, 40);
     update();
   });
   ["pointerup", "pointercancel", "lostpointercapture"].forEach(type => stage.addEventListener(type, endDrag));
@@ -125,10 +152,10 @@
   stage.addEventListener("keydown", event => {
     if (event.target !== stage) return;
     switch (event.key) {
-      case "ArrowLeft": yaw = clamp(yaw - 3, -38, 38); break;
-      case "ArrowRight": yaw = clamp(yaw + 3, -38, 38); break;
-      case "ArrowUp": pitch = clamp(pitch + 3, -25, 25); break;
-      case "ArrowDown": pitch = clamp(pitch - 3, -25, 25); break;
+      case "ArrowLeft": yaw = clamp(yaw - 3, -75, 75); break;
+      case "ArrowRight": yaw = clamp(yaw + 3, -75, 75); break;
+      case "ArrowUp": pitch = clamp(pitch + 3, -40, 40); break;
+      case "ArrowDown": pitch = clamp(pitch - 3, -40, 40); break;
       case "+": case "=": setZoom(zoom + .1); break;
       case "-": setZoom(zoom - .1); break;
       case "Home": reset(); break;
@@ -149,7 +176,7 @@
     opening = false;
     stream?.getTracks().forEach(track => track.stop());
     stream = null;
-    video.pause(); video.srcObject = null; video.hidden = true;
+    previewVideos.forEach(preview => { preview.pause(); preview.srcObject = null; preview.hidden = true; });
     scene.classList.remove("is-live");
     cameraButton.textContent = "开启摄像头";
     cameraButton.setAttribute("aria-pressed", "false");
@@ -177,10 +204,11 @@
       acquired.getVideoTracks().forEach(track => track.addEventListener("ended", () => {
         if (stream === acquired) stop("摄像头已断开，请检查设备后重新开启。");
       }));
-      video.srcObject = acquired;
-      await video.play();
+      previewVideos.forEach(preview => { preview.srcObject = acquired; });
+      await Promise.all(previewVideos.map(preview => preview.play()));
       if (current !== generation) return;
-      opening = false; video.hidden = false;
+      opening = false;
+      previewVideos.forEach(preview => { preview.hidden = false; });
       scene.classList.add("is-live");
       cameraButton.textContent = "关闭摄像头";
       cameraButton.setAttribute("aria-pressed", "true");

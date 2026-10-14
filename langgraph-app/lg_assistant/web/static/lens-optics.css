@@ -1,4 +1,4 @@
-/* The scene, projected interface and optical schematic share one curved lens. */
+/* The live lenses and physical frame rotate as a single glasses assembly. */
 /* Keep the WebGL canvas's intrinsic pixel size out of the ring's grid sizing. */
 .hw-ring-panel .hw-ring-stage{grid-template-rows:minmax(0,1fr);grid-template-columns:minmax(0,1fr)}
 .hw-ring.has-model{min-height:0;min-width:0}
@@ -78,3 +78,45 @@
   .hw-optical-legend{gap:8px 12px}.hw-optical-legend small{margin-left:0;width:100%}.hw-tag-in{font-size:7px}.hw-tag-out{right:3%;font-size:7px}
 }
 @media(prefers-reduced-motion:reduce){.hw-light-ray{animation:none}.hw-waveguide{transition:none}}
+
+/* The frame sits at z=0; the two temples extend behind it in real CSS 3D. */
+.has-full-glasses .hw-optical-stage{min-height:480px;perspective:1600px}
+.has-full-glasses .hw-optical-model{width:1120px;height:350px;transform-origin:50% 50% -100px;transform:scale(var(--glasses-scale,.65)) translateX(var(--glasses-offset,0px)) rotateX(var(--lens-pitch,-24deg)) rotateY(var(--lens-yaw,-18deg));transform-style:preserve-3d}
+.has-full-glasses .hw-lens-frame{position:absolute;top:0;width:520px;height:350px;box-sizing:border-box;padding:10px;border-radius:22% 20% 29% 24% / 24% 22% 40% 38%;transform:translateZ(0);background:linear-gradient(155deg,#bac7bd,#53635a 3%,#17251d 8%,#121e18 65%,#607469 94%,#192b20);box-shadow:inset 0 2px 2px #e8f6ecb3,inset 0 -3px 3px #06100a,0 4px 0 #293b30,0 8px 0 #0b1810}
+.has-full-glasses .hw-primary-frame{left:0}
+.has-full-glasses .hw-secondary-frame{right:0;border-radius:20% 22% 24% 29% / 22% 24% 38% 40%}
+.has-full-glasses .hw-viewport,.has-full-glasses .hw-viewport.is-exam-reading{height:330px;min-height:330px;max-height:330px;border-radius:20% 18% 27% 22% / 22% 20% 38% 36%}
+.hw-secondary-glass{position:relative;width:100%;height:100%;overflow:hidden;border-radius:18% 20% 22% 27% / 20% 22% 36% 38%;background:linear-gradient(130deg,#172921a3,#263c323d 45%,#08130fb3);box-shadow:inset 0 0 28px #0006,inset 0 1px 1px #def9e957}
+.hw-secondary-glass::after{content:"";position:absolute;inset:0;border:1px solid #d4e8dc33;border-radius:inherit;background:linear-gradient(125deg,transparent 23%,#ecfff212 24%,#ecfff20a 30%,transparent 32%,transparent 75%,#effff510 76%,transparent 81%);pointer-events:none}
+.hw-secondary-glass video{width:100%;height:100%;object-fit:cover;opacity:.86;pointer-events:none}
+.hw-lens-etch{position:absolute;bottom:31px;right:42px;color:#d1eadd75;font:8px var(--mono);letter-spacing:.2em}
+.has-full-glasses .hw-bridge{left:507px;right:auto;top:58px;width:106px;height:56px;box-sizing:border-box;border:13px solid #344b3c;border-bottom:0;border-radius:70% 70% 0 0;transform:translateZ(-3px);z-index:auto;box-shadow:inset 0 3px 2px #899e8c,0 -2px 0 #a1b7a4,0 5px 0 #0b180e}
+.has-full-glasses .hw-hinge,.hw-hinge-right{position:absolute;top:40px;width:34px;height:35px;border-radius:6px;background:linear-gradient(#899d8c,#344f3f 13%,#0c1911 70%,#53745d);transform:translateZ(-4px);z-index:auto;box-shadow:inset 0 1px 0 #c4d5c6}
+.has-full-glasses .hw-hinge{left:-23px}.hw-hinge-right{right:-23px}
+.hw-hinge-right::after{content:"";position:absolute;right:5px;top:13px;width:6px;height:6px;border-radius:50%;background:#071009;border:1px solid #a1b8a6}
+.hw-glasses-hardware{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none}
+.hw-frame-camera{position:absolute;left:-11px;top:48px;width:19px;height:19px;border:3px solid #8d9d93;border-radius:50%;background:radial-gradient(circle at 38% 32%,#8bb0b9 0 9%,#152e36 12% 28%,#020706 35% 60%,#3a4d44 65%);box-shadow:0 0 0 3px #101d15;transform:translateZ(8px)}
+.hw-nose-pad{position:absolute;top:134px;width:19px;height:51px;border:2px solid #a6b7a66b;border-radius:48%;background:linear-gradient(90deg,#a3b4a945,#d1dbca82,#90a18c2e);box-shadow:inset 1px 0 2px #efffeb80;transform:translateZ(-26px) rotate(-18deg)}
+.hw-nose-pad-left{left:511px}.hw-nose-pad-right{right:511px;transform:translateZ(-26px) rotate(18deg)}
+.hw-temple{position:absolute;top:42px;width:420px;height:31px;transform-origin:0 50%;transform:translateZ(-6px) rotateY(90deg);transform-style:preserve-3d}
+.hw-temple-left{left:-13px}.hw-temple-right{left:1133px}
+.hw-temple>span{position:absolute;display:block;box-sizing:border-box;backface-visibility:visible}
+.hw-temple-outer,.hw-temple-inner{inset:0;border:1px solid #72927a70;border-radius:4px 18px 9px 4px;background:linear-gradient(#7a8d7c,#2d4835 14%,#102719 47%,#172d1c 80%,#526b51);transform:translateZ(9px);box-shadow:inset 0 1px 1px #b0c4a980;color:#a9bda48c;font:9px/29px var(--mono);letter-spacing:.3em;padding-left:58px}
+.hw-temple-inner{transform:translateZ(-9px);background:linear-gradient(#415a41,#122319 25%,#1b3020 80%,#4c6349)}
+.hw-temple-top,.hw-temple-bottom{left:0;width:420px;height:18px;background:linear-gradient(90deg,#658164,#243f2a 25%,#132b1c 85%,#4e6a4f);transform-origin:50% 0;transform:translateZ(-9px) rotateX(90deg)}
+.hw-temple-top{top:0}.hw-temple-bottom{top:31px;background:#0b1c10}
+.hw-temple-tip{left:384px;top:1px;width:87px;height:32px;border-radius:8px 60% 50% 10px;background:linear-gradient(#516c51,#112719 35%,#07170d 80%,#243c25);transform-origin:0 50%;transform:translateZ(0px) rotate(32deg);box-shadow:0 7px 0 #0a1b0f,inset 0 2px 1px #7a917166}
+.has-full-glasses .hw-camera-empty{top:18%;gap:5px}.has-full-glasses .hw-camera-empty svg{width:22px;height:22px}.has-full-glasses .hw-camera-empty strong{font-size:12px}.has-full-glasses .hw-camera-empty span{font-size:10px;line-height:1.5}
+.has-full-glasses .hw-camera-top{top:21px;font-size:9px}.has-full-glasses .hw-camera-focus{top:21%;height:22%}
+.has-full-glasses .hw-nav-menu,.has-full-glasses .hw-nav-menu:has(#hw-nav-options.is-home){bottom:21px}
+.has-full-glasses.is-lens-detail .hw-optical-stage{min-height:460px}
+@media(max-width:760px){.has-full-glasses .hw-optical-stage{min-height:310px}.has-full-glasses.is-lens-detail .hw-optical-stage{min-height:330px}.has-full-glasses .hw-optical-stage::after{bottom:45px}.has-full-glasses .hw-optics-caption strong{font-size:15px}}
+@media(max-width:760px){
+  .has-full-glasses.is-lens-detail .hw-nav-heading>strong{font-size:17px}
+  .has-full-glasses.is-lens-detail #hw-nav-options.is-carousel button>span{font-size:22px}
+  .has-full-glasses.is-lens-detail #hw-nav-options.is-carousel button>small{font-size:12px}
+  .has-full-glasses.is-lens-detail .hw-menu-controls button{min-height:40px;font-size:16px}
+  .has-full-glasses.is-lens-detail #hw-menu-prev,.has-full-glasses.is-lens-detail #hw-menu-next{min-width:42px;font-size:24px}
+  .has-full-glasses.is-lens-detail .hw-menu-hint,.has-full-glasses.is-lens-detail #hw-menu-voice-status{font-size:12px}
+  .has-full-glasses.is-lens-detail .hw-camera-empty{top:14%}
+}
