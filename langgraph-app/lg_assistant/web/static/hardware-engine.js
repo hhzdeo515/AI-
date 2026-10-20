@@ -24,7 +24,8 @@
       if (action==="home") { next.screen="home"; next.focus=next.mode; message="已回到场景选择"; }
       else if (action==="back" || action==="double") {
         next.screen=next.screen==="practice"||next.screen==="settings"&&next.returnScreen==="result"?"result":next.screen==="home"||next.screen==="actions"?"home":"actions"; delete next.returnScreen;next.focus=next.screen==="home"?next.mode:0; message="已返回上一级";
-      } else if (/^scene\d+$/.test(action) && Number(action.slice(5))<modes.length) { next.mode=Number(action.slice(5));next.screen="actions";next.focus=0;message=`进入${modes[next.mode]}`; }
+      } else if (/^open[23]$/.test(action)) { next.mode=Number(action.slice(4));next.screen="feature";next.focus=0;effect="featureOpen";message=`打开${modes[next.mode]}`; }
+      else if (/^scene\d+$/.test(action) && Number(action.slice(5))<modes.length) { next.mode=Number(action.slice(5));next.screen="actions";next.focus=0;message=`进入${modes[next.mode]}`; }
       else if (/^focus\d+$/.test(action) && ["home","actions"].includes(next.screen) && Number(action.slice(5))<(next.screen==="home"?modes.length:this.options(next.mode).length)) { next.focus=Number(action.slice(5));if(next.screen==="home")next.mode=next.focus;message=`选中${next.screen==="home"?modes[next.focus]:this.options(next.mode)[next.focus]}`; }
       else if (action==="scrollPosition" && next.screen==="result") { message="阅读位置已同步"; }
       else if (action==="rerun" && next.mode===0) {

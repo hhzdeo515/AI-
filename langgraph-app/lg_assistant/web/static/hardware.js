@@ -324,7 +324,7 @@
   $("hw-question-next").addEventListener("click",()=>selectQuestion(questionIndex + 1));
   $("hw-question-select").addEventListener("change",event=>selectQuestion(Number(event.target.value)));
   async function operate(action) {
-    if (working || engine.state.busy || inspecting || flowDrag || !lensVisible() || document.hidden) return;
+    if (working || engine.state.busy || inspecting || flowDrag || !lensVisible() || document.hidden) return false;
     window.LensNavigation?.stopVoice();
     rememberQuestionScroll();
     note("");
@@ -338,8 +338,8 @@
       navigation.commit(plan); engine.state.mode=plan.next.mode;
       return plan.message || "操作已完成";
     }});
-    if (!success) return;
-    if (!lensVisible() || document.hidden) {closeFeatures();return;}
+    if (!success) return false;
+    if (!lensVisible() || document.hidden) {closeFeatures();return false;}
     if(mode>=2&&(plan.next.screen!=="feature"||plan.next.mode!==mode))featureFor(mode)?.close();
     if(plan.next.screen!=="camera"&&camera.active)closeCamera();
     if(plan.next.screen!=="recording"&&recordPhase!=="off")stopRecording();
@@ -350,10 +350,10 @@
     if(plan.effect==="featureOpen") {
       controlFocus=0;
       const feature=featureFor(plan.next.mode);
-      if(!feature){note("当前场景暂不可用，请刷新页面后重试。");return;}
-      try {await feature.open();} catch(error) {feature.close();note(error.message||"场景打开失败，请重试。");}
-      if(!lensVisible()||document.hidden||navigation.state.screen!=="feature"||navigation.state.mode!==plan.next.mode)feature.close();
-      markControl();return;
+      if(!feature){note("当前场景暂不可用，请刷新页面后重试。");return false;}
+      try {await feature.open();} catch(error) {feature.close();note(error.message||"场景打开失败，请重试。");return false;}
+      if(!lensVisible()||document.hidden||navigation.state.screen!=="feature"||navigation.state.mode!==plan.next.mode){feature.close();return false;}
+      markControl();return true;
     }
     if(plan.effect==="camera") {await openCamera();return;}
     if(plan.effect==="capture") {await activateControl();return;}
@@ -726,7 +726,10 @@
   $("hw-camera-silent").addEventListener("change",()=>{const checked=$("hw-camera-silent").checked;$("exam-camera-silent").checked=checked;try{localStorage.setItem("assistant.exam.camera.silent",String(checked));}catch(_){};});
   window.HardwareLens={acceptImage,acceptAudio,openSettings,closeSettings:()=>operate("back"),stop:()=>{importGeneration++;window.LensNavigation?.stop();window.LensOptics?.stop();closeFeatures();if(navigation.state.screen==="feature")navigation.state.screen="actions";closeCamera();stopRecording();stopPracticeRecording();$("hw-audio-player").pause();$("hw-practice-audio").pause();engine.cancel();}};
   window.HardwareLens.menu={
-    state:()=>({...navigation.state,options:[...(navigation.state.screen==="home"?modeNames:navigation.options())],available:lensVisible()&&!document.hidden&&!working&&!engine.state.busy&&!inspecting&&!flowDrag&&engine.state.connected&&recordPhase==="off"&&practiceRecordPhase==="off"&&["home","actions"].includes(navigation.state.screen)}),
+    state:()=>{
+      const ready=lensVisible()&&!document.hidden&&!working&&!engine.state.busy&&!inspecting&&!flowDrag&&engine.state.connected&&recordPhase==="off"&&practiceRecordPhase==="off";
+      return {...navigation.state,options:[...(navigation.state.screen==="home"?modeNames:navigation.options())],commandAvailable:ready,available:ready&&["home","actions"].includes(navigation.state.screen)};
+    },
     act:operate,
     slide:event=>followFlow({...event,source:"lens"})
   };

@@ -106,13 +106,14 @@
   };
   function setZoom(value) { zoom = clamp(value, .7, 1.35); update(); }
   function reset() { pitch = detail ? 0 : -24; yaw = detail ? 0 : -18; zoom = 1; update(); }
-  $("hw-view-detail").addEventListener("click", event => {
-    detail = !detail;
-    event.currentTarget.setAttribute("aria-pressed", String(detail));
-    event.currentTarget.textContent = detail ? "查看整副眼镜" : "放大镜片";
+  function setDetail(value) {
+    detail = value;
+    $("hw-view-detail").setAttribute("aria-pressed", String(detail));
+    $("hw-view-detail").textContent = detail ? "查看整副眼镜" : "放大镜片";
     optics.classList.toggle("is-lens-detail", detail);
     reset();
-  });
+  }
+  $("hw-view-detail").addEventListener("click", () => setDetail(!detail));
   const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(update) : null;
   resizeObserver?.observe(stage);
   window.addEventListener("resize", update);
@@ -242,7 +243,22 @@
     else { previewWanted = true; void startCamera(); }
   });
   deviceSelect.addEventListener("change", () => { previewWanted = true; stop("正在切换摄像头…"); void startCamera(); });
-  window.LensOptics = {stop, setCaptureActive(active) {
+  window.LensOptics = {stop, command(action) {
+    if (!visible() || drag) return false;
+    switch(action) {
+      case "zoomIn": setZoom(zoom+.1); break;
+      case "zoomOut": setZoom(zoom-.1); break;
+      case "detail": setDetail(true); break;
+      case "whole": setDetail(false); break;
+      case "left": yaw=clamp(yaw-12,-75,75); update(); break;
+      case "right": yaw=clamp(yaw+12,-75,75); update(); break;
+      case "up": pitch=clamp(pitch+10,-40,40); update(); break;
+      case "down": pitch=clamp(pitch-10,-40,40); update(); break;
+      case "reset": setDetail(false); break;
+      default: return false;
+    }
+    return true;
+  }, setCaptureActive(active) {
     const wasActive = captureActive;
     captureActive = active;
     if (active) stop("正在拍照解题，摄像头由拍照窗口使用。结束后恢复实时视野。");

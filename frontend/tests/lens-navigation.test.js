@@ -21,12 +21,13 @@ function setup(supported = true) {
     constructor() { this.abort = vi.fn(); this.stop = vi.fn(); this.start = vi.fn(); sessions.push(this); }
   }
   Recognition.prototype.processLocally = false;
+  if(supported==='browser') {delete Recognition.prototype.processLocally;delete Recognition.available;delete Recognition.install;}
   if (supported) win.SpeechRecognition = Recognition;
   win.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({error:"云端编排服务尚未配置"}),{status:503}));
   win.HTMLMediaElement.prototype.pause = vi.fn();
   win.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue();
   const api = {
-    state: () => ({...nav.state, options: nav.state.screen === "home" ? modes : nav.options(), available}),
+    state: () => ({...nav.state, options: nav.state.screen === "home" ? modes : nav.options(), commandAvailable:available, available:available&&["home","actions"].includes(nav.state.screen)}),
     act: vi.fn(async action => { nav.commit(nav.plan(action)); win.LensNavigation?.refresh(); }),
     slide: vi.fn()
   };
@@ -63,13 +64,104 @@ it("only starts recognition on explicit click, then selects one final spoken fun
   expect(s.api.act).not.toHaveBeenCalled();
   expect(s.status.textContent).toContain("正在听");
   await callback(s.result("请帮我打开实时翻译。"));
-  expect(s.api.act).toHaveBeenCalledExactlyOnceWith("scene2");
-  expect(s.nav.state.mode).toBe(2); expect(s.nav.state.screen).toBe("actions");
+  expect(s.api.act).toHaveBeenCalledExactlyOnceWith("open2");
+  expect(s.nav.state.mode).toBe(2); expect(s.nav.state.screen).toBe("feature");
   expect(speech.abort).toHaveBeenCalledOnce();
   await callback(s.result("地图"));
   expect(s.api.act).toHaveBeenCalledTimes(1);
   expect(s.win.fetch).not.toHaveBeenCalled();
-  expect(s.status.textContent).toContain("已选择：实时翻译");
+  expect(s.status.textContent).toContain("已执行：实时翻译");
+});
+
+it('requires explicit browser speech consent and shares stop state across visible entries',async()=>{
+  const s=setup();
+  delete s.win.SpeechRecognition.prototype.processLocally;
+  s.win.SpeechRecognition.available.mockResolvedValue('unavailable');
+  const main=s.doc.getElementById('hw-intent-voice'),top=s.doc.getElementById('hw-toolbar-voice'),browser=s.doc.getElementById('hw-speech-browser');
+  main.click();await settle();
+  expect(s.sessions).toHaveLength(0);
+  browser.click();await settle();
+  expect(s.sessions).toHaveLength(1);
+  expect(s.sessions[0].processLocally).not.toBe(true);
+  expect(s.win.SpeechRecognition.available).toHaveBeenCalledTimes(1);
+  for(const button of [main,top,s.voice]) expect(button.getAttribute('aria-pressed')).toBe('true');
+  const late=s.sessions[0].onresult;
+  top.click();await late(s.result('打开地图'));
+  expect(s.api.act).not.toHaveBeenCalled();
+  expect(s.sessions[0].abort).toHaveBeenCalledOnce();
+  for(const button of [main,top,s.voice]) expect(button.getAttribute('aria-pressed')).toBe('false');
+  browser.click();expect(browser.textContent).toContain('允许');
+  expect(s.sessions).toHaveLength(1);
+});
+
+it('offers browser speech on engines with no local APIs, without starting it automatically',async()=>{
+  const s=setup('browser');
+  const main=s.doc.getElementById('hw-intent-voice'),browser=s.doc.getElementById('hw-speech-browser');
+  main.click();await settle();
+  expect(s.sessions).toHaveLength(0);
+  expect(s.doc.getElementById('hw-intent-result').textContent).toContain('不支持本地中文语音');
+  expect(browser.hidden).toBe(false);
+  browser.click();await settle();
+  expect(s.sessions).toHaveLength(1);
+  expect(s.sessions[0].processLocally).not.toBe(true);
+  await s.sessions[0].onresult(s.result('打开地图'));
+  expect(s.nav.state).toMatchObject({screen:'feature',mode:3});
+});
+
+it('runs commands inside feature panels and leaves microphone-intensive actions as menu selections',async()=>{
+  const s=setup(),top=s.doc.getElementById('hw-toolbar-voice'),input=s.doc.getElementById('hw-intent-text');
+  const speak=async text=>{top.click();await settle();await s.sessions.at(-1).onresult(s.result(text));};
+  await speak('帮我打开地图');
+  expect(s.nav.state).toMatchObject({screen:'feature',mode:3});
+  s.doc.getElementById('hw-nav-menu').hidden=true;s.win.LensNavigation.refresh();
+  expect(input.disabled).toBe(false);expect(top.disabled).toBe(false);
+  await speak('请返回上一页');
+  expect(s.nav.state.screen).toBe('actions');
+  await speak('切到翻译模式');
+  expect(s.nav.state).toMatchObject({screen:'feature',mode:2});
+  await speak('放大镜片');
+  expect(s.doc.getElementById('hw-view-detail').getAttribute('aria-pressed')).toBe('true');
+  expect(input.value).toBe('放大镜片');
+  expect(s.status.textContent).toContain('已执行：放大镜片');
+  await speak('返回主菜单');
+  expect(s.nav.state.screen).toBe('home');
+  await speak('打开会议纪要');
+  expect(s.nav.state).toMatchObject({screen:'actions',mode:1});
+  expect(s.win.fetch).not.toHaveBeenCalled();
+});
+
+it('previews interim speech without navigation and pauses translation before acquiring the mic',async()=>{
+  const s=setup(),pauseSpeech=vi.fn();s.win.LensFeatures={translation:{pauseSpeech}};
+  s.doc.getElementById('hw-toolbar-voice').click();await settle();
+  expect(pauseSpeech).toHaveBeenCalledOnce();
+  await s.sessions[0].onresult(s.result('向右转',false));
+  expect(s.doc.getElementById('hw-intent-result').textContent).toContain('正在听：向右转');
+  expect(s.doc.querySelector('.hw-optical-model').style.getPropertyValue('--lens-yaw')).toBe('-18deg');
+  await s.sessions[0].onresult(s.result('向右转一点'));
+  expect(s.doc.querySelector('.hw-optical-model').style.getPropertyValue('--lens-yaw')).toBe('-6deg');
+  expect(s.win.fetch).not.toHaveBeenCalled();
+});
+
+it('ignores an old availability rejection and times out a check that never completes',async()=>{
+  vi.useFakeTimers();
+  const s=setup();let reject;
+  s.win.SpeechRecognition.available.mockImplementationOnce(()=>new Promise((_,fail)=>{reject=fail;}));
+  s.voice.click();s.voice.click();s.voice.click();await settle();
+  reject(new Error('late'));await settle();
+  expect(s.sessions[0].abort).not.toHaveBeenCalled();
+  expect(s.voice.getAttribute('aria-pressed')).toBe('true');
+  s.voice.click();
+  s.win.SpeechRecognition.available.mockImplementation(()=>new Promise(()=>{}));
+  s.voice.click();vi.advanceTimersByTime(12001);
+  expect(s.voice.getAttribute('aria-pressed')).toBe('false');
+  expect(s.status.textContent).toContain('聆听已结束');
+});
+
+it('does not claim success when the device rejects a command to the already-selected screen',async()=>{
+  const s=setup();s.api.act.mockResolvedValue(false);
+  s.voice.click();await settle();await s.sessions[0].onresult(s.result('返回主菜单'));
+  expect(s.nav.state.screen).toBe('home');
+  expect(s.doc.getElementById('hw-command-feedback').textContent).toContain('当前无法执行');
 });
 
 it('does not start or fall back to remote speech when the local language is absent',async()=>{

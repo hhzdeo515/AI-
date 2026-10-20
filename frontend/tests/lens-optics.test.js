@@ -279,3 +279,19 @@ it("keeps the whole glasses assembly together when dragging and changing viewing
   expect(model.style.getPropertyValue("--glasses-offset")).toBe("0px");
   nodes.forEach((node, index) => expect(doc.querySelector(parts[index])).toBe(node));
 });
+
+it("uses bounded, explicit voice view commands and ignores hidden-page commands", () => {
+  boot();
+  expect(win.LensOptics.command('detail')).toBe(true);
+  expect(doc.getElementById('hw-view-detail').getAttribute('aria-pressed')).toBe('true');
+  for(let i=0;i<20;i++) {win.LensOptics.command('right');win.LensOptics.command('zoomIn');}
+  expect(model.style.getPropertyValue('--lens-yaw')).toBe('75deg');
+  expect(doc.getElementById('hw-view-scale').textContent).toBe('135%');
+  win.LensOptics.command('reset');
+  expect(model.style.getPropertyValue('--lens-yaw')).toBe('-18deg');
+  expect(doc.getElementById('hw-view-detail').getAttribute('aria-pressed')).toBe('false');
+  expect(win.LensOptics.command('arbitrary-code')).toBe(false);
+  Object.defineProperty(doc,'hidden',{configurable:true,value:true});
+  expect(win.LensOptics.command('right')).toBe(false);
+  expect(model.style.getPropertyValue('--lens-yaw')).toBe('-18deg');
+});

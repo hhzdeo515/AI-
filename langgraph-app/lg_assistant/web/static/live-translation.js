@@ -274,6 +274,7 @@
       if (!speechSupported()) return;
       if (!saveAccess()) return;
       stopSpeech();
+      window.LensNavigation?.stopVoice("已切换到实时翻译语音。");
       listening = true; idleEnds = 0; speechStatus("正在开启浏览器语音识别，请允许麦克风权限。"); startRecognition();
     });
     nodes.copy.addEventListener("click", () => {
@@ -307,5 +308,5 @@
   window.addEventListener("pagehide", close);
   window.addEventListener("hashchange", () => { if (location.hash !== "#hardware") close(); });
   window.LensFeatures = window.LensFeatures || {};
-  window.LensFeatures.translation = Object.freeze({ mount, open, close });
+  window.LensFeatures.translation = Object.freeze({ mount, open, close, pauseSpeech: () => stopRecognition("已暂停翻译聆听，可使用语音指挥。") });
 })();

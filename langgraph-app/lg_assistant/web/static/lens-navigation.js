@@ -20,33 +20,49 @@
   status.textContent = "可说：拍照解题、会议纪要、实时翻译、地图。";
   const privacy = document.createElement("p");
   privacy.className = "hw-menu-voice-note";
-  privacy.textContent = "单功能本地选择；依赖前文或多个任务交给云端。";
+  privacy.textContent = "点击说一句指令 · 也可在下方输入文字";
   navigation.append(status, privacy);
   menu.setAttribute("aria-label", "左右滑动选择功能，点击卡片确认");
   const $ = id => document.getElementById(id);
   const voice = $("hw-menu-voice");
-  const voiceLabel = voice.querySelector("span");
   const recognizer = () => window.SpeechRecognition || window.webkitSpeechRecognition;
   const supported = !!recognizer()?.prototype && 'processLocally' in recognizer().prototype && typeof recognizer().available === 'function' && window.isSecureContext !== false;
+  const browserSupported = !!recognizer() && window.isSecureContext !== false;
+  let speechMode = 'local';
+  const canCommand = () => api.state().commandAvailable ?? api.state().available;
   let drag = null, suppressClick = false, recognition = null, ticket = 0, timer = null, preparing = false;
   const session = window.EdgeIntent?.createSession();
   const consolePanel = document.createElement('section');
   consolePanel.className = 'hw-intent-console';
-  consolePanel.setAttribute('aria-label','本地语音与任务指令');
-  consolePanel.innerHTML = `<header><strong>语音与任务</strong><span id="hw-intent-route">本地就绪</span><button type="button" id="hw-intent-reset">新任务</button></header><form id="hw-intent-form"><input id="hw-intent-text" aria-label="文字指令" maxlength="600" autocomplete="off" placeholder="试试：打开地图 / 先总结再翻译"><button type="submit">执行</button></form><p id="hw-intent-result" role="status">单个功能在设备内识别。相关追问、多个任务会发送文字到云端。</p><button type="button" id="hw-speech-install" hidden>下载本地中文语音包</button><label id="hw-intent-access" hidden>云端访问口令<input type="password" id="hw-intent-token" autocomplete="current-password" maxlength="256"></label>`;
+  consolePanel.setAttribute('aria-label','语音指挥眼镜');
+  consolePanel.innerHTML = `<header><strong>说一句，指挥眼镜</strong><span id="hw-intent-route">本地就绪</span><button type="button" id="hw-intent-reset">新任务</button></header><div class="hw-voice-entry"><button type="button" id="hw-intent-voice" aria-pressed="false">${voice.innerHTML}</button><span>点击后说话，说完自动执行</span></div><form id="hw-intent-form"><input id="hw-intent-text" aria-label="文字指令" maxlength="600" autocomplete="off" placeholder="说话或输入：帮我打开地图"><button type="submit">执行</button></form><p id="hw-intent-result" role="status">试试“切到翻译模式”“放大镜片”“向右转一点”“返回主菜单”。</p><div class="hw-speech-options"><button type="button" id="hw-speech-browser" hidden>允许并使用浏览器语音</button><button type="button" id="hw-speech-install" hidden>下载本地中文语音包</button></div><p id="hw-speech-note" class="hw-speech-note">默认本地识别。选择浏览器语音时，声音可能发送给浏览器的语音服务。单项控制在本页执行；内容处理和复合任务需云端服务。</p><label id="hw-intent-access" hidden>云端访问口令<input type="password" id="hw-intent-token" autocomplete="current-password" maxlength="256"></label>`;
   host.querySelector('.hw-glasses-panel').append(consolePanel);
+  const toolbarVoice = document.createElement('button');
+  toolbarVoice.id='hw-toolbar-voice';toolbarVoice.type='button';toolbarVoice.innerHTML=voice.innerHTML;
+  toolbarVoice.setAttribute('aria-pressed','false');
+  host.querySelector('.hw-optical-actions')?.prepend(toolbarVoice);
+  const toolbarStatus=document.createElement('p');
+  toolbarStatus.id='hw-command-feedback';toolbarStatus.className='hw-command-feedback';
+  toolbarStatus.setAttribute('role','status');
+  toolbarStatus.textContent='点击语音指挥，试试“打开地图”“放大镜片”“向右转一点”。';
+  host.querySelector('.hw-optical-toolbar')?.after(toolbarStatus);
+  const voiceButtons=[voice,$('hw-intent-voice'),toolbarVoice];
+  const setVoiceState=(active,label)=>voiceButtons.forEach(button=>{button.setAttribute('aria-pressed',String(active));button.querySelector('span').textContent=label;});
+  const browserButton=$('hw-speech-browser');
+  browserButton.hidden=!browserSupported;
   const input=$('hw-intent-text'), output=$('hw-intent-result'), routeLabel=$('hw-intent-route'), submit=$('hw-intent-form').querySelector('button');
   let processing=false, request=null, operation=0;
-  const report = message => {status.textContent=message;output.textContent=message;};
+  const report = message => {status.textContent=message;output.textContent=message;toolbarStatus.textContent=message;};
   const matches = (decision,before,after) => {
-    if(decision.action.startsWith('scene')) return after.mode===Number(decision.action.slice(5)) && after.screen==='actions';
+    if(decision.action.startsWith('scene')) return after.mode===Number(decision.action.slice(5)) && after.screen===(after.mode>=2?'feature':'actions');
     if(decision.action.startsWith('focus')) return after.mode===before.mode && after.focus===Number(decision.action.slice(5)) && after.screen==='actions';
     if(decision.action==='home') return after.screen==='home';
+    if(decision.action==='back') return after.screen===('practice'===before.screen || before.screen==='settings' && before.returnScreen==='result'?'result':['home','actions'].includes(before.screen)?'home':'actions');
     const focus=(before.focus+(decision.action==='previous'?-1:1)+before.options.length)%before.options.length;
     return after.screen===before.screen && after.focus===focus;
   };
   async function handleText(text) {
-    if(processing || !api.state().available || !session) return;
+    if(processing || !canCommand() || !session) return;
     stopVoice();
     const before=api.state(), decision=session.decide(text,before), current=++operation;
     if(decision.route==='clarify') {
@@ -55,11 +71,14 @@
     processing=true;refresh();
     try {
       if(decision.route==='local') {
-        await run(decision.action);
+        report(`正在执行：${decision.label}…`);
+        const viewAction=decision.action.startsWith('view:');
+        const executed=viewAction ? window.LensOptics?.command(decision.action.slice(5)) : await run(/^scene[23]$/.test(decision.action)?decision.action.replace('scene','open'):decision.action);
         if(current!==operation) return;
-        const success=matches(decision,before,api.state());
-        routeLabel.textContent='本地 · 未上传';
-        report(success?`已选择：${decision.label}。点击卡片确认具体操作。`:'当前无法切换，请稍后重试。');
+        const success=viewAction?executed:executed!==false&&matches(decision,before,api.state());
+        routeLabel.textContent='指令 · 本页执行';
+        const selectOnly=/^scene[01]$|^focus|^previous$|^next$/.test(decision.action);
+        report(success?`${selectOnly?'已选择':'已执行'}：${decision.label}。${selectOnly?'点击卡片确认具体操作。':''}`:'当前无法执行，请稍后重试。');
         if(success) session.remember(text,decision);
       } else {
         routeLabel.textContent=`云端 · ${decision.label}`;
@@ -96,21 +115,23 @@
       previous.onresult = previous.onerror = previous.onend = previous.onstart = null;
       try { previous.abort(); } catch (_) { try { previous.stop(); } catch (_) {} }
     }
-    voice.setAttribute("aria-pressed", "false");
-    voiceLabel.textContent = "语音选择";
-    if (message) status.textContent = message;
-    else if (previous) status.textContent = "语音选择已停止。点击按钮可重新开始。";
+    setVoiceState(false, "语音指挥");
+    if(routeLabel.textContent.includes('聆听中')) routeLabel.textContent=speechMode==='local'?'本地语音 · 已停止':'浏览器语音 · 已停止';
+    if (message) report(message);
+    else if (previous) report("聆听已停止。点击按钮可重新开始。");
   }
   function refresh() {
     const state = api.state();
     const canSelect = state.available && !navigation.hidden;
     $("hw-menu-position").textContent = `${state.focus + 1} / ${state.options.length}`;
     $("hw-menu-prev").disabled = $("hw-menu-next").disabled = !canSelect || processing || state.options.length < 2;
-    voice.disabled = !supported || !canSelect || processing;
-    submit.disabled = !canSelect || processing;
-    input.disabled = !canSelect || processing;
-    if (!supported && routeLabel.textContent==='本地就绪') status.textContent = "浏览器不支持本地语音，请在下方输入文字指令或滑动选择。";
-    if ((recognition || preparing) && !canSelect) stopVoice("语音选择已停止。点击按钮可重新开始。");
+    const available=canCommand();
+    voiceButtons.forEach(button=>button.disabled=!browserSupported||!available||processing);
+    browserButton.disabled=!available||processing;
+    submit.disabled = !available || processing;
+    input.disabled = !available || processing;
+    if (!browserSupported && routeLabel.textContent==='本地就绪') report("浏览器不支持本地语音或浏览器语音，请输入文字指令或滑动选择。");
+    if ((recognition || preparing) && !available) stopVoice("设备正在处理其他操作，聆听已停止。");
   }
   function run(action) { return api.act(action); }
   $("hw-menu-prev").addEventListener("click", () => run("previous"));
@@ -163,45 +184,62 @@
   }, true);
   menu.addEventListener("dragstart", event => event.preventDefault());
 
-  voice.addEventListener("click", async () => {
-    if (recognition || preparing) { stopVoice("语音选择已取消。"); return; }
-    if (!supported || !api.state().available) return;
+  async function startVoice() {
+    if (recognition || preparing) { stopVoice("语音指挥已取消。"); return; }
+    if (!browserSupported || !canCommand() || processing) return;
+    if (speechMode==='local'&&!supported) {
+      report('此浏览器不支持本地中文语音。可选择下方“允许并使用浏览器语音”，声音可能发送给浏览器的语音服务；也可以输入文字。');
+      browserButton.focus();return;
+    }
+    window.LensFeatures?.translation?.pauseSpeech?.();
     const current = ++ticket;
     try {
       const SpeechRecognition = recognizer();
-      preparing=true;voice.setAttribute('aria-pressed','true');voiceLabel.textContent='取消';
-      status.textContent='正在检查本地中文语音包…';
-      const availability=await SpeechRecognition.available({langs:['zh-CN'],processLocally:true});
-      if(current!==ticket || !api.state().available) return;
+      preparing=true;setVoiceState(true,'取消');
+      timer = setTimeout(() => { if (current === ticket) stopVoice("聆听已结束，请点击按钮再说一次。"); }, 12000);
+      report(speechMode==='local'?'正在检查本地中文语音包…':'正在启动浏览器语音，请允许麦克风访问…');
+      const availability=speechMode==='local'?await SpeechRecognition.available({langs:['zh-CN'],processLocally:true}):'available';
+      if(current!==ticket || !canCommand()) return;
       preparing=false;
       if(availability!=='available') {
         $('hw-speech-install').hidden=availability!=='downloadable';
-        stopVoice(availability==='downloadable'?'请先在下方下载本地中文语音包。':availability==='downloading'?'中文语音包正在下载，请稍后重试。':'此浏览器尚无本地中文语音包，请使用文字指令。');return;
+        stopVoice((availability==='downloadable'?'请先下载本地中文语音包。':availability==='downloading'?'中文语音包正在下载，请稍后重试。':'此浏览器尚无本地中文语音包。')+'也可在下方明确选择浏览器语音，或输入文字。');return;
       }
       $('hw-speech-install').hidden=true;
       const speech = recognition = new SpeechRecognition();
-      speech.processLocally = true;
+      if(speechMode==='local'||'processLocally' in speech) speech.processLocally = speechMode==='local';
       speech.lang = "zh-CN"; speech.continuous = false; speech.interimResults = true; speech.maxAlternatives = 1;
-      voice.setAttribute("aria-pressed", "true"); voiceLabel.textContent = "停止聆听";
-      status.textContent = "请说功能名称，例如“实时翻译”。";
+      setVoiceState(true, "停止聆听");
+      routeLabel.textContent=speechMode==='local'?'本地语音 · 聆听中':'浏览器语音 · 聆听中';
+      report("请说一句话，例如“帮我打开地图”或“放大镜片”。");
       speech.onresult = async event => {
-        if (current !== ticket || recognition !== speech || !api.state().available) return;
+        if (current !== ticket || recognition !== speech || !canCommand()) return;
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i], text = result[0]?.transcript || "";
-          if (!result.isFinal) { status.textContent = `正在听：${text}`; continue; }
+          if (!result.isFinal) { report(`正在听：${text}`); continue; }
           stopVoice();input.value=text;await handleText(text);
           return;
         }
       };
       speech.onerror = event => {
         if (current !== ticket) return;
-        const messages = {"language-not-supported":"本地中文语音包不可用，请输入文字指令。", "not-allowed": "麦克风权限未开启，请允许访问后重试。", "service-not-allowed": "本地语音识别不可用，请使用文字指令。", "audio-capture": "未找到可用麦克风，请检查设备。", "network": "本地语音识别失败，请输入文字指令。", "no-speech": "没有听清，请点击语音选择后再说一次。"};
+        const messages = {"language-not-supported":"中文语音识别不可用，请选择另一种语音模式或输入文字。", "not-allowed": "麦克风权限未开启，请在浏览器地址栏允许访问后重试。", "service-not-allowed": "语音服务不可用，请选择另一种语音模式或输入文字。", "audio-capture": "未找到可用麦克风，请检查设备。", "network": "语音服务连接失败，请检查网络，或使用本地语音和文字指令。", "no-speech": "没有听清，请点击语音指挥后再说一次。"};
         stopVoice(messages[event.error] || "语音识别已停止，请重试或滑动选择。");
       };
       speech.onend = () => { if (current === ticket) stopVoice("未听到完整指令，请点击后再试一次。"); };
       speech.start();
-      timer = setTimeout(() => { if (current === ticket) stopVoice("聆听已结束，请点击按钮再说一次。"); }, 12000);
-    } catch (_) { stopVoice("无法启动语音识别，请检查麦克风权限或使用滑动选择。"); }
+    } catch (_) { if(current===ticket) stopVoice("无法启动语音识别，请检查麦克风权限、选择浏览器语音或输入文字。"); }
+  }
+  voiceButtons.forEach(button=>button.addEventListener('click',()=>void startVoice()));
+  browserButton.addEventListener('click',()=>{
+    stopVoice();
+    if(speechMode==='browser') {
+      speechMode='local';browserButton.textContent='允许并使用浏览器语音';
+      routeLabel.textContent='本地语音';report('已切回本地语音。点击语音指挥开始。');return;
+    }
+    speechMode='browser';browserButton.textContent='切回本地语音';
+    $('hw-speech-install').hidden=true;
+    void startVoice();
   });
   $('hw-speech-install').addEventListener('click',async()=>{
     const button=$('hw-speech-install');button.disabled=true;
@@ -215,5 +253,6 @@
   window.addEventListener("hashchange", () => { if (location.hash === "#memory") stop(); });
   window.addEventListener("blur", () => { void finish(null, true); });
   window.LensNavigation = {refresh, stopVoice, stop};
+  setVoiceState(false,'语音指挥');
   refresh();
 })();
