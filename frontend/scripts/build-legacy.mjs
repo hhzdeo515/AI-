@@ -2,6 +2,7 @@ import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import "./build-glasses.mjs";
 
 const mode = process.argv[2];
 if (!["demo", "full"].includes(mode)) throw new Error("Usage: node scripts/build-legacy.mjs <demo|full>");

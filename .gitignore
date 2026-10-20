@@ -27,6 +27,7 @@ node_modules/
 .next/
 out/
 *.tsbuildinfo
+*.blend1
 .pytest-*/
 .superpowers/
 .vercel/

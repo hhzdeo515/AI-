@@ -86,13 +86,17 @@
   const visible = () => pageActive && location.hash !== "#memory" && !document.hidden;
   // Reading and form controls keep their normal click, selection and scroll behavior.
   const interactive = target => target.closest("button,a,input,textarea,select,label,summary,video,audio,[role=slider],.hw-panel-scroll,#hw-result-body,.hw-question-nav,.hw-map-canvas,#hw-nav-options");
+  let realGlasses = null;
   const update = () => {
+    const real = optics.classList.contains("has-real-glasses");
     model.style.setProperty("--lens-pitch", `${pitch}deg`);
     model.style.setProperty("--lens-yaw", `${yaw}deg`);
     model.style.setProperty("--lens-zoom", zoom);
-    const fit = stage.clientWidth > 0 ? Math.min(1, stage.clientWidth / (detail ? 570 : 1240)) : .65;
+    const fit = stage.clientWidth > 0 ? Math.min(1, stage.clientWidth / (detail ? (real ? 620 : 570) : (real ? 1600 : 1240))) : .65;
     model.style.setProperty("--glasses-scale", fit * zoom);
-    model.style.setProperty("--glasses-offset", detail ? "280px" : "0px");
+    const offset = detail ? (real ? 340 : 280) : 0;
+    model.style.setProperty("--glasses-offset", `${offset}px`);
+    realGlasses?.setView({pitch, yaw, scale: fit * zoom, offset});
     model.style.setProperty("--glint-x", `${50 + yaw * .8}%`);
     model.style.setProperty("--world-x", `${-yaw * .45}px`);
     model.style.setProperty("--world-y", `${pitch * .35}px`);
@@ -255,6 +259,19 @@
   window.addEventListener("pagehide", () => { pageActive = false; endDrag(); stop(); });
   window.addEventListener("pageshow", () => { pageActive = true; syncVisibility(); });
   window.addEventListener("blur", () => endDrag());
+  // The physical mesh and interactive lens surfaces use one view state.
+  realGlasses = window.SmartGlasses?.mount(stage, {
+    onReady() {
+      optics.classList.add("has-real-glasses");
+      caption.querySelector("strong").textContent = "石墨黑 · 智能眼镜";
+      update();
+    },
+    onUnavailable() {
+      optics.classList.remove("has-real-glasses");
+      caption.querySelector("strong").textContent = "整副眼镜 · 兼容显示";
+      update();
+    }
+  });
   update();
   queueMicrotask(syncVisibility);
 })();

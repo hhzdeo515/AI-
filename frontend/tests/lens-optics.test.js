@@ -34,6 +34,44 @@ function boot() {
 }
 afterEach(() => { win.LensOptics.stop(); dom.window.close(); });
 
+it("keeps Blender geometry and both interactive lenses on the same view transform", () => {
+  let callbacks;
+  const setView = vi.fn();
+  win.SmartGlasses = {mount: vi.fn((node, options) => {
+    callbacks = options;
+    return {setView};
+  })};
+  boot();
+  Object.defineProperty(stage, "clientWidth", {value: 960});
+  callbacks.onReady();
+  expect(doc.querySelector(".hw-optics").classList.contains("has-real-glasses")).toBe(true);
+  expect(setView).toHaveBeenLastCalledWith({pitch: -24, yaw: -18, scale: .6, offset: 0});
+  pointer("pointerdown", stage, 150, 100);
+  pointer("pointermove", stage, 190, 120);
+  pointer("pointerup", stage, 190, 120);
+  const moved = setView.mock.lastCall[0];
+  expect(moved.yaw).toBeCloseTo(-9.2);
+  expect(moved.pitch).toBeCloseTo(-27.6);
+  doc.getElementById("hw-view-detail").click();
+  expect(setView).toHaveBeenLastCalledWith({pitch: 0, yaw: 0, scale: 1, offset: 340});
+  expect(model.style.getPropertyValue("--glasses-offset")).toBe("340px");
+});
+
+it("restores working CSS lenses if the GLB or WebGL becomes unavailable", () => {
+  let callbacks;
+  win.SmartGlasses = {mount: (node, options) => {
+    callbacks = options;
+    return {setView: vi.fn()};
+  }};
+  boot();
+  callbacks.onReady();
+  doc.getElementById("hw-view-detail").click();
+  callbacks.onUnavailable();
+  expect(doc.querySelector(".hw-optics").classList.contains("has-real-glasses")).toBe(false);
+  expect(model.style.getPropertyValue("--glasses-offset")).toBe("280px");
+  expect(doc.getElementById("hw-view-camera")).not.toBeNull();
+});
+
 it("automatically opens the actual camera on entry and releases it on manual stop", async () => {
   const stream = feed(); media.mockResolvedValue(stream);
   boot();
